@@ -1,0 +1,21 @@
+{
+  "updated_at": "2026-03-12T23:55:08Z",
+  "versions": [
+    {
+      "version": "v0.4.0",
+      "generated_at": "2026-03-12T11:03:43Z",
+      "architectures": [
+        "arm64",
+        "x86"
+      ]
+    },
+    {
+      "version": "v1.0.0",
+      "generated_at": "2026-03-12T23:55:08Z",
+      "architectures": [
+        "arm64",
+        "x86"
+      ]
+    }
+  ]
+}
