@@ -1,0 +1,2375 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-03-12T11:03:43Z",
+  "run_id": "8234a07d",
+  "version_tag": "v0.4.0",
+  "git_ref": "refs/tags/v0.4.0",
+  "git_sha": "893cee7da11d2955211c3bd250c77466c2d996fb",
+  "environment": {
+    "architecture": "x86",
+    "instance_type": "c5.metal",
+    "infra_mode": "metal"
+  },
+  "benchmarks": [
+    {
+      "name": "body",
+      "servers": [
+        {
+          "name": "stdhttp-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "stdhttp",
+          "requests_per_sec": 131847.62348169036,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.733,
+            "min_ms": 0,
+            "max_ms": 119.26,
+            "p50_ms": 1.833,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 44.553,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1979107,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "stdhttp",
+          "requests_per_sec": 131049.22406924373,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.785,
+            "min_ms": 0,
+            "max_ms": 59.857,
+            "p50_ms": 6.568,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 32.937,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1967323,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "stdhttp",
+          "requests_per_sec": 131773.5058954892,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.739,
+            "min_ms": 0,
+            "max_ms": 60.82,
+            "p50_ms": 6.491,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.153,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1978133,
+          "errors": 0
+        },
+        {
+          "name": "fiber-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "fiber",
+          "requests_per_sec": 158004.68109320567,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.287,
+            "min_ms": 0,
+            "max_ms": 137.199,
+            "p50_ms": 0.259,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.108,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2372060,
+          "errors": 0
+        },
+        {
+          "name": "iris-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "iris",
+          "requests_per_sec": 133485.70923938983,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.626,
+            "min_ms": 0,
+            "max_ms": 110.697,
+            "p50_ms": 1.788,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 44.19,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2004722,
+          "errors": 0
+        },
+        {
+          "name": "iris-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "iris",
+          "requests_per_sec": 132149.6016585388,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.714,
+            "min_ms": 0,
+            "max_ms": 60.895,
+            "p50_ms": 6.539,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.51,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1983613,
+          "errors": 0
+        },
+        {
+          "name": "iris-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "iris",
+          "requests_per_sec": 132788.11249208188,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.671,
+            "min_ms": 0,
+            "max_ms": 59.211,
+            "p50_ms": 6.323,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.819,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1993352,
+          "errors": 0
+        },
+        {
+          "name": "gin-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "gin",
+          "requests_per_sec": 129151.13583902012,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.916,
+            "min_ms": 0,
+            "max_ms": 152.403,
+            "p50_ms": 1.778,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 45.435,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1938570,
+          "errors": 0
+        },
+        {
+          "name": "gin-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "gin",
+          "requests_per_sec": 132053.57545237418,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.72,
+            "min_ms": 0,
+            "max_ms": 61.459,
+            "p50_ms": 6.427,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.406,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1981897,
+          "errors": 0
+        },
+        {
+          "name": "gin-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "gin",
+          "requests_per_sec": 131540.60809273398,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.753,
+            "min_ms": 0,
+            "max_ms": 77.484,
+            "p50_ms": 6.628,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.105,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 1974712,
+          "errors": 0
+        },
+        {
+          "name": "chi-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "chi",
+          "requests_per_sec": 147407.6064092299,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.811,
+            "min_ms": 0,
+            "max_ms": 139.845,
+            "p50_ms": 0.295,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.548,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2212876,
+          "errors": 0
+        },
+        {
+          "name": "chi-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "chi",
+          "requests_per_sec": 193778.94229718667,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.941,
+            "min_ms": 0,
+            "max_ms": 58.258,
+            "p50_ms": 3.864,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 22.056,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2908143,
+          "errors": 0
+        },
+        {
+          "name": "chi-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "chi",
+          "requests_per_sec": 193142.50362148532,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.961,
+            "min_ms": 0,
+            "max_ms": 51.523,
+            "p50_ms": 3.877,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 22.484,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2898209,
+          "errors": 0
+        },
+        {
+          "name": "echo-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "echo",
+          "requests_per_sec": 149755.4560669133,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.689,
+            "min_ms": 0,
+            "max_ms": 134.979,
+            "p50_ms": 0.289,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.52,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2247978,
+          "errors": 0
+        },
+        {
+          "name": "echo-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "echo",
+          "requests_per_sec": 193890.05464097048,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.938,
+            "min_ms": 0,
+            "max_ms": 59.564,
+            "p50_ms": 3.898,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 22.351,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2909416,
+          "errors": 0
+        },
+        {
+          "name": "echo-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "echo",
+          "requests_per_sec": 194032.75943164848,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.933,
+            "min_ms": 0,
+            "max_ms": 61.899,
+            "p50_ms": 3.887,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 22.157,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2912453,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "epoll",
+          "requests_per_sec": 161512.7336424902,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.129,
+            "min_ms": 0,
+            "max_ms": 125.947,
+            "p50_ms": 0.258,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.546,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2424555,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "epoll",
+          "requests_per_sec": 208115.86632163933,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.531,
+            "min_ms": 0,
+            "max_ms": 104.523,
+            "p50_ms": 3.095,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.446,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3124043,
+          "errors": 0
+        },
+        {
+          "name": "epoll-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "epoll",
+          "requests_per_sec": 208437.1084328549,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.522,
+            "min_ms": 0,
+            "max_ms": 114.735,
+            "p50_ms": 2.905,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 27.989,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3128717,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "iouring",
+          "requests_per_sec": 161891.82325026955,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.112,
+            "min_ms": 0,
+            "max_ms": 135.931,
+            "p50_ms": 0.257,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.053,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2430187,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "iouring",
+          "requests_per_sec": 148357.6475279583,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.258,
+            "min_ms": 0,
+            "max_ms": 17241.924,
+            "p50_ms": 0.659,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 22.457,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2802789,
+          "errors": 0
+        },
+        {
+          "name": "iouring-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "iouring",
+          "requests_per_sec": 205306.80523133557,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.606,
+            "min_ms": 0,
+            "max_ms": 93.157,
+            "p50_ms": 3.234,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.623,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3082084,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "name": "headers",
+      "servers": [
+        {
+          "name": "stdhttp-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "stdhttp",
+          "requests_per_sec": 143434.67352448375,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.027,
+            "min_ms": 0,
+            "max_ms": 126.567,
+            "p50_ms": 0.314,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.679,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2153459,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "stdhttp",
+          "requests_per_sec": 177287.38691997124,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.493,
+            "min_ms": 0,
+            "max_ms": 115.956,
+            "p50_ms": 3.755,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 32.925,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2662729,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "stdhttp",
+          "requests_per_sec": 177953.77701219305,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.47,
+            "min_ms": 0,
+            "max_ms": 98.141,
+            "p50_ms": 3.781,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 32.291,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2670686,
+          "errors": 0
+        },
+        {
+          "name": "fiber-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "fiber",
+          "requests_per_sec": 158044.4584621777,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.285,
+            "min_ms": 0,
+            "max_ms": 140.256,
+            "p50_ms": 0.26,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.965,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2372320,
+          "errors": 0
+        },
+        {
+          "name": "iris-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "iris",
+          "requests_per_sec": 140843.19522006068,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.175,
+            "min_ms": 0,
+            "max_ms": 146.294,
+            "p50_ms": 0.323,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.965,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2114160,
+          "errors": 0
+        },
+        {
+          "name": "iris-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "iris",
+          "requests_per_sec": 189185.01716542596,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.084,
+            "min_ms": 0,
+            "max_ms": 75.57,
+            "p50_ms": 3.782,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.445,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2839921,
+          "errors": 0
+        },
+        {
+          "name": "iris-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "iris",
+          "requests_per_sec": 188101.72074149112,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.121,
+            "min_ms": 0,
+            "max_ms": 80.414,
+            "p50_ms": 3.765,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.496,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2824157,
+          "errors": 0
+        },
+        {
+          "name": "gin-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "gin",
+          "requests_per_sec": 142345.05183644703,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.089,
+            "min_ms": 0,
+            "max_ms": 136.429,
+            "p50_ms": 0.312,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.458,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2136518,
+          "errors": 0
+        },
+        {
+          "name": "gin-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "gin",
+          "requests_per_sec": 189575.84959380864,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.071,
+            "min_ms": 0,
+            "max_ms": 80.994,
+            "p50_ms": 3.746,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.189,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2844794,
+          "errors": 0
+        },
+        {
+          "name": "gin-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "gin",
+          "requests_per_sec": 189142.66367433625,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.087,
+            "min_ms": 0,
+            "max_ms": 97.664,
+            "p50_ms": 3.77,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.131,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2838639,
+          "errors": 0
+        },
+        {
+          "name": "chi-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "chi",
+          "requests_per_sec": 140064.00112367113,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.221,
+            "min_ms": 0,
+            "max_ms": 136.977,
+            "p50_ms": 0.336,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.216,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2102604,
+          "errors": 0
+        },
+        {
+          "name": "chi-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "chi",
+          "requests_per_sec": 187776.5377169599,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.13,
+            "min_ms": 0,
+            "max_ms": 89.47,
+            "p50_ms": 3.855,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.039,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2819776,
+          "errors": 0
+        },
+        {
+          "name": "chi-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "chi",
+          "requests_per_sec": 185989.2390181389,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.19,
+            "min_ms": 0,
+            "max_ms": 87.139,
+            "p50_ms": 3.915,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.701,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2790839,
+          "errors": 0
+        },
+        {
+          "name": "echo-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "echo",
+          "requests_per_sec": 144787.6051062149,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.952,
+            "min_ms": 0,
+            "max_ms": 134.5,
+            "p50_ms": 0.315,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.508,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2173401,
+          "errors": 0
+        },
+        {
+          "name": "echo-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "echo",
+          "requests_per_sec": 187867.6140191052,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.128,
+            "min_ms": 0,
+            "max_ms": 94.533,
+            "p50_ms": 3.788,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.579,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2819188,
+          "errors": 0
+        },
+        {
+          "name": "echo-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "echo",
+          "requests_per_sec": 187589.20238959396,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.138,
+            "min_ms": 0,
+            "max_ms": 76.889,
+            "p50_ms": 3.768,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 27.227,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2814676,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "epoll",
+          "requests_per_sec": 158901.00284637048,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.246,
+            "min_ms": 0,
+            "max_ms": 156.998,
+            "p50_ms": 0.26,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.716,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2385527,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "epoll",
+          "requests_per_sec": 209513.5874793082,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.495,
+            "min_ms": 0,
+            "max_ms": 119.74,
+            "p50_ms": 1.174,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.345,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3144445,
+          "errors": 0
+        },
+        {
+          "name": "epoll-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "epoll",
+          "requests_per_sec": 209685.3278843276,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.491,
+            "min_ms": 0,
+            "max_ms": 117.337,
+            "p50_ms": 0.971,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.745,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3147131,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "iouring",
+          "requests_per_sec": 158027.60978030588,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.286,
+            "min_ms": 0,
+            "max_ms": 159.187,
+            "p50_ms": 0.258,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.082,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2372301,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "iouring",
+          "requests_per_sec": 210150.7258539087,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.478,
+            "min_ms": 0,
+            "max_ms": 113.769,
+            "p50_ms": 1.197,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.179,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3153945,
+          "errors": 0
+        },
+        {
+          "name": "iouring-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "iouring",
+          "requests_per_sec": 208310.70882852667,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.527,
+            "min_ms": 0,
+            "max_ms": 109.229,
+            "p50_ms": 1.593,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.16,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3125855,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "name": "json",
+      "servers": [
+        {
+          "name": "stdhttp-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "stdhttp",
+          "requests_per_sec": 149417.7292924927,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.705,
+            "min_ms": 0,
+            "max_ms": 140.567,
+            "p50_ms": 0.274,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.989,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2243156,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "stdhttp",
+          "requests_per_sec": 193049.04028310787,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.963,
+            "min_ms": 0,
+            "max_ms": 108.572,
+            "p50_ms": 3.639,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 29.776,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2897255,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "stdhttp",
+          "requests_per_sec": 189216.5779072641,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.085,
+            "min_ms": 0,
+            "max_ms": 106.561,
+            "p50_ms": 3.468,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 32.237,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2839772,
+          "errors": 0
+        },
+        {
+          "name": "fiber-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "fiber",
+          "requests_per_sec": 161075.90726356916,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.148,
+            "min_ms": 0,
+            "max_ms": 135.83,
+            "p50_ms": 0.244,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.738,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2418088,
+          "errors": 0
+        },
+        {
+          "name": "iris-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "iris",
+          "requests_per_sec": 145508.52408418633,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.913,
+            "min_ms": 0,
+            "max_ms": 142.307,
+            "p50_ms": 0.28,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.479,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2184344,
+          "errors": 0
+        },
+        {
+          "name": "iris-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "iris",
+          "requests_per_sec": 200813.7731125031,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.733,
+            "min_ms": 0,
+            "max_ms": 86.952,
+            "p50_ms": 3.594,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.599,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3015332,
+          "errors": 0
+        },
+        {
+          "name": "iris-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "iris",
+          "requests_per_sec": 201805.71971162676,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.705,
+            "min_ms": 0,
+            "max_ms": 82.394,
+            "p50_ms": 3.653,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.118,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3028230,
+          "errors": 0
+        },
+        {
+          "name": "gin-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "gin",
+          "requests_per_sec": 143385.29387058257,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.03,
+            "min_ms": 0,
+            "max_ms": 135.814,
+            "p50_ms": 0.283,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.876,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2152367,
+          "errors": 0
+        },
+        {
+          "name": "gin-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "gin",
+          "requests_per_sec": 200278.34839686693,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.749,
+            "min_ms": 0,
+            "max_ms": 87.019,
+            "p50_ms": 3.688,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.414,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3005886,
+          "errors": 0
+        },
+        {
+          "name": "gin-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "gin",
+          "requests_per_sec": 198317.42414793067,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.806,
+            "min_ms": 0,
+            "max_ms": 96.302,
+            "p50_ms": 3.756,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 27.134,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2975854,
+          "errors": 0
+        },
+        {
+          "name": "chi-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "chi",
+          "requests_per_sec": 146101.82165124142,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.881,
+            "min_ms": 0,
+            "max_ms": 125.675,
+            "p50_ms": 0.274,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.818,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2193170,
+          "errors": 0
+        },
+        {
+          "name": "chi-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "chi",
+          "requests_per_sec": 201712.6123125112,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.708,
+            "min_ms": 0,
+            "max_ms": 87.267,
+            "p50_ms": 3.644,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.948,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3027589,
+          "errors": 0
+        },
+        {
+          "name": "chi-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "chi",
+          "requests_per_sec": 199944.30084463363,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.755,
+            "min_ms": 0,
+            "max_ms": 76.84,
+            "p50_ms": 3.707,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.66,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3001847,
+          "errors": 0
+        },
+        {
+          "name": "echo-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "echo",
+          "requests_per_sec": 142085.26744027316,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.104,
+            "min_ms": 0,
+            "max_ms": 128.819,
+            "p50_ms": 0.278,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.633,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2132875,
+          "errors": 0
+        },
+        {
+          "name": "echo-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "echo",
+          "requests_per_sec": 200193.26106114683,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.751,
+            "min_ms": 0,
+            "max_ms": 90.351,
+            "p50_ms": 3.688,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.927,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3004031,
+          "errors": 0
+        },
+        {
+          "name": "echo-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "echo",
+          "requests_per_sec": 201876.0830448935,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.703,
+            "min_ms": 0,
+            "max_ms": 104.004,
+            "p50_ms": 3.576,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.262,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3030773,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "epoll",
+          "requests_per_sec": 164118.6143584605,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.016,
+            "min_ms": 0,
+            "max_ms": 123.92,
+            "p50_ms": 0.237,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.38,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2463735,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "epoll",
+          "requests_per_sec": 236042.00706257176,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.878,
+            "min_ms": 0,
+            "max_ms": 112.22,
+            "p50_ms": 0.45,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.463,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3542137,
+          "errors": 0
+        },
+        {
+          "name": "epoll-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "epoll",
+          "requests_per_sec": 234329.120479297,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.913,
+            "min_ms": 0,
+            "max_ms": 122.676,
+            "p50_ms": 0.552,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.028,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3516740,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "iouring",
+          "requests_per_sec": 162588.04113923293,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.081,
+            "min_ms": 0,
+            "max_ms": 132.957,
+            "p50_ms": 0.237,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.104,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2440726,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "iouring",
+          "requests_per_sec": 235225.27757003,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.894,
+            "min_ms": 0,
+            "max_ms": 108.99,
+            "p50_ms": 0.489,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.388,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3530505,
+          "errors": 0
+        },
+        {
+          "name": "iouring-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "iouring",
+          "requests_per_sec": 235094.38774516157,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.897,
+            "min_ms": 0,
+            "max_ms": 115.208,
+            "p50_ms": 0.459,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.738,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3528165,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "name": "path",
+      "servers": [
+        {
+          "name": "stdhttp-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "stdhttp",
+          "requests_per_sec": 147907.4362235479,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.784,
+            "min_ms": 0,
+            "max_ms": 132.525,
+            "p50_ms": 0.271,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.684,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2220405,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "stdhttp",
+          "requests_per_sec": 196263.21720884083,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.866,
+            "min_ms": 0,
+            "max_ms": 108.034,
+            "p50_ms": 2.966,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 32.447,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2945523,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "stdhttp",
+          "requests_per_sec": 194884.16049133797,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.908,
+            "min_ms": 0,
+            "max_ms": 102.808,
+            "p50_ms": 2.847,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.043,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2924554,
+          "errors": 0
+        },
+        {
+          "name": "fiber-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "fiber",
+          "requests_per_sec": 164452.36437968,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.001,
+            "min_ms": 0,
+            "max_ms": 148.865,
+            "p50_ms": 0.239,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.054,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2468670,
+          "errors": 0
+        },
+        {
+          "name": "iris-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "iris",
+          "requests_per_sec": 147162.9584490561,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.824,
+            "min_ms": 0,
+            "max_ms": 139.298,
+            "p50_ms": 0.271,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.75,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2209107,
+          "errors": 0
+        },
+        {
+          "name": "iris-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "iris",
+          "requests_per_sec": 208169.94781900226,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.531,
+            "min_ms": 0,
+            "max_ms": 89.465,
+            "p50_ms": 3.169,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 28.353,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3123689,
+          "errors": 0
+        },
+        {
+          "name": "iris-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "iris",
+          "requests_per_sec": 209983.83927138164,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.483,
+            "min_ms": 0,
+            "max_ms": 86.571,
+            "p50_ms": 3.304,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 25.95,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3151325,
+          "errors": 0
+        },
+        {
+          "name": "gin-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "gin",
+          "requests_per_sec": 150449.9252147637,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.653,
+            "min_ms": 0,
+            "max_ms": 122.839,
+            "p50_ms": 0.27,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.22,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2258564,
+          "errors": 0
+        },
+        {
+          "name": "gin-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "gin",
+          "requests_per_sec": 209913.1884072868,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.485,
+            "min_ms": 0,
+            "max_ms": 86.839,
+            "p50_ms": 3.145,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 27.648,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3150234,
+          "errors": 0
+        },
+        {
+          "name": "gin-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "gin",
+          "requests_per_sec": 210721.37062132792,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.463,
+            "min_ms": 0,
+            "max_ms": 99.681,
+            "p50_ms": 3.08,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 28.091,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3163586,
+          "errors": 0
+        },
+        {
+          "name": "chi-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "chi",
+          "requests_per_sec": 147308.99962121327,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.816,
+            "min_ms": 0,
+            "max_ms": 134.601,
+            "p50_ms": 0.274,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.241,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2211317,
+          "errors": 0
+        },
+        {
+          "name": "chi-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "chi",
+          "requests_per_sec": 205711.30407594462,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.597,
+            "min_ms": 0,
+            "max_ms": 86.309,
+            "p50_ms": 3.368,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 27.225,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3086841,
+          "errors": 0
+        },
+        {
+          "name": "chi-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "chi",
+          "requests_per_sec": 208540.73044538114,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.52,
+            "min_ms": 0,
+            "max_ms": 83.944,
+            "p50_ms": 3.248,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 27.597,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3130454,
+          "errors": 0
+        },
+        {
+          "name": "echo-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "echo",
+          "requests_per_sec": 150421.09459453172,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.653,
+            "min_ms": 0,
+            "max_ms": 124.3,
+            "p50_ms": 0.271,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.159,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2259780,
+          "errors": 0
+        },
+        {
+          "name": "echo-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "echo",
+          "requests_per_sec": 208111.35810601347,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.532,
+            "min_ms": 0,
+            "max_ms": 93.596,
+            "p50_ms": 3.056,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 29.051,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3125507,
+          "errors": 0
+        },
+        {
+          "name": "echo-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "echo",
+          "requests_per_sec": 209521.87365660697,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.495,
+            "min_ms": 0,
+            "max_ms": 91.795,
+            "p50_ms": 3.006,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 29.051,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3144427,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "epoll",
+          "requests_per_sec": 166046.95073890185,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.934,
+            "min_ms": 0,
+            "max_ms": 135.149,
+            "p50_ms": 0.239,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.127,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2492435,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "epoll",
+          "requests_per_sec": 236209.11731248003,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.873,
+            "min_ms": 0,
+            "max_ms": 107.767,
+            "p50_ms": 0.548,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.896,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3545027,
+          "errors": 0
+        },
+        {
+          "name": "epoll-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "epoll",
+          "requests_per_sec": 237206.3380276384,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.853,
+            "min_ms": 0,
+            "max_ms": 110.043,
+            "p50_ms": 0.42,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.75,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3560463,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "iouring",
+          "requests_per_sec": 164402.0771387071,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.003,
+            "min_ms": 0,
+            "max_ms": 128.548,
+            "p50_ms": 0.238,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2467920,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "iouring",
+          "requests_per_sec": 236622.36889292538,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.866,
+            "min_ms": 0,
+            "max_ms": 117.393,
+            "p50_ms": 0.603,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 33.987,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3551076,
+          "errors": 0
+        },
+        {
+          "name": "iouring-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "iouring",
+          "requests_per_sec": 236849.85897201856,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.861,
+            "min_ms": 0,
+            "max_ms": 124.259,
+            "p50_ms": 0.482,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 34.463,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3554530,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "name": "simple",
+      "servers": [
+        {
+          "name": "stdhttp-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "stdhttp",
+          "requests_per_sec": 144170.30425705557,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.986,
+            "min_ms": 0,
+            "max_ms": 148.818,
+            "p50_ms": 0.283,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.503,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2164843,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "stdhttp",
+          "requests_per_sec": 187267.6336978656,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.148,
+            "min_ms": 0,
+            "max_ms": 88.206,
+            "p50_ms": 4.186,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 26.791,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2810727,
+          "errors": 0
+        },
+        {
+          "name": "stdhttp-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "stdhttp",
+          "requests_per_sec": 183727.48343553825,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.266,
+            "min_ms": 0,
+            "max_ms": 83.658,
+            "p50_ms": 4.293,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 28.151,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2758108,
+          "errors": 0
+        },
+        {
+          "name": "fiber-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "fiber",
+          "requests_per_sec": 159765.11119503496,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.207,
+            "min_ms": 0,
+            "max_ms": 143.203,
+            "p50_ms": 0.238,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.457,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2398995,
+          "errors": 0
+        },
+        {
+          "name": "iris-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "iris",
+          "requests_per_sec": 146964.0502454886,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.834,
+            "min_ms": 0,
+            "max_ms": 141.754,
+            "p50_ms": 0.289,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 46.993,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2206281,
+          "errors": 0
+        },
+        {
+          "name": "iris-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "iris",
+          "requests_per_sec": 192721.48798624473,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.974,
+            "min_ms": 0,
+            "max_ms": 73.195,
+            "p50_ms": 4.066,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 23.871,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2892044,
+          "errors": 0
+        },
+        {
+          "name": "iris-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "iris",
+          "requests_per_sec": 196000.2283420102,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.874,
+            "min_ms": 0,
+            "max_ms": 81.017,
+            "p50_ms": 3.985,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 23.714,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2943617,
+          "errors": 0
+        },
+        {
+          "name": "gin-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "gin",
+          "requests_per_sec": 142972.84725739327,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 8.053,
+            "min_ms": 0,
+            "max_ms": 130.487,
+            "p50_ms": 0.283,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.6,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2146323,
+          "errors": 0
+        },
+        {
+          "name": "gin-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "gin",
+          "requests_per_sec": 195785.50961261356,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.879,
+            "min_ms": 0,
+            "max_ms": 84.06,
+            "p50_ms": 4.017,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 24.1,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2939267,
+          "errors": 0
+        },
+        {
+          "name": "gin-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "gin",
+          "requests_per_sec": 196575.184268289,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.857,
+            "min_ms": 0,
+            "max_ms": 92.827,
+            "p50_ms": 3.962,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 24.292,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2949864,
+          "errors": 0
+        },
+        {
+          "name": "chi-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "chi",
+          "requests_per_sec": 144638.70003707128,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.961,
+            "min_ms": 0,
+            "max_ms": 128.14,
+            "p50_ms": 0.29,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.351,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2171151,
+          "errors": 0
+        },
+        {
+          "name": "chi-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "chi",
+          "requests_per_sec": 190288.7299304813,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 6.051,
+            "min_ms": 0,
+            "max_ms": 75.646,
+            "p50_ms": 4.326,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 23.674,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2855260,
+          "errors": 0
+        },
+        {
+          "name": "chi-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "chi",
+          "requests_per_sec": 192281.50557843008,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.988,
+            "min_ms": 0,
+            "max_ms": 72.03,
+            "p50_ms": 4.17,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 23.605,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2885423,
+          "errors": 0
+        },
+        {
+          "name": "echo-h1",
+          "category": "baseline",
+          "protocol": "h1",
+          "framework": "echo",
+          "requests_per_sec": 144022.45379757322,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.995,
+            "min_ms": 0,
+            "max_ms": 127.09,
+            "p50_ms": 0.28,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.495,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2161826,
+          "errors": 0
+        },
+        {
+          "name": "echo-h2",
+          "category": "baseline",
+          "protocol": "h2",
+          "framework": "echo",
+          "requests_per_sec": 196309.631175691,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.865,
+            "min_ms": 0,
+            "max_ms": 85.557,
+            "p50_ms": 3.926,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 24.628,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2946647,
+          "errors": 0
+        },
+        {
+          "name": "echo-hybrid",
+          "category": "baseline",
+          "protocol": "hybrid",
+          "framework": "echo",
+          "requests_per_sec": 196230.8263550706,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.866,
+            "min_ms": 0,
+            "max_ms": 71.438,
+            "p50_ms": 3.968,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 24.116,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2946710,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "epoll",
+          "requests_per_sec": 162310.75830209325,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.094,
+            "min_ms": 0,
+            "max_ms": 132.928,
+            "p50_ms": 0.245,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.437,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2436489,
+          "errors": 0
+        },
+        {
+          "name": "epoll-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "epoll",
+          "requests_per_sec": 234696.3091401795,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.905,
+            "min_ms": 0,
+            "max_ms": 97.994,
+            "p50_ms": 1.17,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 30.366,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3523677,
+          "errors": 0
+        },
+        {
+          "name": "epoll-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "epoll",
+          "requests_per_sec": 235219.65165482386,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 4.895,
+            "min_ms": 0,
+            "max_ms": 100.876,
+            "p50_ms": 1.108,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 30.485,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3529753,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h1",
+          "category": "theoretical",
+          "protocol": "h1",
+          "framework": "iouring",
+          "requests_per_sec": 162176.73812069878,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 7.1,
+            "min_ms": 0,
+            "max_ms": 139.751,
+            "p50_ms": 0.237,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 47.483,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 2434268,
+          "errors": 0
+        },
+        {
+          "name": "iouring-h2",
+          "category": "theoretical",
+          "protocol": "h2",
+          "framework": "iouring",
+          "requests_per_sec": 228425.55301319069,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.041,
+            "min_ms": 0,
+            "max_ms": 110.112,
+            "p50_ms": 0.986,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 31.987,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3427221,
+          "errors": 0
+        },
+        {
+          "name": "iouring-hybrid",
+          "category": "theoretical",
+          "protocol": "hybrid",
+          "framework": "iouring",
+          "requests_per_sec": 227231.98690657443,
+          "throughput_bps": 0,
+          "latency": {
+            "avg_ms": 5.067,
+            "min_ms": 0,
+            "max_ms": 106.485,
+            "p50_ms": 1.059,
+            "p75_ms": 0,
+            "p90_ms": 0,
+            "p99_ms": 31.718,
+            "p999_ms": 0,
+            "p9999_ms": 0
+          },
+          "total_requests": 3409983,
+          "errors": 0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_benchmarks": 110,
+    "fastest_by_type": {
+      "body": {
+        "server": "epoll-hybrid",
+        "requests_per_sec": 208437.1084328549
+      },
+      "headers": {
+        "server": "iouring-h2",
+        "requests_per_sec": 210150.7258539087
+      },
+      "json": {
+        "server": "epoll-h2",
+        "requests_per_sec": 236042.00706257176
+      },
+      "path": {
+        "server": "epoll-hybrid",
+        "requests_per_sec": 237206.3380276384
+      },
+      "simple": {
+        "server": "epoll-hybrid",
+        "requests_per_sec": 235219.65165482386
+      }
+    }
+  }
+}
