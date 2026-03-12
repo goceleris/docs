@@ -1,0 +1,59 @@
+name: Sync Benchmark Results
+
+on:
+  repository_dispatch:
+    types: [benchmark-updated]
+
+jobs:
+  rebuild:
+    name: Rebuild Docs with New Benchmark Data
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log Trigger Info
+        run: |
+          echo "Benchmark update received"
+          echo "Version: ${{ github.event.client_payload.version }}"
+          echo "Run ID: ${{ github.event.client_payload.run_id }}"
+
+      - name: Verify Results Exist
+        run: |
+          if [[ -d "results/latest" ]]; then
+            echo "Latest results found:"
+            ls -la results/latest/
+          else
+            echo "::warning::No results directory found"
+          fi
+
+      # TODO: Add docs site build/deploy steps here when the site is ready.
+      # Example for a static site generator:
+      #
+      # - name: Setup Node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '22'
+      #
+      # - name: Install Dependencies
+      #   run: npm ci
+      #
+      # - name: Build Site
+      #   run: npm run build
+      #
+      # - name: Deploy
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: ./dist
+
+      - name: Summary
+        run: |
+          echo "## Benchmark Sync Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ github.event.client_payload.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run ID:** ${{ github.event.client_payload.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Results are available in \`results/\` directory." >> $GITHUB_STEP_SUMMARY
+          echo "Docs rebuild will be triggered automatically once the site is configured." >> $GITHUB_STEP_SUMMARY

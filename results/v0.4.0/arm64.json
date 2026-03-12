@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "generated_at": "2026-03-08T01:20:36Z",
   "run_id": "a2436b7d",
-  "version_tag": "v4.0.0",
+  "version_tag": "v0.4.0",
   "git_ref": "refs/tags/v4.0.0",
   "git_sha": "893cee7da11d2955211c3bd250c77466c2d996fb",
   "environment": {
