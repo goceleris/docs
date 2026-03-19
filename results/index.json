@@ -1,9 +1,9 @@
 {
-  "updated_at": "2026-03-19T18:43:11Z",
+  "updated_at": "2026-03-19T21:50:37Z",
   "versions": [
     {
       "version": "v1.0.0",
-      "generated_at": "2026-03-19T18:43:09Z",
+      "generated_at": "2026-03-19T21:50:35Z",
       "architectures": [
         "arm64",
         "x86"
