@@ -1,59 +1,140 @@
-name: Sync Benchmark Results
+name: Sync Benchmarks
+
+# Single writer of results/index.json and results/latest/.
+#
+# The publisher (probatorium `mage Publish`) commits the four split files of a
+# benchmark cell directly to this repo, then fires a tiny pointer dispatch. This
+# workflow therefore does NOT ingest data — the data is already here — its job is
+# manifest + latest/ maintenance and validation of what was committed:
+#   validate -> update index.json -> refresh latest/ -> commit.
+#
+# Canonical event type (the only one this repo listens for):
+#   celeris-results
+# client_payload pointer shape (<=1 KB):
+#   { version, arch, date, run_id, path, commit }
+#
+# A manual workflow_dispatch re-runs the same maintenance over the whole tree
+# (no payload required), so the manifest can always be rebuilt from disk.
 
 on:
   repository_dispatch:
-    types: [benchmark-updated]
+    types: [celeris-results]
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Cell path to validate (e.g. results/v1.0.0/20260320/x86_64). Empty = just rebuild index/latest from disk."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-benchmarks
+  cancel-in-progress: false
 
 jobs:
-  rebuild:
-    name: Rebuild Docs with New Benchmark Data
+  sync:
+    name: Validate, index, refresh latest
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Log Trigger Info
-        run: |
-          echo "Benchmark update received"
-          echo "Version: ${{ github.event.client_payload.version }}"
-          echo "Run ID: ${{ github.event.client_payload.run_id }}"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-      - name: Verify Results Exist
+      - name: Resolve payload
+        id: payload
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          P_VERSION: ${{ github.event.client_payload.version }}
+          P_ARCH: ${{ github.event.client_payload.arch }}
+          P_DATE: ${{ github.event.client_payload.date }}
+          P_RUN: ${{ github.event.client_payload.run_id }}
+          P_PATH: ${{ github.event.client_payload.path }}
+          P_COMMIT: ${{ github.event.client_payload.commit }}
+          I_PATH: ${{ github.event.inputs.path }}
         run: |
-          if [[ -d "results/latest" ]]; then
-            echo "Latest results found:"
-            ls -la results/latest/
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            {
+              echo "version=$P_VERSION"
+              echo "arch=$P_ARCH"
+              echo "date=$P_DATE"
+              echo "run_id=$P_RUN"
+              echo "path=$P_PATH"
+              echo "commit=$P_COMMIT"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::No results directory found"
+            {
+              echo "version="
+              echo "arch="
+              echo "date="
+              echo "run_id="
+              echo "path=$I_PATH"
+              echo "commit="
+            } >> "$GITHUB_OUTPUT"
           fi
 
-      # TODO: Add docs site build/deploy steps here when the site is ready.
-      # Example for a static site generator:
-      #
-      # - name: Setup Node
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: '22'
-      #
-      # - name: Install Dependencies
-      #   run: npm ci
-      #
-      # - name: Build Site
-      #   run: npm run build
-      #
-      # - name: Deploy
-      #   uses: peaceiris/actions-gh-pages@v4
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     publish_dir: ./dist
-
-      - name: Summary
+      - name: Sync committed cell to working tree
+        if: steps.payload.outputs.commit != ''
+        env:
+          COMMIT: ${{ steps.payload.outputs.commit }}
         run: |
-          echo "## Benchmark Sync Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ github.event.client_payload.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Run ID:** ${{ github.event.client_payload.run_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Results are available in \`results/\` directory." >> $GITHUB_STEP_SUMMARY
-          echo "Docs rebuild will be triggered automatically once the site is configured." >> $GITHUB_STEP_SUMMARY
+          set -euo pipefail
+          # The publisher pushed the cell in a separate commit; make sure we are
+          # validating exactly what was published, not a stale checkout.
+          git fetch origin "$COMMIT" || git fetch origin
+          git checkout "$COMMIT" -- results/ || echo "no results delta to sync"
+
+      - name: Validate published cell
+        if: steps.payload.outputs.path != ''
+        env:
+          V_PATH: ${{ steps.payload.outputs.path }}
+          V_VERSION: ${{ steps.payload.outputs.version }}
+          V_ARCH: ${{ steps.payload.outputs.arch }}
+          V_DATE: ${{ steps.payload.outputs.date }}
+          V_RUN: ${{ steps.payload.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          args=(--path "$V_PATH")
+          [ -n "$V_VERSION" ] && args+=(--version "$V_VERSION")
+          [ -n "$V_ARCH" ] && args+=(--arch "$V_ARCH")
+          [ -n "$V_DATE" ] && args+=(--date "$V_DATE")
+          [ -n "$V_RUN" ] && args+=(--run "$V_RUN")
+          node scripts/validate-results.mjs "${args[@]}"
+
+      - name: Update index.json
+        run: node scripts/update-index.mjs
+
+      - name: Refresh latest/
+        run: node scripts/refresh-latest.mjs
+
+      - name: Commit manifest + latest
+        env:
+          V_PATH: ${{ steps.payload.outputs.path }}
+          V_VERSION: ${{ steps.payload.outputs.version }}
+          V_DATE: ${{ steps.payload.outputs.date }}
+          V_ARCH: ${{ steps.payload.outputs.arch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add results/index.json results/latest
+          # Also stage the cell the publisher pushed (no-op if already committed).
+          if [ -n "$V_PATH" ]; then git add "$V_PATH" || true; fi
+          if git diff --cached --quiet; then
+            echo "no manifest/latest changes to commit"
+            exit 0
+          fi
+          desc="${V_VERSION:-rebuild}/${V_DATE:-} ${V_ARCH:-}"
+          git commit -m "bench(index): sync ${desc} [skip ci]"
+          git push
+
+      # TODO: once the docs site build exists, trigger it here so a publish
+      # immediately rebuilds the dashboard.
