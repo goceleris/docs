@@ -126,7 +126,10 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add results/index.json results/latest
+          git add results/index.json
+          # latest/ only exists once a valid (semver-tagged) version has been
+          # indexed; a rebuild with no valid versions yet leaves it absent.
+          [ -e results/latest ] && git add results/latest || true
           # Also stage the cell the publisher pushed (no-op if already committed).
           if [ -n "$V_PATH" ]; then git add "$V_PATH" || true; fi
           if git diff --cached --quiet; then
