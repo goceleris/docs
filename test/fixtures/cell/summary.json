@@ -1,0 +1,91 @@
+{
+  "schema_version": "5.3",
+  "host_arch_pair": "linux/amd64",
+  "environment": {
+    "kernel_sysctls_applied": [],
+    "loadgen_host": "msa2-client",
+    "fabric": "3-host LACP 20G"
+  },
+  "benchmark_config": {
+    "started_at": "0001-01-01T00:00:00Z",
+    "finished_at": "2026-06-03T21:45:09.278541Z",
+    "runs": 1,
+    "duration": 40000000000,
+    "warmup": 3000000000,
+    "git_ref": "dev",
+    "loadgen_version": "v1.4.5",
+    "celeris_version": "dev",
+    "scenarios_filter": "target=msa2-server"
+  },
+  "benchmarks": [
+    {
+      "name": "celeris-iouring-auto+upg-async",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "iouring-auto+upg-async",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOARM64=v8.0",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "bench": 35668.91302487355
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "chi-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "chi",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOARM64=v8.0",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "bench": 34179.97923165055
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "echo-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "echo",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOARM64=v8.0",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "bench": 32761.059862567206
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    }
+  ]
+}
