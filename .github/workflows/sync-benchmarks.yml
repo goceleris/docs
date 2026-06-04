@@ -8,8 +8,9 @@ name: Sync Benchmarks
 # manifest + latest/ maintenance and validation of what was committed:
 #   validate -> update index.json -> refresh latest/ -> commit.
 #
-# Canonical event type (the only one this repo listens for):
-#   celeris-results
+# Canonical event type (the only one this repo listens for) — must match the
+# producer's repository_dispatch event_type in probatorium mage_publish.go:
+#   benchmark-published
 # client_payload pointer shape (<=1 KB):
 #   { version, arch, date, run_id, path, commit }
 #
@@ -18,7 +19,7 @@ name: Sync Benchmarks
 
 on:
   repository_dispatch:
-    types: [celeris-results]
+    types: [benchmark-published]
   workflow_dispatch:
     inputs:
       path:

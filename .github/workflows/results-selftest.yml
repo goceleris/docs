@@ -1,0 +1,32 @@
+name: results-selftest
+
+# Runs the ingest pipeline (validate -> update-index -> refresh-latest) against a
+# committed fixture cell in a throwaway tree and asserts the manifest + latest/
+# mirror. Catches producer<->consumer contract regressions (schema, file set,
+# index/latest derivation) before they reach a live publish.
+on:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "test/fixtures/**"
+      - ".github/workflows/results-selftest.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "test/fixtures/**"
+      - ".github/workflows/results-selftest.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    name: ingest pipeline self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/selftest.mjs

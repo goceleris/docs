@@ -151,7 +151,7 @@ export function deriveHeadline(summary) {
 
   // Celeris' own headline: best celeris-category adapter per scenario.
   const celServers = benchmarks.filter((b) => b.category === CELERIS_CATEGORY);
-  const celeris = { saturation_rps: {}, latency_at_slo_1ms: {}, p99_ns_at_target: {} };
+  const celeris = { saturation_rps: {}, latency_at_slo: {}, p99_ns_at_target: {} };
   for (const sc of scenarios) {
     let best = null;
     for (const sr of celServers) {
@@ -161,8 +161,8 @@ export function deriveHeadline(summary) {
     }
     if (!best) continue;
     celeris.saturation_rps[sc] = best.rps;
-    const slo = pickSlo1ms((best.sr.latency_at_slo || {})[sc]);
-    if (slo != null) celeris.latency_at_slo_1ms[sc] = slo;
+    const slo = normalizeSlo((best.sr.latency_at_slo || {})[sc]);
+    if (slo != null) celeris.latency_at_slo[sc] = slo;
     const p99 = pickP99((best.sr.rated_mode_p99_at_target_rps || {})[sc]);
     if (p99 != null) celeris.p99_ns_at_target[sc] = p99;
   }
@@ -175,15 +175,14 @@ export function deriveHeadline(summary) {
   };
 }
 
-// latency_at_slo[scenario] is throughput sustained under an SLO; tolerate a flat
-// number or a {"1ms": rps} / {"1000000": rps} shape without inventing data.
-function pickSlo1ms(slo) {
-  if (typeof slo === "number") return slo;
-  if (slo && typeof slo === "object") {
-    for (const k of ["1ms", "1000000", "1000us", "p99_1ms"]) {
-      if (typeof slo[k] === "number") return slo[k];
-    }
-  }
+// latency_at_slo[scenario] maps an SLO p99 bound (milliseconds, as the producer
+// emits it: {"10":rps,"50":rps,"100":rps,"500":rps,"1000":rps}) to the throughput
+// sustained under that bound. Surface the whole map so the headline carries every
+// measured SLO point — the producer never emits a 1ms bucket, so singling one out
+// would either be empty or invent data.
+function normalizeSlo(slo) {
+  if (typeof slo === "number") return slo; // tolerate a flat scalar
+  if (slo && typeof slo === "object" && Object.keys(slo).length) return slo;
   return null;
 }
 
