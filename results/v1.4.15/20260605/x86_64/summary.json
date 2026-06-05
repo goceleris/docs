@@ -8,9 +8,9 @@
   },
   "benchmark_config": {
     "started_at": "0001-01-01T00:00:00Z",
-    "finished_at": "2026-06-05T03:28:34.979835Z",
+    "finished_at": "2026-06-05T04:16:48.04252Z",
     "runs": 1,
-    "duration": 40000000000,
+    "duration": 20000000000,
     "warmup": 10000000000,
     "git_ref": "v1.4.15",
     "loadgen_version": "v1.4.7",
@@ -18,27 +18,6 @@
     "scenarios_filter": "target=msa2-server"
   },
   "benchmarks": [
-    {
-      "name": "actix-web",
-      "category": "rust-actix",
-      "language": "rust",
-      "language_version": "",
-      "framework": "actix-web",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "profile=release-fat",
-        "RUSTFLAGS=-C target-cpu=native"
-      ],
-      "saturation_mode_rps": {
-        "bench": 659783.01850418
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
     {
       "name": "aspnet",
       "category": "dotnet-aspnetcore",
@@ -49,7 +28,7 @@
       "engine": "h1",
       "compile_options": [],
       "saturation_mode_rps": {
-        "bench": 592659.1268483796
+        "bench": 520546.40924253233
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -70,7 +49,7 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "bench": 583636.8449143552
+        "bench": 397971.0986590321
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -93,7 +72,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 567878.821893065
+        "bench": 574599.7134251021
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -116,7 +95,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 547112.1652801845
+        "bench": 604908.052376668
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -139,7 +118,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 539157.1211244359
+        "bench": 484753.07181919995
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -162,30 +141,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 304348.3681583562
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
-    {
-      "name": "echo-h1",
-      "category": "go-net-http",
-      "language": "go",
-      "language_version": "go1.26.4",
-      "framework": "echo",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "CGO_ENABLED=0",
-        "GOAMD64=v3",
-        "trimpath",
-        "ldflags=-s -w"
-      ],
-      "saturation_mode_rps": {
-        "bench": 377410.46286006836
+        "bench": 212806.08004826907
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -208,30 +164,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 573808.6807208927
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
-    {
-      "name": "fiber-h1",
-      "category": "go-fasthttp",
-      "language": "go",
-      "language_version": "go1.26.4",
-      "framework": "fiber",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "CGO_ENABLED=0",
-        "GOAMD64=v3",
-        "trimpath",
-        "ldflags=-s -w"
-      ],
-      "saturation_mode_rps": {
-        "bench": 568959.0940405154
+        "bench": 517660.4175150092
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -254,97 +187,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 391832.7909134672
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
-    {
-      "name": "gnet-h1",
-      "category": "go-gnet",
-      "language": "go",
-      "language_version": "go1.26.4",
-      "framework": "gnet",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "CGO_ENABLED=0",
-        "GOAMD64=v3",
-        "trimpath",
-        "ldflags=-s -w"
-      ],
-      "saturation_mode_rps": {
-        "bench": 672170.886553949
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
-    {
-      "name": "hertz-h1",
-      "category": "go-netpoll",
-      "language": "go",
-      "language_version": "go1.26.4",
-      "framework": "hertz",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "CGO_ENABLED=0",
-        "GOAMD64=v3",
-        "trimpath",
-        "ldflags=-s -w"
-      ],
-      "saturation_mode_rps": {
-        "bench": 444037.2669424097
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
-    {
-      "name": "hyper",
-      "category": "rust-hyper",
-      "language": "rust",
-      "language_version": "",
-      "framework": "hyper",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "profile=release-fat",
-        "RUSTFLAGS=-C target-cpu=native"
-      ],
-      "saturation_mode_rps": {
-        "bench": 591376.8448890806
-      },
-      "rated_mode_p99_at_target_rps": {},
-      "latency_at_slo": {},
-      "hdr_histogram_b64": {},
-      "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
-    },
-    {
-      "name": "stdhttp-h1",
-      "category": "go-net-http",
-      "language": "go",
-      "language_version": "go1.26.4",
-      "framework": "stdhttp",
-      "framework_version": "",
-      "engine": "h1",
-      "compile_options": [
-        "CGO_ENABLED=0",
-        "GOAMD64=v3",
-        "trimpath",
-        "ldflags=-s -w"
-      ],
-      "saturation_mode_rps": {
-        "bench": 390763.58396825043
+        "bench": 278340.8061172692
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
