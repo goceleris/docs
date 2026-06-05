@@ -1,6 +1,6 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-05T03:28:48.733Z",
+  "updated_at": "2026-06-05T12:23:06.878Z",
   "latest": {
     "version": "v1.4.15",
     "date": "20260605",
@@ -12,12 +12,12 @@
   "versions": [
     {
       "version": "v1.4.15",
-      "released_at": "2026-06-05T03:28:34.981413Z",
+      "released_at": "2026-06-05T12:22:49.791948Z",
       "latest_date": "20260605",
       "dates": [
         {
           "date": "20260605",
-          "generated_at": "2026-06-05T03:28:34.981413Z",
+          "generated_at": "2026-06-05T12:22:49.791948Z",
           "git_sha": "v1.4.15",
           "loadgen_version": "v1.4.7",
           "fabric": "3-host Tailscale overlay",
@@ -30,7 +30,7 @@
                   "run_id": "run-1",
                   "schema_version": "5.3",
                   "started_at": "0001-01-01T00:00:00Z",
-                  "finished_at": "2026-06-05T03:28:34.979835Z",
+                  "finished_at": "2026-06-05T12:22:49.789797Z",
                   "runs_count": 1,
                   "files": {
                     "summary": "results/v1.4.15/20260605/x86_64/summary.json",
@@ -39,8 +39,8 @@
                     "env": "results/v1.4.15/20260605/x86_64/env.json"
                   },
                   "bytes": {
-                    "summary": 9240,
-                    "timeseries": 198964,
+                    "summary": 9243,
+                    "timeseries": 198035,
                     "histograms": 133,
                     "env": 718
                   },
@@ -52,12 +52,12 @@
                     "top_by_scenario": {
                       "bench": {
                         "server": "gnet-h1",
-                        "saturation_rps": 672170.886553949
+                        "saturation_rps": 665302.7583587109
                       }
                     },
                     "celeris": {
                       "saturation_rps": {
-                        "bench": 567878.821893065
+                        "bench": 580774.8302529579
                       },
                       "latency_at_slo": {},
                       "p99_ns_at_target": {}
