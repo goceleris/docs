@@ -8,7 +8,7 @@
   },
   "benchmark_config": {
     "started_at": "0001-01-01T00:00:00Z",
-    "finished_at": "2026-06-05T12:22:49.789797Z",
+    "finished_at": "2026-06-05T14:34:04.109016Z",
     "runs": 1,
     "duration": 40000000000,
     "warmup": 10000000000,
@@ -31,7 +31,7 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "bench": 656251.6963965449
+        "bench": 656800.8445352053
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -49,7 +49,7 @@
       "engine": "h1",
       "compile_options": [],
       "saturation_mode_rps": {
-        "bench": 591653.1967902803
+        "bench": 602345.2105662902
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -70,7 +70,7 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "bench": 583953.3523661188
+        "bench": 585037.7420382766
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -93,7 +93,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 580774.8302529579
+        "bench": 589601.1225508297
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -116,7 +116,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 537786.9150016013
+        "bench": 549736.5489379319
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -139,7 +139,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 547949.9787772311
+        "bench": 545789.3844373135
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -162,7 +162,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 301464.9379189004
+        "bench": 308114.7725526808
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -185,7 +185,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 385919.2418956923
+        "bench": 382615.5965210603
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -208,7 +208,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 576694.2583464277
+        "bench": 578233.615593119
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -231,7 +231,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 566724.5260121499
+        "bench": 569389.9520491362
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -254,7 +254,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 383507.1700579806
+        "bench": 380864.67242817633
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -277,7 +277,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 665302.7583587109
+        "bench": 666644.6859931578
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -300,7 +300,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 447173.0016052323
+        "bench": 440516.7383157604
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -321,7 +321,7 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "bench": 593611.6130181549
+        "bench": 588185.9708186763
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -344,7 +344,7 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "bench": 384305.32597493863
+        "bench": 390433.01574866136
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
