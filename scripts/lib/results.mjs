@@ -65,12 +65,16 @@ export function listArches(root, version, date) {
 }
 
 // listRuns tolerates both the Phase 4 flat layout (four files directly under
-// the arch dir as run-1) and a future Phase 5 run-N/ subdirectory layout.
+// the arch dir as run-1) and a future Phase 5 run-N/ subdirectory layout,
+// and the run-N-rated/ subdirectory a back-to-back rated pass publishes
+// to alongside its saturation pass (see mage_tier.go's RatedRunIDSuffix).
+// The regex accepts the rated suffix as an optional tail so the same
+// walker can enumerate both panels of a back-to-back run.
 export function listRuns(root, version, date, arch) {
   const dir = join(root, version, date, arch);
   if (!existsSync(dir)) return [];
   const subRuns = readdirSync(dir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && /^run-\d+$/.test(e.name))
+    .filter((e) => e.isDirectory() && /^run-\d+(?:-rated)?$/.test(e.name))
     .map((e) => e.name);
   if (subRuns.length > 0) return subRuns.sort(runCmp);
   if (existsSync(join(dir, "summary.json"))) return [DEFAULT_RUN];
@@ -90,8 +94,24 @@ export function runFilePath(version, date, arch, runId, name) {
   return posix.join("results", version, date, arch, runId, name);
 }
 
+// runKey splits a run id into its numeric k and optional variant suffix
+// ("run-2" -> [2, ""], "run-2-rated" -> [2, "rated"]). The numeric part
+// sorts first so the canonical order is run-1, run-1-rated, run-2,
+// run-2-rated, ...; the variant part breaks ties lexicographically, so
+// a future variant (e.g. "run-1-soak") would naturally land after the
+// rated one with no comparator change. Unknown shapes sort as 0/"" to
+// keep the comparator total.
+function runKey(r) {
+  const m = /^run-(\d+)(?:-(.+))?$/.exec(r);
+  if (!m) return [0, "", r];
+  return [Number(m[1]), m[2] || "", r];
+}
+
 export function runCmp(a, b) {
-  return Number(a.replace("run-", "")) - Number(b.replace("run-", ""));
+  const [na, sa] = runKey(a);
+  const [nb, sb] = runKey(b);
+  if (na !== nb) return na - nb;
+  return sa.localeCompare(sb);
 }
 
 // versionCmpDesc: semver, newest first; no-prerelease sorts ahead of prerelease.
