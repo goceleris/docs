@@ -88,10 +88,19 @@ jobs:
           COMMIT: ${{ steps.payload.outputs.commit }}
         run: |
           set -euo pipefail
-          # The publisher pushed the cell in a separate commit; make sure we are
-          # validating exactly what was published, not a stale checkout.
-          git fetch origin "$COMMIT" || git fetch origin
-          git checkout "$COMMIT" -- results/ || echo "no results delta to sync"
+          # Bring the working tree to origin/main so the local results/
+          # holds the FULL tree (every previously-published cell) and not
+          # just the one commit the publisher pushed. The old `git checkout
+          # $COMMIT -- results/` replaced the whole results/ with the
+          # single commit's delta, which made the index-sync see a
+          # truncated tree and emit a manifest that listed only the
+          # most-recent run-K (e.g. only run-2 when run-1 + run-2 +
+          # run-3 were on disk). Fetching + checking out the entire
+          # origin/main branch is what makes update-index.mjs's whole-
+          # tree walk authoritative.
+          git fetch origin "$COMMIT" || true
+          git fetch origin main
+          git checkout origin/main -- results/
 
       - name: Validate published cell
         if: steps.payload.outputs.path != ''
