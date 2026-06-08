@@ -1,6 +1,6 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-08T12:08:16.320Z",
+  "updated_at": "2026-06-08T14:19:23.387Z",
   "latest": {
     "version": "v1.4.15",
     "date": "20260608",
@@ -134,6 +134,44 @@
                     "celeris": {
                       "saturation_rps": {
                         "bench": 606074.8970523583
+                      },
+                      "latency_at_slo": {},
+                      "p99_ns_at_target": {}
+                    }
+                  }
+                },
+                {
+                  "run_id": "run-3",
+                  "schema_version": "5.3",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-08T14:19:04.752109Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.4.15/20260608/x86_64/run-3/summary.json",
+                    "timeseries": "results/v1.4.15/20260608/x86_64/run-3/timeseries.json.gz",
+                    "histograms": "results/v1.4.15/20260608/x86_64/run-3/histograms.json.gz",
+                    "env": "results/v1.4.15/20260608/x86_64/run-3/env.json"
+                  },
+                  "bytes": {
+                    "summary": 9421,
+                    "timeseries": 197034,
+                    "histograms": 133,
+                    "env": 718
+                  },
+                  "headline": {
+                    "adapters": 15,
+                    "scenarios": [
+                      "bench"
+                    ],
+                    "top_by_scenario": {
+                      "bench": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 676842.6997174752
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "bench": 593329.1120520375
                       },
                       "latency_at_slo": {},
                       "p99_ns_at_target": {}
