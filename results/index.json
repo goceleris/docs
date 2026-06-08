@@ -1,6 +1,6 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-08T14:19:23.387Z",
+  "updated_at": "2026-06-08T15:06:22.396Z",
   "latest": {
     "version": "v1.4.15",
     "date": "20260608",
@@ -172,6 +172,44 @@
                     "celeris": {
                       "saturation_rps": {
                         "bench": 593329.1120520375
+                      },
+                      "latency_at_slo": {},
+                      "p99_ns_at_target": {}
+                    }
+                  }
+                },
+                {
+                  "run_id": "run-3-rated",
+                  "schema_version": "5.3",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-08T15:06:01.094298Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.4.15/20260608/x86_64/run-3-rated/summary.json",
+                    "timeseries": "results/v1.4.15/20260608/x86_64/run-3-rated/timeseries.json.gz",
+                    "histograms": "results/v1.4.15/20260608/x86_64/run-3-rated/histograms.json.gz",
+                    "env": "results/v1.4.15/20260608/x86_64/run-3-rated/env.json"
+                  },
+                  "bytes": {
+                    "summary": 5392,
+                    "timeseries": 14608,
+                    "histograms": 133,
+                    "env": 724
+                  },
+                  "headline": {
+                    "adapters": 8,
+                    "scenarios": [
+                      "bench"
+                    ],
+                    "top_by_scenario": {
+                      "bench": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 604748.6590635722
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "bench": 604748.6590635722
                       },
                       "latency_at_slo": {},
                       "p99_ns_at_target": {}
