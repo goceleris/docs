@@ -1,0 +1,514 @@
+{
+  "schema_version": "5.3",
+  "host_arch_pair": "linux/amd64",
+  "environment": {
+    "kernel_sysctls_applied": [],
+    "loadgen_host": "msa2-client",
+    "fabric": "3-host Tailscale overlay"
+  },
+  "benchmark_config": {
+    "started_at": "0001-01-01T00:00:00Z",
+    "finished_at": "2026-06-09T09:41:48.722014Z",
+    "runs": 1,
+    "duration": 40000000000,
+    "warmup": 10000000000,
+    "git_ref": "v1.4.15",
+    "loadgen_version": "v1.4.7",
+    "celeris_version": "v1.4.15",
+    "scenarios_filter": "target=msa2-server"
+  },
+  "benchmarks": [
+    {
+      "name": "actix-web",
+      "category": "rust-actix",
+      "language": "rust",
+      "language_version": "",
+      "framework": "actix-web",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "get-json": 706341.3709547907,
+        "get-json-1k": 643844.1314571294,
+        "get-json-64k": 35761.44986069204,
+        "get-simple": 702009.8358132669,
+        "get-simple-1024c": 605208.3485800942,
+        "get-simple-128c": 587422.7552102705,
+        "post-4k": 416259.25491722795,
+        "post-64k": 35547.7040392013
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "get-json": 0.00018756525191623562,
+        "get-json-1k": 0.00022518257065161392,
+        "get-json-64k": 0.1397289440224461,
+        "get-simple": 0.0004664608921324498,
+        "get-simple-1024c": 0.0026845746241946585,
+        "get-simple-128c": 0.0005574476387518024,
+        "post-4k": 0.0018978349786841903,
+        "post-64k": 0.006258279915281172
+      }
+    },
+    {
+      "name": "aspnet",
+      "category": "dotnet-aspnetcore",
+      "language": "csharp",
+      "language_version": "",
+      "framework": "aspnet",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [],
+      "saturation_mode_rps": {
+        "get-json": 472686.08815016627,
+        "get-json-1k": 504308.912080084,
+        "get-json-64k": 34457.49453273554,
+        "get-simple": 473389.7619960945,
+        "get-simple-1024c": 191323.1102394009,
+        "get-simple-128c": 406070.7804728686,
+        "post-4k": 238937.61963884562,
+        "post-64k": 33508.96096184648
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "axum",
+      "category": "rust-tower",
+      "language": "rust",
+      "language_version": "",
+      "framework": "axum",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "get-json": 417137.4727984954,
+        "get-json-1k": 501496.4195302422,
+        "get-json-64k": 35552.890134738576,
+        "get-simple": 461007.4460299111,
+        "get-simple-1024c": 421508.2772435557,
+        "get-simple-128c": 523790.43258018437,
+        "post-4k": 359044.8966533584,
+        "post-64k": 35391.50429057104
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "celeris-epoll-h1-sync",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "epoll-h1-sync",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 449810.8748700684,
+        "get-json": 579778.481493014,
+        "get-json-1k": 490247.82638036093,
+        "get-json-64k": 35502.41114332423,
+        "get-simple": 464351.12450961134,
+        "get-simple-1024c": 540601.9825311559,
+        "get-simple-128c": 471484.9264361452,
+        "post-4k": 233414.32677920398,
+        "post-64k": 22000.382253254662,
+        "sse-fanout-128": 63810.96845047614,
+        "ws-echo": 344686.7645767046
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "chain-fullstack-get-json": 0.000005557150766556155
+      }
+    },
+    {
+      "name": "celeris-iouring-auto+upg-async",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "iouring-auto+upg-async",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "auto-mix-111": 438252.8489943333,
+        "get-json": 523573.33839249524,
+        "get-json-1k": 451846.088454105,
+        "get-json-64k": 34859.99864505367,
+        "get-simple": 520023.93518463953,
+        "get-simple-1024c": 541280.6684458869,
+        "get-simple-128c": 506336.47426491184,
+        "post-4k": 148520.12538473183,
+        "post-64k": 35313.8323538989
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "auto-mix-111": 108.79925696369851
+      },
+      "cell_statuses": {
+        "chain-fullstack-get-json": "not_applicable",
+        "sse-fanout-128": "not_applicable",
+        "ws-echo": "not_applicable"
+      }
+    },
+    {
+      "name": "celeris-iouring-h1-async",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "iouring-h1-async",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 327245.28283978894,
+        "get-json": 542135.4843967328,
+        "get-json-1k": 474141.90100314055,
+        "get-json-64k": 35547.93744938517,
+        "get-simple": 424499.1850295807,
+        "get-simple-1024c": 541477.1898107819,
+        "get-simple-128c": 482415.2418447909,
+        "post-4k": 351468.79578834196,
+        "post-64k": 35551.53531622203,
+        "sse-fanout-128": 63466.40094885735,
+        "ws-echo": 474582.4656627239
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "chain-fullstack-get-json": 0.000007638231364472264
+      }
+    },
+    {
+      "name": "celeris-std-h1",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "std-h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 119016.330177806,
+        "get-json": 128722.28637171134,
+        "get-json-1k": 202937.71332172028,
+        "get-json-64k": 35441.84236678055,
+        "get-simple": 157595.3131129649,
+        "get-simple-1024c": 93999.4077635399,
+        "get-simple-128c": 161647.20857257207,
+        "post-4k": 69729.99864302861,
+        "post-64k": 20109.93025760822
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "chain-fullstack-get-json": 0.0008610829567320515,
+        "get-json": 0.0028738756932254208,
+        "get-json-1k": 0.002167790694881612,
+        "get-json-64k": 0.03194937751610164,
+        "get-simple": 0.006185724964586725,
+        "get-simple-1024c": 0.19747022191068528,
+        "get-simple-128c": 0.0021342518658464954,
+        "post-4k": 0.0668908310092414,
+        "post-64k": 255.34910140863627
+      },
+      "cell_statuses": {
+        "sse-fanout-128": "not_applicable",
+        "ws-echo": "not_applicable"
+      }
+    },
+    {
+      "name": "echo-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "echo",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 78560.22092992965,
+        "get-json": 315611.4418837662,
+        "get-json-1k": 215409.30387288026,
+        "get-json-64k": 18780.603903120806,
+        "get-simple": 262435.3378841199,
+        "get-simple-1024c": 382494.1839156033,
+        "get-simple-128c": 320667.62168748106,
+        "post-4k": 238496.98254660118,
+        "post-64k": 35548.60694246756
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "fasthttp-h1",
+      "category": "go-fasthttp",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "fasthttp",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 280506.3990290703,
+        "get-json": 345482.35057152604,
+        "get-json-1k": 299116.11755090725,
+        "get-json-64k": 34898.737096807454,
+        "get-simple": 125306.70748937018,
+        "get-simple-1024c": 485811.8302362842,
+        "get-simple-128c": 292654.6545036128,
+        "post-4k": 177075.8225845932,
+        "post-64k": 20356.997900261733
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "fiber-h1",
+      "category": "go-fasthttp",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "fiber",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 209800.47886497207,
+        "get-json": 289735.9152384491,
+        "get-json-1k": 314174.2476229356,
+        "get-json-64k": 35474.520931579114,
+        "get-simple": 557242.8205223164,
+        "get-simple-1024c": 554631.5521442743,
+        "get-simple-128c": 542885.6132118175,
+        "post-4k": 388633.08363743033,
+        "post-64k": 35549.96392391797
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "gin-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "gin",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 144482.31604433816,
+        "get-json": 275298.2696568303,
+        "get-json-1k": 312564.41181590053,
+        "get-json-64k": 35495.88665942369,
+        "get-simple": 297951.91622806573,
+        "get-simple-1024c": 227235.98058010652,
+        "get-simple-128c": 241371.63930567098,
+        "post-4k": 135543.12431772004,
+        "post-64k": 30353.52487999117
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "gnet-h1",
+      "category": "go-gnet",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "gnet",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "get-json": 200900.91348808896,
+        "get-json-1k": 452184.9427433876,
+        "get-json-64k": 35570.63435456162,
+        "get-simple": 280469.8201822552,
+        "get-simple-1024c": 346239.2556707671,
+        "get-simple-128c": 578807.457079435,
+        "post-4k": 340931.4313115651,
+        "post-64k": 35412.358079498124
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "get-simple-1024c": 0.0019058886617384044
+      }
+    },
+    {
+      "name": "hertz-h1",
+      "category": "go-netpoll",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "hertz",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 227163.73874090338,
+        "get-json": 367681.9522504874,
+        "get-json-1k": 310958.6138956522,
+        "get-json-64k": 35514.64768736287,
+        "get-simple": 248391.90228700833,
+        "get-simple-1024c": 365499.52361659514,
+        "get-simple-128c": 299466.81977424544,
+        "post-4k": 147533.57361255688,
+        "post-64k": 33690.794876299486
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "hyper",
+      "category": "rust-hyper",
+      "language": "rust",
+      "language_version": "",
+      "framework": "hyper",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "get-json": 406017.6835717641,
+        "get-json-1k": 251172.4031346058,
+        "get-json-64k": 28515.344089332222,
+        "get-simple": 480776.7628815409,
+        "get-simple-1024c": 518879.24625439796,
+        "get-simple-128c": 470639.31683836854,
+        "post-4k": 373916.0888973042,
+        "post-64k": 35485.35240728168
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "stdhttp-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "stdhttp",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-fullstack-get-json": 93425.6188938531,
+        "get-json": 163324.56988835815,
+        "get-json-1k": 92275.36737222136,
+        "get-json-64k": 35315.896090629074,
+        "get-simple": 436513.0418528815,
+        "get-simple-1024c": 481386.00928680814,
+        "get-simple-128c": 385082.4897972202,
+        "post-4k": 389007.7292160997,
+        "post-64k": 35471.46769529422
+      },
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "get-json": 6.157112169053978,
+        "get-json-1k": 0.000054177006574108865
+      }
+    }
+  ]
+}
