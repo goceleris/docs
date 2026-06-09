@@ -1,6 +1,6 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-09T01:23:09.562Z",
+  "updated_at": "2026-06-09T02:10:06.863Z",
   "latest": {
     "version": "v1.4.15",
     "date": "20260609",
@@ -127,6 +127,70 @@
                       },
                       "latency_at_slo": {},
                       "p99_ns_at_target": {}
+                    }
+                  }
+                },
+                {
+                  "run_id": "run-2-rated",
+                  "schema_version": "5.3",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-09T02:09:49.907021Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.4.15/20260609/x86_64/run-2-rated/summary.json",
+                    "timeseries": "results/v1.4.15/20260609/x86_64/run-2-rated/timeseries.json.gz",
+                    "histograms": "results/v1.4.15/20260609/x86_64/run-2-rated/histograms.json.gz",
+                    "env": "results/v1.4.15/20260609/x86_64/run-2-rated/env.json"
+                  },
+                  "bytes": {
+                    "summary": 7323,
+                    "timeseries": 14654,
+                    "histograms": 133,
+                    "env": 724
+                  },
+                  "headline": {
+                    "adapters": 8,
+                    "scenarios": [
+                      "auto-mix-111",
+                      "get-json",
+                      "post-4k"
+                    ],
+                    "top_by_scenario": {
+                      "auto-mix-111": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 940801.3807329413
+                      },
+                      "get-json": {
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 710373.1998938986
+                      },
+                      "post-4k": {
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 458046.18154872477
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "auto-mix-111": 940801.3807329413,
+                        "get-json": 710373.1998938986,
+                        "post-4k": 458046.18154872477
+                      },
+                      "latency_at_slo": {
+                        "auto-mix-111": {
+                          "1000": 235200
+                        },
+                        "get-json": {
+                          "1000": 639336
+                        },
+                        "post-4k": {
+                          "1000": 412242
+                        }
+                      },
+                      "p99_ns_at_target": {
+                        "auto-mix-111": 7356809215,
+                        "get-json": 877658111,
+                        "post-4k": 888143871
+                      }
                     }
                   }
                 }
