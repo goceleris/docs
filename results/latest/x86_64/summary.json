@@ -8,7 +8,7 @@
   },
   "benchmark_config": {
     "started_at": "0001-01-01T00:00:00Z",
-    "finished_at": "2026-06-09T09:41:48.722014Z",
+    "finished_at": "2026-06-09T11:54:52.315275Z",
     "runs": 1,
     "duration": 40000000000,
     "warmup": 10000000000,
@@ -31,28 +31,28 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "get-json": 706341.3709547907,
-        "get-json-1k": 643844.1314571294,
-        "get-json-64k": 35761.44986069204,
-        "get-simple": 702009.8358132669,
-        "get-simple-1024c": 605208.3485800942,
-        "get-simple-128c": 587422.7552102705,
-        "post-4k": 416259.25491722795,
-        "post-64k": 35547.7040392013
+        "get-json": 547421.8506247373,
+        "get-json-1k": 501331.12458415073,
+        "get-json-64k": 35506.39944480631,
+        "get-simple": 551626.2530583299,
+        "get-simple-1024c": 546038.9682751028,
+        "get-simple-128c": 539251.7287024879,
+        "post-4k": 418385.30803633144,
+        "post-64k": 35537.13655873481
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
       "sent_vs_handled_delta_pct": {
-        "get-json": 0.00018756525191623562,
-        "get-json-1k": 0.00022518257065161392,
-        "get-json-64k": 0.1397289440224461,
-        "get-simple": 0.0004664608921324498,
-        "get-simple-1024c": 0.0026845746241946585,
-        "get-simple-128c": 0.0005574476387518024,
-        "post-4k": 0.0018978349786841903,
-        "post-64k": 0.006258279915281172
+        "get-json": 0.00010958761995963157,
+        "get-json-1k": 0.00029417852118850715,
+        "get-json-64k": 0.10679684100998695,
+        "get-simple": 0.0004214757579380427,
+        "get-simple-1024c": 0.000329642391572033,
+        "get-simple-128c": 0.000811207193581432,
+        "post-4k": 0.0021209873309543225,
+        "post-64k": 0.004993898300316163
       }
     },
     {
@@ -65,14 +65,14 @@
       "engine": "h1",
       "compile_options": [],
       "saturation_mode_rps": {
-        "get-json": 472686.08815016627,
-        "get-json-1k": 504308.912080084,
-        "get-json-64k": 34457.49453273554,
-        "get-simple": 473389.7619960945,
-        "get-simple-1024c": 191323.1102394009,
-        "get-simple-128c": 406070.7804728686,
-        "post-4k": 238937.61963884562,
-        "post-64k": 33508.96096184648
+        "get-json": 290811.32357778784,
+        "get-json-1k": 271235.9986544393,
+        "get-json-64k": 18879.62879212081,
+        "get-simple": 336678.02683316154,
+        "get-simple-1024c": 463693.01879366516,
+        "get-simple-128c": 522688.866172314,
+        "post-4k": 326887.6464406366,
+        "post-64k": 35445.580616097395
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -93,14 +93,14 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "get-json": 417137.4727984954,
-        "get-json-1k": 501496.4195302422,
-        "get-json-64k": 35552.890134738576,
-        "get-simple": 461007.4460299111,
-        "get-simple-1024c": 421508.2772435557,
-        "get-simple-128c": 523790.43258018437,
-        "post-4k": 359044.8966533584,
-        "post-64k": 35391.50429057104
+        "get-json": 445611.7580003712,
+        "get-json-1k": 492056.0370252932,
+        "get-json-64k": 35546.39106651084,
+        "get-simple": 432210.59732549527,
+        "get-simple-1024c": 437418.8007486643,
+        "get-simple-128c": 533011.2372353205,
+        "post-4k": 369129.29683185724,
+        "post-64k": 35352.704655258494
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -123,24 +123,24 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 449810.8748700684,
-        "get-json": 579778.481493014,
-        "get-json-1k": 490247.82638036093,
-        "get-json-64k": 35502.41114332423,
-        "get-simple": 464351.12450961134,
-        "get-simple-1024c": 540601.9825311559,
-        "get-simple-128c": 471484.9264361452,
-        "post-4k": 233414.32677920398,
-        "post-64k": 22000.382253254662,
-        "sse-fanout-128": 63810.96845047614,
-        "ws-echo": 344686.7645767046
+        "chain-fullstack-get-json": 432266.0688294455,
+        "get-json": 569206.5882258649,
+        "get-json-1k": 475670.3810563452,
+        "get-json-64k": 35319.57520482704,
+        "get-simple": 121521.12462985422,
+        "get-simple-1024c": 489993.2416672619,
+        "get-simple-128c": 364127.37913131004,
+        "post-4k": 109594.13528210111,
+        "post-64k": 35711.61305162186,
+        "sse-fanout-128": 61931.93004210444,
+        "ws-echo": 518100.2719018815
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
       "sent_vs_handled_delta_pct": {
-        "chain-fullstack-get-json": 0.000005557150766556155
+        "chain-fullstack-get-json": 0.000005782585650791272
       }
     },
     {
@@ -158,27 +158,32 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "auto-mix-111": 438252.8489943333,
-        "get-json": 523573.33839249524,
-        "get-json-1k": 451846.088454105,
-        "get-json-64k": 34859.99864505367,
-        "get-simple": 520023.93518463953,
-        "get-simple-1024c": 541280.6684458869,
-        "get-simple-128c": 506336.47426491184,
-        "post-4k": 148520.12538473183,
-        "post-64k": 35313.8323538989
+        "auto-mix-111": 679479.6806357368,
+        "chain-fullstack-get-json": 405314.1149093918,
+        "get-json": 547065.4885950068,
+        "get-json-1k": 474258.9442180205,
+        "get-json-64k": 34433.28364844392,
+        "get-simple": 148297.8435155527,
+        "get-simple-1024c": 232262.4208800824,
+        "get-simple-128c": 181903.82774149795,
+        "post-4k": 90420.17975239949,
+        "post-64k": 32295.292443380196,
+        "sse-fanout-128": 63238.04765551303,
+        "ws-echo": 538718.6107054956
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
       "sent_vs_handled_delta_pct": {
-        "auto-mix-111": 108.79925696369851
-      },
-      "cell_statuses": {
-        "chain-fullstack-get-json": "not_applicable",
-        "sse-fanout-128": "not_applicable",
-        "ws-echo": "not_applicable"
+        "auto-mix-111": 0.000007358363099751663,
+        "get-json-64k": 32.838526410392106,
+        "get-simple": 0.0027979566825740054,
+        "get-simple-1024c": 0.002292630742111655,
+        "get-simple-128c": 0.003325396811219284,
+        "post-4k": 0.0037043804852130253,
+        "post-64k": 0.008591337918992198,
+        "sse-fanout-128": 0.0025300692804127176
       }
     },
     {
@@ -196,25 +201,23 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 327245.28283978894,
-        "get-json": 542135.4843967328,
-        "get-json-1k": 474141.90100314055,
-        "get-json-64k": 35547.93744938517,
-        "get-simple": 424499.1850295807,
-        "get-simple-1024c": 541477.1898107819,
-        "get-simple-128c": 482415.2418447909,
-        "post-4k": 351468.79578834196,
-        "post-64k": 35551.53531622203,
-        "sse-fanout-128": 63466.40094885735,
-        "ws-echo": 474582.4656627239
+        "chain-fullstack-get-json": 401374.16812932596,
+        "get-json": 448122.1182761411,
+        "get-json-1k": 473820.7962753738,
+        "get-json-64k": 34612.80811256462,
+        "get-simple": 288588.6069615801,
+        "get-simple-1024c": 254495.39995877916,
+        "get-simple-128c": 381384.6254387006,
+        "post-4k": 238130.67051336353,
+        "post-64k": 35091.343784366654,
+        "sse-fanout-128": 62472.204837478545,
+        "ws-echo": 484542.22196260514
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {
-        "chain-fullstack-get-json": 0.000007638231364472264
-      }
+      "sent_vs_handled_delta_pct": {}
     },
     {
       "name": "celeris-std-h1",
@@ -231,34 +234,33 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 119016.330177806,
-        "get-json": 128722.28637171134,
-        "get-json-1k": 202937.71332172028,
-        "get-json-64k": 35441.84236678055,
-        "get-simple": 157595.3131129649,
-        "get-simple-1024c": 93999.4077635399,
-        "get-simple-128c": 161647.20857257207,
-        "post-4k": 69729.99864302861,
-        "post-64k": 20109.93025760822
+        "chain-fullstack-get-json": 119072.96518751541,
+        "get-json": 196338.23534999878,
+        "get-json-1k": 299809.8113109338,
+        "get-json-64k": 35546.90541315419,
+        "get-simple": 241671.65433733547,
+        "get-simple-1024c": 205892.95267621678,
+        "get-simple-128c": 300907.52482448914,
+        "post-4k": 106277.24315495529,
+        "post-64k": 31699.468354289012,
+        "sse-fanout-128": 63913.61039237717,
+        "ws-echo": 398663.4673364254
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
       "sent_vs_handled_delta_pct": {
-        "chain-fullstack-get-json": 0.0008610829567320515,
-        "get-json": 0.0028738756932254208,
-        "get-json-1k": 0.002167790694881612,
-        "get-json-64k": 0.03194937751610164,
-        "get-simple": 0.006185724964586725,
-        "get-simple-1024c": 0.19747022191068528,
-        "get-simple-128c": 0.0021342518658464954,
-        "post-4k": 0.0668908310092414,
-        "post-64k": 255.34910140863627
-      },
-      "cell_statuses": {
-        "sse-fanout-128": "not_applicable",
-        "ws-echo": "not_applicable"
+        "chain-fullstack-get-json": 0.003589585667351207,
+        "get-json": 0.001438575804860884,
+        "get-json-1k": 0.0015090960556314503,
+        "get-json-64k": 0.06469428784598259,
+        "get-simple": 0.0027305827125567294,
+        "get-simple-1024c": 0.0015418013921859562,
+        "get-simple-128c": 0.0008556038856378248,
+        "post-4k": 0.013502187519038908,
+        "post-64k": 0.007806536673374506,
+        "sse-fanout-128": 0.0025030114356334966
       }
     },
     {
@@ -276,21 +278,24 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 78560.22092992965,
-        "get-json": 315611.4418837662,
-        "get-json-1k": 215409.30387288026,
-        "get-json-64k": 18780.603903120806,
-        "get-simple": 262435.3378841199,
-        "get-simple-1024c": 382494.1839156033,
-        "get-simple-128c": 320667.62168748106,
-        "post-4k": 238496.98254660118,
-        "post-64k": 35548.60694246756
+        "chain-fullstack-get-json": 161138.93343348964,
+        "get-json": 113552.76272601803,
+        "get-json-1k": 318655.57845715736,
+        "get-json-64k": 35240.03003204216,
+        "get-simple": 212526.52870057133,
+        "get-simple-1024c": 190807.23315563455,
+        "get-simple-128c": 134387.399423296,
+        "post-4k": 183754.21947690446,
+        "post-64k": 35529.69167790526
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
+      "sent_vs_handled_delta_pct": {
+        "get-simple-128c": 49.38745472299336,
+        "post-4k": 63.545146543702074
+      }
     },
     {
       "name": "fasthttp-h1",
@@ -307,15 +312,15 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 280506.3990290703,
-        "get-json": 345482.35057152604,
-        "get-json-1k": 299116.11755090725,
-        "get-json-64k": 34898.737096807454,
-        "get-simple": 125306.70748937018,
-        "get-simple-1024c": 485811.8302362842,
-        "get-simple-128c": 292654.6545036128,
-        "post-4k": 177075.8225845932,
-        "post-64k": 20356.997900261733
+        "chain-fullstack-get-json": 499224.9266746645,
+        "get-json": 541348.3824827458,
+        "get-json-1k": 483408.1175766853,
+        "get-json-64k": 24042.223769195683,
+        "get-simple": 324752.8897435238,
+        "get-simple-1024c": 388028.6394051201,
+        "get-simple-128c": 342254.34813037305,
+        "post-4k": 380619.68038787396,
+        "post-64k": 35581.97304397176
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -338,15 +343,15 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 209800.47886497207,
-        "get-json": 289735.9152384491,
-        "get-json-1k": 314174.2476229356,
-        "get-json-64k": 35474.520931579114,
-        "get-simple": 557242.8205223164,
-        "get-simple-1024c": 554631.5521442743,
-        "get-simple-128c": 542885.6132118175,
-        "post-4k": 388633.08363743033,
-        "post-64k": 35549.96392391797
+        "chain-fullstack-get-json": 425556.6115176016,
+        "get-json": 547659.9327184864,
+        "get-json-1k": 489655.9784392801,
+        "get-json-64k": 35471.97021271487,
+        "get-simple": 473739.9847584552,
+        "get-simple-1024c": 544211.0687274409,
+        "get-simple-128c": 508340.85475137644,
+        "post-4k": 378366.73641225655,
+        "post-64k": 29115.88369835204
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -369,21 +374,23 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 144482.31604433816,
-        "get-json": 275298.2696568303,
-        "get-json-1k": 312564.41181590053,
-        "get-json-64k": 35495.88665942369,
-        "get-simple": 297951.91622806573,
-        "get-simple-1024c": 227235.98058010652,
-        "get-simple-128c": 241371.63930567098,
-        "post-4k": 135543.12431772004,
-        "post-64k": 30353.52487999117
+        "chain-fullstack-get-json": 117679.44372428123,
+        "get-json": 210157.73855220695,
+        "get-json-1k": 197222.58541020396,
+        "get-json-64k": 33975.29699227982,
+        "get-simple": 205843.3363597819,
+        "get-simple-1024c": 138678.3121672971,
+        "get-simple-128c": 112273.33556996145,
+        "post-4k": 368274.5239293232,
+        "post-64k": 35492.52665903359
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {}
+      "sent_vs_handled_delta_pct": {
+        "get-simple-128c": 80.76366306420795
+      }
     },
     {
       "name": "gnet-h1",
@@ -400,22 +407,20 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "get-json": 200900.91348808896,
-        "get-json-1k": 452184.9427433876,
-        "get-json-64k": 35570.63435456162,
-        "get-simple": 280469.8201822552,
-        "get-simple-1024c": 346239.2556707671,
-        "get-simple-128c": 578807.457079435,
-        "post-4k": 340931.4313115651,
-        "post-64k": 35412.358079498124
+        "get-json": 602117.8150316468,
+        "get-json-1k": 542551.1869814869,
+        "get-json-64k": 35520.485609855365,
+        "get-simple": 661430.3646152767,
+        "get-simple-1024c": 650094.1834391186,
+        "get-simple-128c": 654018.9228296365,
+        "post-4k": 400623.0746992254,
+        "post-64k": 35552.89454337804
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
-      "sent_vs_handled_delta_pct": {
-        "get-simple-1024c": 0.0019058886617384044
-      }
+      "sent_vs_handled_delta_pct": {}
     },
     {
       "name": "hertz-h1",
@@ -432,15 +437,15 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 227163.73874090338,
-        "get-json": 367681.9522504874,
-        "get-json-1k": 310958.6138956522,
-        "get-json-64k": 35514.64768736287,
-        "get-simple": 248391.90228700833,
-        "get-simple-1024c": 365499.52361659514,
-        "get-simple-128c": 299466.81977424544,
-        "post-4k": 147533.57361255688,
-        "post-64k": 33690.794876299486
+        "chain-fullstack-get-json": 255277.74958844206,
+        "get-json": 84090.37665280032,
+        "get-json-1k": 310561.5827911606,
+        "get-json-64k": 18194.725412686275,
+        "get-simple": 262208.1479166116,
+        "get-simple-1024c": 248830.53420065477,
+        "get-simple-128c": 354192.6493410579,
+        "post-4k": 146113.2738104587,
+        "post-64k": 35579.74222182821
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -461,14 +466,14 @@
         "RUSTFLAGS=-C target-cpu=native"
       ],
       "saturation_mode_rps": {
-        "get-json": 406017.6835717641,
-        "get-json-1k": 251172.4031346058,
-        "get-json-64k": 28515.344089332222,
-        "get-simple": 480776.7628815409,
-        "get-simple-1024c": 518879.24625439796,
-        "get-simple-128c": 470639.31683836854,
-        "post-4k": 373916.0888973042,
-        "post-64k": 35485.35240728168
+        "get-json": 493936.33440798667,
+        "get-json-1k": 493910.4100715431,
+        "get-json-64k": 35531.36095845445,
+        "get-simple": 469681.110384934,
+        "get-simple-1024c": 506462.36233112356,
+        "get-simple-128c": 501784.9723426394,
+        "post-4k": 357613.11886979436,
+        "post-64k": 31097.421222950004
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
@@ -491,23 +496,22 @@
         "ldflags=-s -w"
       ],
       "saturation_mode_rps": {
-        "chain-fullstack-get-json": 93425.6188938531,
-        "get-json": 163324.56988835815,
-        "get-json-1k": 92275.36737222136,
-        "get-json-64k": 35315.896090629074,
-        "get-simple": 436513.0418528815,
-        "get-simple-1024c": 481386.00928680814,
-        "get-simple-128c": 385082.4897972202,
-        "post-4k": 389007.7292160997,
-        "post-64k": 35471.46769529422
+        "chain-fullstack-get-json": 185610.447675316,
+        "get-json": 355189.456636079,
+        "get-json-1k": 201498.67546840565,
+        "get-json-64k": 34663.60537551616,
+        "get-simple": 291511.5633040136,
+        "get-simple-1024c": 212387.440831234,
+        "get-simple-128c": 407139.43735047913,
+        "post-4k": 399695.62749758136,
+        "post-64k": 35437.197895394645
       },
       "rated_mode_p99_at_target_rps": {},
       "latency_at_slo": {},
       "hdr_histogram_b64": {},
       "loadgen_cpu_p95": {},
       "sent_vs_handled_delta_pct": {
-        "get-json": 6.157112169053978,
-        "get-json-1k": 0.000054177006574108865
+        "get-simple-128c": 5.009922535218185
       }
     }
   ]

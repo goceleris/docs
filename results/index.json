@@ -1,10 +1,10 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-09T09:42:04.089Z",
+  "updated_at": "2026-06-09T11:55:08.165Z",
   "latest": {
     "version": "v1.4.15",
     "date": "20260609",
-    "run_id": "run-1"
+    "run_id": "run-2"
   },
   "arches": [
     "x86_64"
@@ -12,37 +12,37 @@
   "versions": [
     {
       "version": "v1.4.15",
-      "released_at": "2026-06-09T09:41:48.72308Z",
+      "released_at": "2026-06-09T11:54:52.316562Z",
       "latest_date": "20260609",
       "dates": [
         {
           "date": "20260609",
-          "generated_at": "2026-06-09T09:41:48.72308Z",
+          "generated_at": "2026-06-09T11:54:52.316562Z",
           "git_sha": "v1.4.15",
           "loadgen_version": "v1.4.7",
           "fabric": "3-host Tailscale overlay",
-          "default_run": "run-1",
+          "default_run": "run-2",
           "arches": [
             {
               "arch": "x86_64",
               "runs": [
                 {
-                  "run_id": "run-1",
+                  "run_id": "run-2",
                   "schema_version": "5.3",
                   "started_at": "0001-01-01T00:00:00Z",
-                  "finished_at": "2026-06-09T09:41:48.722014Z",
+                  "finished_at": "2026-06-09T11:54:52.315275Z",
                   "runs_count": 1,
                   "files": {
-                    "summary": "results/v1.4.15/20260609/x86_64/summary.json",
-                    "timeseries": "results/v1.4.15/20260609/x86_64/timeseries.json.gz",
-                    "histograms": "results/v1.4.15/20260609/x86_64/histograms.json.gz",
-                    "env": "results/v1.4.15/20260609/x86_64/env.json"
+                    "summary": "results/v1.4.15/20260609/x86_64/run-2/summary.json",
+                    "timeseries": "results/v1.4.15/20260609/x86_64/run-2/timeseries.json.gz",
+                    "histograms": "results/v1.4.15/20260609/x86_64/run-2/histograms.json.gz",
+                    "env": "results/v1.4.15/20260609/x86_64/run-2/env.json"
                   },
                   "bytes": {
-                    "summary": 15880,
-                    "timeseries": 223470,
+                    "summary": 16183,
+                    "timeseries": 231879,
                     "histograms": 132,
-                    "env": 717
+                    "env": 718
                   },
                   "headline": {
                     "adapters": 15,
@@ -63,67 +63,67 @@
                     "top_by_scenario": {
                       "auto-mix-111": {
                         "server": "celeris-iouring-auto+upg-async",
-                        "saturation_rps": 438252.8489943333
+                        "saturation_rps": 679479.6806357368
                       },
                       "chain-fullstack-get-json": {
-                        "server": "celeris-epoll-h1-sync",
-                        "saturation_rps": 449810.8748700684
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 499224.9266746645
                       },
                       "get-json": {
-                        "server": "actix-web",
-                        "saturation_rps": 706341.3709547907
+                        "server": "gnet-h1",
+                        "saturation_rps": 602117.8150316468
                       },
                       "get-json-1k": {
-                        "server": "actix-web",
-                        "saturation_rps": 643844.1314571294
+                        "server": "gnet-h1",
+                        "saturation_rps": 542551.1869814869
                       },
                       "get-json-64k": {
-                        "server": "actix-web",
-                        "saturation_rps": 35761.44986069204
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 35546.90541315419
                       },
                       "get-simple": {
-                        "server": "actix-web",
-                        "saturation_rps": 702009.8358132669
+                        "server": "gnet-h1",
+                        "saturation_rps": 661430.3646152767
                       },
                       "get-simple-1024c": {
-                        "server": "actix-web",
-                        "saturation_rps": 605208.3485800942
+                        "server": "gnet-h1",
+                        "saturation_rps": 650094.1834391186
                       },
                       "get-simple-128c": {
-                        "server": "actix-web",
-                        "saturation_rps": 587422.7552102705
+                        "server": "gnet-h1",
+                        "saturation_rps": 654018.9228296365
                       },
                       "post-4k": {
                         "server": "actix-web",
-                        "saturation_rps": 416259.25491722795
+                        "saturation_rps": 418385.30803633144
                       },
                       "post-64k": {
-                        "server": "celeris-iouring-h1-async",
-                        "saturation_rps": 35551.53531622203
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 35711.61305162186
                       },
                       "sse-fanout-128": {
-                        "server": "celeris-epoll-h1-sync",
-                        "saturation_rps": 63810.96845047614
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 63913.61039237717
                       },
                       "ws-echo": {
-                        "server": "celeris-iouring-h1-async",
-                        "saturation_rps": 474582.4656627239
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 538718.6107054956
                       }
                     },
                     "celeris": {
                       "saturation_rps": {
-                        "auto-mix-111": 438252.8489943333,
-                        "chain-fullstack-get-json": 449810.8748700684,
-                        "get-json": 579778.481493014,
-                        "get-json-1k": 490247.82638036093,
-                        "get-json-64k": 35547.93744938517,
-                        "get-simple": 520023.93518463953,
-                        "get-simple-1024c": 541477.1898107819,
-                        "get-simple-128c": 506336.47426491184,
-                        "post-4k": 351468.79578834196,
-                        "post-64k": 35551.53531622203,
-                        "sse-fanout-128": 63810.96845047614,
-                        "ws-echo": 474582.4656627239
+                        "auto-mix-111": 679479.6806357368,
+                        "chain-fullstack-get-json": 432266.0688294455,
+                        "get-json": 569206.5882258649,
+                        "get-json-1k": 475670.3810563452,
+                        "get-json-64k": 35546.90541315419,
+                        "get-simple": 288588.6069615801,
+                        "get-simple-1024c": 489993.2416672619,
+                        "get-simple-128c": 381384.6254387006,
+                        "post-4k": 238130.67051336353,
+                        "post-64k": 35711.61305162186,
+                        "sse-fanout-128": 63913.61039237717,
+                        "ws-echo": 538718.6107054956
                       },
                       "latency_at_slo": {},
                       "p99_ns_at_target": {}
