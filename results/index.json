@@ -1,6 +1,6 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-09T11:55:08.165Z",
+  "updated_at": "2026-06-09T14:05:57.660Z",
   "latest": {
     "version": "v1.4.15",
     "date": "20260609",
@@ -124,6 +124,110 @@
                         "post-64k": 35711.61305162186,
                         "sse-fanout-128": 63913.61039237717,
                         "ws-echo": 538718.6107054956
+                      },
+                      "latency_at_slo": {},
+                      "p99_ns_at_target": {}
+                    }
+                  }
+                },
+                {
+                  "run_id": "run-3",
+                  "schema_version": "5.3",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-09T14:05:19.861315Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.4.15/20260609/x86_64/run-3/summary.json",
+                    "timeseries": "results/v1.4.15/20260609/x86_64/run-3/timeseries.json.gz",
+                    "histograms": "results/v1.4.15/20260609/x86_64/run-3/histograms.json.gz",
+                    "env": "results/v1.4.15/20260609/x86_64/run-3/env.json"
+                  },
+                  "bytes": {
+                    "summary": 15436,
+                    "timeseries": 224332,
+                    "histograms": 133,
+                    "env": 718
+                  },
+                  "headline": {
+                    "adapters": 15,
+                    "scenarios": [
+                      "auto-mix-111",
+                      "chain-fullstack-get-json",
+                      "get-json",
+                      "get-json-1k",
+                      "get-json-64k",
+                      "get-simple",
+                      "get-simple-1024c",
+                      "get-simple-128c",
+                      "post-4k",
+                      "post-64k",
+                      "sse-fanout-128",
+                      "ws-echo"
+                    ],
+                    "top_by_scenario": {
+                      "auto-mix-111": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 658433.3280608739
+                      },
+                      "chain-fullstack-get-json": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 458344.30443422566
+                      },
+                      "get-json": {
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 575076.0162040569
+                      },
+                      "get-json-1k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 590031.1799848935
+                      },
+                      "get-json-64k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 35576.50091919602
+                      },
+                      "get-simple": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 569631.9142551289
+                      },
+                      "get-simple-1024c": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 559379.4625322636
+                      },
+                      "get-simple-128c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 639650.0779842726
+                      },
+                      "post-4k": {
+                        "server": "actix-web",
+                        "saturation_rps": 420724.0462083358
+                      },
+                      "post-64k": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 35653.23311295109
+                      },
+                      "sse-fanout-128": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 63987.199548151584
+                      },
+                      "ws-echo": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 488218.6699192433
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "auto-mix-111": 658433.3280608739,
+                        "chain-fullstack-get-json": 441518.5427630265,
+                        "get-json": 575076.0162040569,
+                        "get-json-1k": 480165.48405527783,
+                        "get-json-64k": 35568.336610962135,
+                        "get-simple": 409702.032206005,
+                        "get-simple-1024c": 492909.3092285877,
+                        "get-simple-128c": 426567.25838321925,
+                        "post-4k": 226975.716705938,
+                        "post-64k": 35653.23311295109,
+                        "sse-fanout-128": 63987.199548151584,
+                        "ws-echo": 488218.6699192433
                       },
                       "latency_at_slo": {},
                       "p99_ns_at_target": {}
