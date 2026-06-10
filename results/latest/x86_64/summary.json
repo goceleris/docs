@@ -1,0 +1,1386 @@
+{
+  "schema_version": "5.3",
+  "host_arch_pair": "linux/amd64",
+  "environment": {
+    "kernel_sysctls_applied": [],
+    "loadgen_host": "msa2-client",
+    "fabric": "3-host Tailscale overlay"
+  },
+  "benchmark_config": {
+    "started_at": "0001-01-01T00:00:00Z",
+    "finished_at": "2026-06-10T16:53:20.791214Z",
+    "runs": 1,
+    "duration": 5000000000,
+    "warmup": 2000000000,
+    "git_ref": "v1.4.15",
+    "loadgen_version": "v1.4.7",
+    "celeris_version": "v1.4.15",
+    "scenarios_filter": "target=msa2-server"
+  },
+  "benchmarks": [
+    {
+      "name": "actix-web",
+      "category": "rust-actix",
+      "language": "rust",
+      "language_version": "",
+      "framework": "actix-web",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 125993.0797769095,
+        "get-json": 530720.0254450185,
+        "get-json-1c": 120498.36794973155,
+        "get-json-1k": 542763.9336247361
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 1313865727,
+        "get-json": 961535,
+        "get-json-1c": 1211105279,
+        "get-json-1k": 2302672895
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 94495,
+          "100": 94495,
+          "1000": 94495,
+          "50": 94495,
+          "500": 94495
+        },
+        "get-json": {
+          "10": 477648,
+          "100": 477648,
+          "1000": 477648,
+          "50": 477648,
+          "500": 477648
+        },
+        "get-json-1c": {
+          "1000": 60249
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 100.2563614744352
+      }
+    },
+    {
+      "name": "aspnet",
+      "category": "dotnet-aspnetcore",
+      "language": "csharp",
+      "language_version": "",
+      "framework": "aspnet",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [],
+      "saturation_mode_rps": {
+        "churn-close": 49135.3944745228,
+        "get-json": 425343.9406986234,
+        "get-json-1c": 467080.7664633562,
+        "get-json-1k": 416196.92779839557
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 776470527,
+        "get-json": 863502335,
+        "get-json-1c": 863502335,
+        "get-json-1k": 442111
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 36852,
+          "100": 36852,
+          "1000": 44222,
+          "50": 36852,
+          "500": 36852
+        },
+        "get-json": {
+          "1000": 382810
+        },
+        "get-json-1c": {
+          "1000": 420373
+        },
+        "get-json-1k": {
+          "10": 374577,
+          "100": 374577,
+          "1000": 374577,
+          "50": 374577,
+          "500": 374577
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 412.09043223681533
+      }
+    },
+    {
+      "name": "axum",
+      "category": "rust-tower",
+      "language": "rust",
+      "language_version": "",
+      "framework": "axum",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 81514.40153198548,
+        "get-json": 446913.54198635276,
+        "get-json-1c": 571545.3529058663,
+        "get-json-1k": 397008.8861834163
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 1425407,
+        "get-json": 784334847,
+        "get-json-1c": 4877975551,
+        "get-json-1k": 2789212159
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 73363,
+          "100": 73363,
+          "1000": 73363,
+          "50": 73363,
+          "500": 73363
+        },
+        "get-json": {
+          "1000": 402222
+        },
+        "get-json-1c": {
+          "1000": 285773
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 99.9732828730961
+      }
+    },
+    {
+      "name": "celeris-epoll-h1-sync",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "epoll-h1-sync",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 102442.11429908995,
+        "chain-api-get-json-1c": 221732.88520466417,
+        "chain-api-post-4k": 266978.4605602059,
+        "chain-auth-get-json": 484483.02551079297
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 854065151,
+        "chain-api-get-json-1c": 853540863,
+        "chain-api-post-4k": 912785407,
+        "chain-auth-get-json": 898629631
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 92198
+        },
+        "chain-api-get-json-1c": {
+          "1000": 199560
+        },
+        "chain-api-post-4k": {
+          "1000": 240281
+        },
+        "chain-auth-get-json": {
+          "1000": 363362
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "celeris-iouring-auto+upg-async",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "iouring-auto+upg-async",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "auto-mix-111": 692084.9928032458,
+        "chain-api-get-json": 520450.54545573564,
+        "chain-api-get-json-1c": 143735.3939813064
+      },
+      "rated_mode_p99_at_target_rps": {
+        "auto-mix-111": 10754195455,
+        "chain-api-get-json": 12599689215,
+        "chain-api-get-json-1c": 2145386495
+      },
+      "latency_at_slo": {
+        "auto-mix-111": {
+          "1000": 346042
+        },
+        "chain-api-get-json": {
+          "1000": 130113
+        },
+        "chain-api-get-json-1c": {
+          "1000": 35934
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "auto-mix-111": 0.00002889266548129691
+      }
+    },
+    {
+      "name": "celeris-iouring-h1-async",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "iouring-h1-async",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 538266.5591460317,
+        "chain-api-get-json-1c": 596056.3139714836,
+        "chain-api-post-4k": 446830.21826698416,
+        "chain-auth-get-json": 589146.4945373473
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 2915041279,
+        "chain-api-get-json-1c": 3068133375,
+        "chain-api-post-4k": 1305477119,
+        "chain-auth-get-json": 898629631
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 403700
+        },
+        "chain-api-get-json-1c": {
+          "1000": 447042
+        },
+        "chain-api-post-4k": {
+          "1000": 335123
+        },
+        "chain-auth-get-json": {
+          "1000": 530232
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "chain-api-get-json": 0.0000742437347568332
+      }
+    },
+    {
+      "name": "celeris-std-h1",
+      "category": "celeris",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "celeris",
+      "framework_version": "",
+      "engine": "std-h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 275916.3867702121,
+        "chain-api-get-json-1c": 285414.5451096681,
+        "chain-api-post-4k": 115743.9805576496,
+        "chain-auth-get-json": 276545.9268652457
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 2338324479,
+        "chain-api-get-json-1c": 3921674239,
+        "chain-api-post-4k": 954204159,
+        "chain-auth-get-json": 1052671
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 68979
+        },
+        "chain-api-post-4k": {
+          "1000": 104170
+        },
+        "chain-auth-get-json": {
+          "10": 248891,
+          "100": 248891,
+          "1000": 248891,
+          "50": 248891,
+          "500": 248891
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "chi-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "chi",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 290772.0055910802,
+        "chain-api-get-json-1c": 311717.02410767495,
+        "chain-api-post-4k": 268824.23877921817
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 3242196991,
+        "chain-api-get-json-1c": 2736783359,
+        "chain-api-post-4k": 3332374527
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 72693
+        },
+        "chain-api-post-4k": {
+          "1000": 201618
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "chi-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "chi",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 297735.79126324394,
+        "chain-api-get-json-1c": 310263.774104306,
+        "chain-api-post-4k": 268080.1980370332,
+        "chain-auth-get-json": 310879.73108958796
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 919601151,
+        "chain-api-get-json-1c": 1938817023,
+        "chain-api-post-4k": 920649727,
+        "chain-auth-get-json": 922222591
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 267962
+        },
+        "chain-api-get-json-1c": {
+          "1000": 77566
+        },
+        "chain-api-post-4k": {
+          "1000": 241272
+        },
+        "chain-auth-get-json": {
+          "1000": 279792
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "drogon",
+      "category": "cpp-drogon",
+      "language": "cpp",
+      "language_version": "",
+      "framework": "drogon",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [],
+      "saturation_mode_rps": {
+        "churn-close": 34.13133744917836,
+        "get-json": 701326.588926194,
+        "get-json-1c": 695361.509399075,
+        "get-json-1k": 626033.6722454618
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 2105343,
+        "get-json": 1172307967,
+        "get-json-1c": 819462143,
+        "get-json-1k": 888143871
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 31,
+          "100": 31,
+          "1000": 31,
+          "50": 31,
+          "500": 31
+        },
+        "get-json": {
+          "1000": 525995
+        },
+        "get-json-1c": {
+          "1000": 625825
+        },
+        "get-json-1k": {
+          "1000": 313017
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 14190919.883040935
+      }
+    },
+    {
+      "name": "echo-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "echo",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 310028.08535717754,
+        "chain-api-get-json-1c": 312630.8020292389,
+        "chain-api-post-4k": 293095.3633832941,
+        "chain-auth-get-json": 342644.18002012966
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 3592421375,
+        "chain-api-get-json-1c": 946339839,
+        "chain-api-post-4k": 2789212159,
+        "chain-auth-get-json": 999423
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 155014
+        },
+        "chain-api-get-json-1c": {
+          "1000": 281368
+        },
+        "chain-api-post-4k": {
+          "1000": 73274
+        },
+        "chain-auth-get-json": {
+          "10": 308380,
+          "100": 308380,
+          "1000": 308380,
+          "50": 308380,
+          "500": 308380
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "echo-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "echo",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 308216.8759308255,
+        "chain-api-get-json-1c": 321712.80143998365,
+        "chain-api-post-4k": 298173.92158582405,
+        "chain-auth-get-json": 347080.90511826443
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 2405433343,
+        "chain-api-get-json-1c": 4928307199,
+        "chain-api-post-4k": 2279604223,
+        "chain-auth-get-json": 816639
+      },
+      "latency_at_slo": {
+        "chain-api-get-json-1c": {
+          "1000": 160856
+        },
+        "chain-api-post-4k": {
+          "1000": 149087
+        },
+        "chain-auth-get-json": {
+          "10": 312373,
+          "100": 312373,
+          "1000": 312373,
+          "50": 312373,
+          "500": 312373
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "elysia",
+      "category": "bun-ts",
+      "language": "bun",
+      "language_version": "",
+      "framework": "elysia",
+      "framework_version": "",
+      "compile_options": [
+        "runtime=bun",
+        "entry=Bun.serve"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 52634.93057637627,
+        "get-json": 148455.11139572173,
+        "get-json-1c": 148929.04987753113,
+        "get-json-1k": 144116.13684127512
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 309503,
+        "get-json": 909639679,
+        "get-json-1c": 2950692863,
+        "get-json-1k": 922746879
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 47371,
+          "100": 47371,
+          "1000": 47371,
+          "50": 47371,
+          "500": 47371
+        },
+        "get-json": {
+          "1000": 133610
+        },
+        "get-json-1c": {
+          "1000": 111697
+        },
+        "get-json-1k": {
+          "1000": 129705
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 100.21035844471446
+      }
+    },
+    {
+      "name": "fastapi",
+      "category": "python-fastapi",
+      "language": "python",
+      "language_version": "",
+      "framework": "fastapi",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "runtime=uvicorn",
+        "loop=uvloop",
+        "http=httptools"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 78659.05780168367,
+        "get-json": 134130.15124946943,
+        "get-json-1c": 126559.60176615363
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 2434793471,
+        "get-json": 1431306239,
+        "get-json-1c": 1581252607
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "1000": 58994,
+          "500": 19665
+        },
+        "get-json": {
+          "1000": 100598
+        },
+        "get-json-1c": {
+          "1000": 94920
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 100.02286492419007
+      }
+    },
+    {
+      "name": "fasthttp-h1",
+      "category": "go-fasthttp",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "fasthttp",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 600560.6158457896,
+        "chain-api-get-json-1c": 598199.8174925542,
+        "chain-api-post-4k": 435397.05511817447,
+        "chain-auth-get-json": 592993.7149635617
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 944242687,
+        "chain-api-get-json-1c": 859308031,
+        "chain-api-post-4k": 1128267775,
+        "chain-auth-get-json": 978943
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 540505
+        },
+        "chain-api-get-json-1c": {
+          "1000": 538380
+        },
+        "chain-api-post-4k": {
+          "1000": 326548
+        },
+        "chain-auth-get-json": {
+          "10": 533694,
+          "100": 533694,
+          "1000": 533694,
+          "50": 533694,
+          "500": 533694
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "fiber-h1",
+      "category": "go-fasthttp",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "fiber",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 605961.7868231427,
+        "chain-api-get-json-1c": 607121.3543035507,
+        "chain-api-post-4k": 432242.6629942674,
+        "chain-auth-get-json": 598631.4739951891
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 910163967,
+        "chain-api-get-json-1c": 863502335,
+        "chain-api-post-4k": 920125439,
+        "chain-auth-get-json": 854589439
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 545366
+        },
+        "chain-api-get-json-1c": {
+          "1000": 546409
+        },
+        "chain-api-post-4k": {
+          "1000": 389018
+        },
+        "chain-auth-get-json": {
+          "1000": 538768
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "gin-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "gin",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 344399.66380977246,
+        "chain-api-get-json-1c": 358766.32018613804,
+        "chain-api-post-4k": 314827.2123674452,
+        "chain-auth-get-json": 365893.4221699588
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 1615855615,
+        "chain-api-get-json-1c": 2334130175,
+        "chain-api-post-4k": 2113929215,
+        "chain-auth-get-json": 919076863
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 258300
+        },
+        "chain-api-get-json-1c": {
+          "1000": 269075
+        },
+        "chain-api-post-4k": {
+          "1000": 78707
+        },
+        "chain-auth-get-json": {
+          "1000": 329304
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "gin-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "gin",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 353830.7013627419,
+        "chain-api-get-json-1c": 358393.0836346474,
+        "chain-api-post-4k": 311943.7465100335,
+        "chain-auth-get-json": 367857.7827418081
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 2059403263,
+        "chain-api-get-json-1c": 2506096639,
+        "chain-api-post-4k": 901251071,
+        "chain-auth-get-json": 1008127
+      },
+      "latency_at_slo": {
+        "chain-api-post-4k": {
+          "1000": 280749
+        },
+        "chain-auth-get-json": {
+          "10": 331072,
+          "100": 331072,
+          "1000": 331072,
+          "50": 331072,
+          "500": 331072
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "gnet-h1",
+      "category": "go-gnet",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "gnet",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 192741.62747999417,
+        "get-json": 724585.9016984837,
+        "get-json-1c": 719638.6775601361
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 3124756479,
+        "get-json": 904921087,
+        "get-json-1c": 820510719
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 144556,
+          "100": 144556,
+          "1000": 144556,
+          "50": 144556,
+          "500": 144556
+        },
+        "get-json": {
+          "1000": 652127
+        },
+        "get-json-1c": {
+          "1000": 647675
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 99.9984449770686
+      }
+    },
+    {
+      "name": "gorilla_ws",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "gorilla",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 82240.05772953539,
+        "get-json": 435204.03077642864,
+        "get-json-1c": 435745.254204419,
+        "get-json-1k": 426995.5990695272
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 654311423,
+        "get-json": 878182399,
+        "get-json-1c": 1402994687,
+        "get-json-1k": 922746879
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 20560,
+          "100": 20560,
+          "1000": 74016,
+          "50": 20560,
+          "500": 20560
+        },
+        "get-json": {
+          "1000": 391684
+        },
+        "get-json-1c": {
+          "1000": 108936
+        },
+        "get-json-1k": {
+          "1000": 384296
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 100.05515880633428
+      }
+    },
+    {
+      "name": "hertz-h1",
+      "category": "go-netpoll",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "hertz",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 451727.9978997008,
+        "chain-api-get-json-1c": 453948.0111724917,
+        "chain-api-post-4k": 207204.95114258662,
+        "chain-auth-get-json": 454148.5827690558
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 1606418431,
+        "chain-api-get-json-1c": 2390753279,
+        "chain-api-post-4k": 1864368127,
+        "chain-auth-get-json": 8089599
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 338796
+        },
+        "chain-api-get-json-1c": {
+          "1000": 113487
+        },
+        "chain-api-post-4k": {
+          "1000": 51801
+        },
+        "chain-auth-get-json": {
+          "10": 408734,
+          "100": 408734,
+          "1000": 408734,
+          "50": 408734,
+          "500": 408734
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "hertz-h2",
+      "category": "go-netpoll",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "hertz",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 454793.9534715812,
+        "chain-api-get-json-1c": 452819.20666438615,
+        "chain-api-post-4k": 207237.78170902617
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 897056767,
+        "chain-api-get-json-1c": 4181721087,
+        "chain-api-post-4k": 918552575
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 409315
+        },
+        "chain-api-post-4k": {
+          "1000": 186514
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "hono",
+      "category": "bun-ts",
+      "language": "bun",
+      "language_version": "",
+      "framework": "hono",
+      "framework_version": "",
+      "compile_options": [
+        "runtime=bun",
+        "entry=Bun.serve"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 47689.12374474523,
+        "get-json": 125198.06308221984,
+        "get-json-1c": 128319.11626180592,
+        "get-json-1k": 124737.3544524127
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 2564816895,
+        "get-json": 935329791,
+        "get-json-1c": 2315255807,
+        "get-json-1k": 831520767
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 35767,
+          "100": 35767,
+          "1000": 35767,
+          "50": 35767,
+          "500": 35767
+        },
+        "get-json": {
+          "10": 31300,
+          "100": 31300,
+          "1000": 112678,
+          "50": 31300,
+          "500": 31300
+        },
+        "get-json-1c": {
+          "1000": 32080
+        },
+        "get-json-1k": {
+          "1000": 112264
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 100.38135628734987
+      }
+    },
+    {
+      "name": "hyper",
+      "category": "rust-hyper",
+      "language": "rust",
+      "language_version": "",
+      "framework": "hyper",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 126765.6471710763,
+        "get-json": 633580.3288431655,
+        "get-json-1c": 623048.6703587772
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 742391807,
+        "get-json": 1331691519,
+        "get-json-1c": 904396799
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 31691,
+          "100": 31691,
+          "1000": 114089,
+          "50": 31691,
+          "500": 31691
+        },
+        "get-json": {
+          "1000": 475185
+        },
+        "get-json-1c": {
+          "1000": 560744
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 100.00252228279204
+      }
+    },
+    {
+      "name": "iris-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "iris",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 453352.5123408312,
+        "chain-api-get-json-1c": 454555.8782309883,
+        "chain-api-post-4k": 237125.80171877422,
+        "chain-auth-get-json": 451335.5157025937
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 908066815,
+        "chain-api-get-json-1c": 850919423,
+        "chain-api-post-4k": 916979711,
+        "chain-auth-get-json": 786431
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 408017
+        },
+        "chain-api-get-json-1c": {
+          "1000": 409100
+        },
+        "chain-api-post-4k": {
+          "1000": 213413
+        },
+        "chain-auth-get-json": {
+          "10": 406202,
+          "100": 406202,
+          "1000": 406202,
+          "50": 406202,
+          "500": 406202
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "iris-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "iris",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 453743.5357696626,
+        "chain-api-get-json-1c": 456748.67397091695,
+        "chain-api-post-4k": 235638.08948368498
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 1738539007,
+        "chain-api-get-json-1c": 3592421375,
+        "chain-api-post-4k": 4395630591
+      },
+      "latency_at_slo": {
+        "chain-api-get-json": {
+          "1000": 340308
+        },
+        "chain-api-get-json-1c": {
+          "1000": 342562
+        },
+        "chain-api-post-4k": {
+          "1000": 117819
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "ntex",
+      "category": "rust-ntex",
+      "language": "rust",
+      "language_version": "",
+      "framework": "ntex",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "profile=release-fat",
+        "RUSTFLAGS=-C target-cpu=native"
+      ],
+      "saturation_mode_rps": {
+        "churn-close": 577793.8251101116,
+        "get-json": 677696.9017026059,
+        "get-json-1c": 678623.7788821416
+      },
+      "rated_mode_p99_at_target_rps": {
+        "churn-close": 893386751,
+        "get-json": 2204106751,
+        "get-json-1c": 872939519
+      },
+      "latency_at_slo": {
+        "churn-close": {
+          "10": 433345,
+          "100": 433345,
+          "1000": 520014,
+          "50": 433345,
+          "500": 433345
+        },
+        "get-json": {
+          "1000": 508273
+        },
+        "get-json-1c": {
+          "1000": 610761
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {
+        "churn-close": 0.017011571672137224
+      }
+    },
+    {
+      "name": "stdhttp-h1",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "stdhttp",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 346367.22859129304,
+        "chain-api-get-json-1c": 363373.5987304988,
+        "chain-api-post-4k": 315436.4124238279,
+        "chain-auth-get-json": 377298.10783557274
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 3942645759,
+        "chain-api-get-json-1c": 1311768575,
+        "chain-api-post-4k": 720371711,
+        "chain-auth-get-json": 901775359
+      },
+      "latency_at_slo": {
+        "chain-api-post-4k": {
+          "1000": 283893
+        },
+        "chain-auth-get-json": {
+          "1000": 339568
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {}
+    },
+    {
+      "name": "stdhttp-h2",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "stdhttp",
+      "framework_version": "",
+      "engine": "h2c",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "get-json-64k-h2": 30745.601924063973,
+        "get-json-h2": 351258.35438016255
+      },
+      "rated_mode_p99_at_target_rps": {
+        "get-json-64k-h2": 1961885695,
+        "get-json-h2": 901775359
+      },
+      "latency_at_slo": {
+        "get-json-64k-h2": {
+          "1000": 23059
+        },
+        "get-json-h2": {
+          "1000": 316133
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {},
+      "cell_statuses": {
+        "chain-api-get-json": "not_applicable",
+        "chain-api-get-json-1c": "not_applicable",
+        "chain-api-post-4k": "not_applicable",
+        "chain-auth-get-json": "not_applicable",
+        "chain-auth-get-json-1c": "not_applicable",
+        "chain-auth-post-4k": "not_applicable",
+        "chain-fullstack-get-json": "not_applicable",
+        "chain-fullstack-get-json-1c": "not_applicable",
+        "chain-fullstack-post-4k": "not_applicable",
+        "chain-security-get-json": "not_applicable",
+        "chain-security-get-json-1c": "not_applicable",
+        "chain-security-post-4k": "not_applicable",
+        "churn-close": "not_applicable",
+        "driver-mc-get": "not_applicable",
+        "driver-pg-read": "not_applicable",
+        "driver-redis-get": "not_applicable",
+        "driver-session-rw": "not_applicable",
+        "get-json": "not_applicable",
+        "get-json-1c": "not_applicable",
+        "get-json-1k": "not_applicable",
+        "get-json-64k": "not_applicable"
+      }
+    },
+    {
+      "name": "stdhttp-hybrid",
+      "category": "go-net-http",
+      "language": "go",
+      "language_version": "go1.26.4",
+      "framework": "stdhttp",
+      "framework_version": "",
+      "engine": "hybrid",
+      "compile_options": [
+        "CGO_ENABLED=0",
+        "GOAMD64=v3",
+        "trimpath",
+        "ldflags=-s -w"
+      ],
+      "saturation_mode_rps": {
+        "chain-api-get-json": 346031.02180019236,
+        "chain-api-get-json-1c": 359778.45676110324,
+        "chain-api-post-4k": 312431.95700220205,
+        "chain-auth-get-json": 376385.9653132342
+      },
+      "rated_mode_p99_at_target_rps": {
+        "chain-api-get-json": 4525654015,
+        "chain-api-get-json-1c": 936902655,
+        "chain-api-post-4k": 922746879,
+        "chain-auth-get-json": 869269503
+      },
+      "latency_at_slo": {
+        "chain-api-get-json-1c": {
+          "1000": 323801
+        },
+        "chain-api-post-4k": {
+          "1000": 281189
+        },
+        "chain-auth-get-json": {
+          "1000": 282289
+        }
+      },
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {},
+      "cell_statuses": {
+        "auto-mix-111": "dnf"
+      }
+    },
+    {
+      "name": "zig_zap",
+      "category": "zig-stdhttp",
+      "language": "zig",
+      "language_version": "",
+      "framework": "zig_zap",
+      "framework_version": "",
+      "engine": "h1",
+      "compile_options": [],
+      "saturation_mode_rps": {},
+      "rated_mode_p99_at_target_rps": {},
+      "latency_at_slo": {},
+      "hdr_histogram_b64": {},
+      "loadgen_cpu_p95": {},
+      "sent_vs_handled_delta_pct": {},
+      "cell_statuses": {
+        "churn-close": "dnf"
+      }
+    }
+  ]
+}

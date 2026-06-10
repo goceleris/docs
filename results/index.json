@@ -1,7 +1,150 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-09T16:59:00.000Z",
-  "latest": null,
-  "arches": [],
-  "versions": []
+  "updated_at": "2026-06-10T16:53:41.595Z",
+  "latest": {
+    "version": "v1.4.15",
+    "date": "20260610",
+    "run_id": "run-1"
+  },
+  "arches": [
+    "x86_64"
+  ],
+  "versions": [
+    {
+      "version": "v1.4.15",
+      "released_at": "2026-06-10T16:53:20.792529Z",
+      "latest_date": "20260610",
+      "dates": [
+        {
+          "date": "20260610",
+          "generated_at": "2026-06-10T16:53:20.792529Z",
+          "git_sha": "v1.4.15",
+          "loadgen_version": "v1.4.7",
+          "fabric": "3-host Tailscale overlay",
+          "default_run": "run-1",
+          "arches": [
+            {
+              "arch": "x86_64",
+              "runs": [
+                {
+                  "run_id": "run-1",
+                  "schema_version": "5.3",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-10T16:53:20.791214Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.4.15/20260610/x86_64/summary.json",
+                    "timeseries": "results/v1.4.15/20260610/x86_64/timeseries.json.gz",
+                    "histograms": "results/v1.4.15/20260610/x86_64/histograms.json.gz",
+                    "env": "results/v1.4.15/20260610/x86_64/env.json"
+                  },
+                  "bytes": {
+                    "summary": 37008,
+                    "timeseries": 25586,
+                    "histograms": 133,
+                    "env": 716
+                  },
+                  "headline": {
+                    "adapters": 31,
+                    "scenarios": [
+                      "auto-mix-111",
+                      "chain-api-get-json",
+                      "chain-api-get-json-1c",
+                      "chain-api-post-4k",
+                      "chain-auth-get-json",
+                      "churn-close",
+                      "get-json",
+                      "get-json-1c",
+                      "get-json-1k",
+                      "get-json-64k-h2",
+                      "get-json-h2"
+                    ],
+                    "top_by_scenario": {
+                      "auto-mix-111": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 692084.9928032458
+                      },
+                      "chain-api-get-json": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 605961.7868231427
+                      },
+                      "chain-api-get-json-1c": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 607121.3543035507
+                      },
+                      "chain-api-post-4k": {
+                        "server": "celeris-iouring-h1-async",
+                        "saturation_rps": 446830.21826698416
+                      },
+                      "chain-auth-get-json": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 598631.4739951891
+                      },
+                      "churn-close": {
+                        "server": "ntex",
+                        "saturation_rps": 577793.8251101116
+                      },
+                      "get-json": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 724585.9016984837
+                      },
+                      "get-json-1c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 719638.6775601361
+                      },
+                      "get-json-1k": {
+                        "server": "drogon",
+                        "saturation_rps": 626033.6722454618
+                      },
+                      "get-json-64k-h2": {
+                        "server": "stdhttp-h2",
+                        "saturation_rps": 30745.601924063973
+                      },
+                      "get-json-h2": {
+                        "server": "stdhttp-h2",
+                        "saturation_rps": 351258.35438016255
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "auto-mix-111": 692084.9928032458,
+                        "chain-api-get-json": 538266.5591460317,
+                        "chain-api-get-json-1c": 596056.3139714836,
+                        "chain-api-post-4k": 446830.21826698416,
+                        "chain-auth-get-json": 589146.4945373473
+                      },
+                      "latency_at_slo": {
+                        "auto-mix-111": {
+                          "1000": 346042
+                        },
+                        "chain-api-get-json": {
+                          "1000": 403700
+                        },
+                        "chain-api-get-json-1c": {
+                          "1000": 447042
+                        },
+                        "chain-api-post-4k": {
+                          "1000": 335123
+                        },
+                        "chain-auth-get-json": {
+                          "1000": 530232
+                        }
+                      },
+                      "p99_ns_at_target": {
+                        "auto-mix-111": 10754195455,
+                        "chain-api-get-json": 2915041279,
+                        "chain-api-get-json-1c": 3068133375,
+                        "chain-api-post-4k": 1305477119,
+                        "chain-auth-get-json": 898629631
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
