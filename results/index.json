@@ -1,7 +1,7 @@
 {
-    "arches": [],
-    "latest": null,
-    "schema_version": "index/1",
-    "updated_at": "2026-06-10T18:56:00Z",
-    "versions": []
+  "schema_version": "index/1",
+  "updated_at": "2026-06-12T16:55:02.345Z",
+  "latest": null,
+  "arches": [],
+  "versions": []
 }
