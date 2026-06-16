@@ -1,7 +1,472 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-12T16:55:02.345Z",
-  "latest": null,
-  "arches": [],
-  "versions": []
+  "updated_at": "2026-06-16T17:51:19.668Z",
+  "latest": {
+    "version": "v1.5.0",
+    "date": "20260614",
+    "run_id": "run-1"
+  },
+  "arches": [
+    "x86_64"
+  ],
+  "versions": [
+    {
+      "version": "v1.5.0",
+      "released_at": "2026-06-16T17:51:02.986576Z",
+      "latest_date": "20260614",
+      "dates": [
+        {
+          "date": "20260614",
+          "generated_at": "2026-06-16T17:51:02.986576Z",
+          "git_sha": "dev",
+          "loadgen_version": "v1.4.8-0.20260612154542-b19424235b78",
+          "fabric": "3-host Tailscale overlay",
+          "default_run": "run-1",
+          "arches": [
+            {
+              "arch": "x86_64",
+              "runs": [
+                {
+                  "run_id": "run-1",
+                  "schema_version": "5.4",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-16T17:46:30.45307Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.5.0/20260614/x86_64/summary.json",
+                    "timeseries": "results/v1.5.0/20260614/x86_64/timeseries.json.gz",
+                    "histograms": "results/v1.5.0/20260614/x86_64/histograms.json.gz",
+                    "env": "results/v1.5.0/20260614/x86_64/env.json"
+                  },
+                  "bytes": {
+                    "summary": 129240,
+                    "timeseries": 1792256,
+                    "histograms": 133,
+                    "env": 766
+                  },
+                  "headline": {
+                    "adapters": 29,
+                    "scenarios": [
+                      "auto-mix-111",
+                      "chain-api-get-json",
+                      "chain-api-get-json-1c",
+                      "chain-api-post-4k",
+                      "chain-auth-get-json",
+                      "chain-auth-get-json-1c",
+                      "chain-auth-post-4k",
+                      "chain-fullstack-get-json",
+                      "chain-fullstack-get-json-1c",
+                      "chain-fullstack-post-4k",
+                      "chain-security-get-json",
+                      "chain-security-get-json-1c",
+                      "chain-security-post-4k",
+                      "churn-close",
+                      "driver-mc-get",
+                      "driver-pg-read",
+                      "driver-redis-get",
+                      "driver-session-rw",
+                      "get-json",
+                      "get-json-1c",
+                      "get-json-1k",
+                      "get-json-64k",
+                      "get-json-64k-h2",
+                      "get-json-h2",
+                      "get-simple",
+                      "get-simple-1024c",
+                      "get-simple-128c",
+                      "post-1m",
+                      "post-4k",
+                      "post-4k-h2",
+                      "post-64k",
+                      "post-64k-h2",
+                      "sse-fanout-1024",
+                      "sse-fanout-128",
+                      "ws-echo",
+                      "ws-hub-broadcast-1024",
+                      "ws-hub-broadcast-128",
+                      "ws-large-echo"
+                    ],
+                    "top_by_scenario": {
+                      "auto-mix-111": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 724368.5366024728
+                      },
+                      "chain-api-get-json": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 867168.9870229443
+                      },
+                      "chain-api-get-json-1c": {
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 18889.68250373639
+                      },
+                      "chain-api-post-4k": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 542671.8155799676
+                      },
+                      "chain-auth-get-json": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 857718.8184011469
+                      },
+                      "chain-auth-get-json-1c": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 18276.427285577833
+                      },
+                      "chain-auth-post-4k": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 539566.3521888494
+                      },
+                      "chain-fullstack-get-json": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 815771.312826174
+                      },
+                      "chain-fullstack-get-json-1c": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 17325.458608222354
+                      },
+                      "chain-fullstack-post-4k": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 541488.8524311316
+                      },
+                      "chain-security-get-json": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 828856.9747035293
+                      },
+                      "chain-security-get-json-1c": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 17920.93068409147
+                      },
+                      "chain-security-post-4k": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 541041.7844111547
+                      },
+                      "churn-close": {
+                        "server": "ntex",
+                        "saturation_rps": 471980.49237156817
+                      },
+                      "driver-mc-get": {
+                        "server": "celeris-iouring-h1-async",
+                        "saturation_rps": 109217.8705356889
+                      },
+                      "driver-pg-read": {
+                        "server": "celeris-iouring-h1-async",
+                        "saturation_rps": 80681.2045778054
+                      },
+                      "driver-redis-get": {
+                        "server": "hertz-h1",
+                        "saturation_rps": 74529.06566409636
+                      },
+                      "driver-session-rw": {
+                        "server": "iris-h2",
+                        "saturation_rps": 122917.78922458798
+                      },
+                      "get-json": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1019392.8410094816
+                      },
+                      "get-json-1c": {
+                        "server": "elysia",
+                        "saturation_rps": 19458.135004075266
+                      },
+                      "get-json-1k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 960686.1491907762
+                      },
+                      "get-json-64k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 35761.15975093514
+                      },
+                      "get-json-64k-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 35719.977912260416
+                      },
+                      "get-json-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 578453.258331086
+                      },
+                      "get-simple": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1010575.4038133867
+                      },
+                      "get-simple-1024c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1272012.3275342097
+                      },
+                      "get-simple-128c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1016201.4378770533
+                      },
+                      "post-1m": {
+                        "server": "echo-h2",
+                        "saturation_rps": 2237.144744065762
+                      },
+                      "post-4k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 558622.9826317431
+                      },
+                      "post-4k-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 446582.3015136422
+                      },
+                      "post-64k": {
+                        "server": "axum",
+                        "saturation_rps": 35766.63565159184
+                      },
+                      "post-64k-h2": {
+                        "server": "echo-h2",
+                        "saturation_rps": 35729.90967893401
+                      },
+                      "sse-fanout-1024": {
+                        "server": "gorilla_ws",
+                        "saturation_rps": 994360.7386614194
+                      },
+                      "sse-fanout-128": {
+                        "server": "gorilla_ws",
+                        "saturation_rps": 118620.44721848702
+                      },
+                      "ws-echo": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 846393.6494102795
+                      },
+                      "ws-hub-broadcast-1024": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 963647.6384662102
+                      },
+                      "ws-hub-broadcast-128": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 127358.80661711308
+                      },
+                      "ws-large-echo": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 32789.34837805393
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "auto-mix-111": 724368.5366024728,
+                        "chain-api-get-json": 840331.0877936938,
+                        "chain-api-get-json-1c": 18889.68250373639,
+                        "chain-api-post-4k": 533297.7012287376,
+                        "chain-auth-get-json": 743543.9665505254,
+                        "chain-auth-get-json-1c": 17946.82347560859,
+                        "chain-auth-post-4k": 529411.2807995317,
+                        "chain-fullstack-get-json": 657272.7234817382,
+                        "chain-fullstack-get-json-1c": 17217.85776775741,
+                        "chain-fullstack-post-4k": 495584.3092358921,
+                        "chain-security-get-json": 743215.0413003283,
+                        "chain-security-get-json-1c": 17633.397990125963,
+                        "chain-security-post-4k": 533478.5377040956,
+                        "churn-close": 103969.91146421032,
+                        "driver-mc-get": 109217.8705356889,
+                        "driver-pg-read": 80681.2045778054,
+                        "driver-redis-get": 74112.50402252763,
+                        "driver-session-rw": 84295.57814084804,
+                        "get-json": 882640.5249285671,
+                        "get-json-1c": 19002.580763811206,
+                        "get-json-1k": 852796.8381380765,
+                        "get-json-64k": 35750.356925713095,
+                        "get-json-64k-h2": 35719.977912260416,
+                        "get-json-h2": 578453.258331086,
+                        "get-simple": 901149.5422918593,
+                        "get-simple-1024c": 982145.0771242222,
+                        "get-simple-128c": 940414.3226443445,
+                        "post-1m": 2237.067915214483,
+                        "post-4k": 547975.3339515849,
+                        "post-4k-h2": 446582.3015136422,
+                        "post-64k": 35763.198137429994,
+                        "post-64k-h2": 35644.60693199545,
+                        "sse-fanout-1024": 992318.535904902,
+                        "sse-fanout-128": 117908.93823266494,
+                        "ws-echo": 846393.6494102795,
+                        "ws-hub-broadcast-1024": 963647.6384662102,
+                        "ws-hub-broadcast-128": 127358.80661711308,
+                        "ws-large-echo": 32789.34837805393
+                      },
+                      "latency_at_slo": {
+                        "chain-api-get-json": {
+                          "500": 420166,
+                          "1000": 420166
+                        },
+                        "chain-api-get-json-1c": {
+                          "10": 17001,
+                          "50": 17001,
+                          "100": 17001,
+                          "500": 17001,
+                          "1000": 17001
+                        },
+                        "chain-api-post-4k": {
+                          "1000": 479968
+                        },
+                        "chain-auth-get-json": {
+                          "1000": 669190
+                        },
+                        "chain-auth-get-json-1c": {
+                          "10": 16152,
+                          "50": 16152,
+                          "100": 16152,
+                          "500": 16152,
+                          "1000": 16152
+                        },
+                        "chain-auth-post-4k": {
+                          "1000": 397058
+                        },
+                        "chain-fullstack-get-json": {
+                          "1000": 591545
+                        },
+                        "chain-fullstack-get-json-1c": {
+                          "10": 15496,
+                          "50": 15496,
+                          "100": 15496,
+                          "500": 15496,
+                          "1000": 15496
+                        },
+                        "chain-fullstack-post-4k": {
+                          "1000": 371688
+                        },
+                        "chain-security-get-json": {
+                          "1000": 557411
+                        },
+                        "chain-security-get-json-1c": {
+                          "10": 15870,
+                          "50": 15870,
+                          "100": 15870,
+                          "500": 15870,
+                          "1000": 15870
+                        },
+                        "chain-security-post-4k": {
+                          "1000": 480131
+                        },
+                        "driver-mc-get": {
+                          "1000": 98296
+                        },
+                        "driver-pg-read": {
+                          "1000": 72613
+                        },
+                        "driver-redis-get": {
+                          "1000": 55584
+                        },
+                        "driver-session-rw": {
+                          "1000": 75866
+                        },
+                        "get-json": {
+                          "10": 794376,
+                          "50": 794376,
+                          "100": 794376,
+                          "500": 794376,
+                          "1000": 794376
+                        },
+                        "get-json-1c": {
+                          "10": 14252,
+                          "50": 14252,
+                          "100": 14252,
+                          "500": 14252,
+                          "1000": 17102
+                        },
+                        "get-json-1k": {
+                          "1000": 639598
+                        },
+                        "get-json-64k": {
+                          "500": 8938,
+                          "1000": 32175
+                        },
+                        "get-json-64k-h2": {
+                          "1000": 32148
+                        },
+                        "get-json-h2": {
+                          "1000": 289227
+                        },
+                        "get-simple": {
+                          "1000": 811035
+                        },
+                        "get-simple-1024c": {
+                          "1000": 736609
+                        },
+                        "get-simple-128c": {
+                          "500": 846373,
+                          "1000": 846373
+                        },
+                        "post-1m": {
+                          "10": 2013,
+                          "50": 2013,
+                          "100": 2013,
+                          "500": 2013,
+                          "1000": 2013
+                        },
+                        "post-4k": {
+                          "1000": 493178
+                        },
+                        "post-4k-h2": {
+                          "1000": 334937
+                        },
+                        "post-64k": {
+                          "1000": 32187
+                        },
+                        "post-64k-h2": {
+                          "1000": 32080
+                        },
+                        "sse-fanout-128": {
+                          "1000": 106118
+                        },
+                        "ws-echo": {
+                          "1000": 761754
+                        },
+                        "ws-hub-broadcast-128": {
+                          "10": 95519,
+                          "50": 95519,
+                          "100": 95519,
+                          "500": 95519,
+                          "1000": 114623
+                        },
+                        "ws-large-echo": {
+                          "1000": 16395
+                        }
+                      },
+                      "p99_ns_at_target": {
+                        "auto-mix-111": 6039797759,
+                        "chain-api-get-json": 2262827007,
+                        "chain-api-get-json-1c": 1107967,
+                        "chain-api-post-4k": 842006527,
+                        "chain-auth-get-json": 826277887,
+                        "chain-auth-get-json-1c": 1110015,
+                        "chain-auth-post-4k": 3359637503,
+                        "chain-fullstack-get-json": 945815551,
+                        "chain-fullstack-get-json-1c": 1116159,
+                        "chain-fullstack-post-4k": 1142947839,
+                        "chain-security-get-json": 1432354815,
+                        "chain-security-get-json-1c": 1110015,
+                        "chain-security-post-4k": 844103679,
+                        "driver-mc-get": 934805503,
+                        "driver-pg-read": 903872511,
+                        "driver-redis-get": 1876951039,
+                        "driver-session-rw": 905969663,
+                        "get-json": 9797631,
+                        "get-json-1c": 610271231,
+                        "get-json-1k": 2891972607,
+                        "get-json-64k": 740294655,
+                        "get-json-64k-h2": 881852415,
+                        "get-json-h2": 5679087615,
+                        "get-simple": 653262847,
+                        "get-simple-1024c": 1773142015,
+                        "get-simple-128c": 307757055,
+                        "post-1m": 9592831,
+                        "post-4k": 899153919,
+                        "post-4k-h2": 1795162111,
+                        "post-64k": 676331519,
+                        "post-64k-h2": 582483967,
+                        "sse-fanout-1024": 17498636287,
+                        "sse-fanout-128": 899153919,
+                        "ws-echo": 750780415,
+                        "ws-hub-broadcast-1024": 1609564159,
+                        "ws-hub-broadcast-128": 871890943,
+                        "ws-large-echo": 4221566975
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
