@@ -1,15 +1,327 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-16T21:03:40.579Z",
+  "updated_at": "2026-06-21T13:20:26.435Z",
   "latest": {
-    "version": "v1.5.2",
-    "date": "20260614",
+    "version": "v1.5.3",
+    "date": "20260620",
     "run_id": "run-1"
   },
   "arches": [
     "x86_64"
   ],
   "versions": [
+    {
+      "version": "v1.5.3",
+      "released_at": "2026-06-21T13:20:04.009161Z",
+      "latest_date": "20260620",
+      "dates": [
+        {
+          "date": "20260620",
+          "generated_at": "2026-06-21T13:20:04.009161Z",
+          "git_sha": "dev",
+          "loadgen_version": "v1.4.9",
+          "fabric": "3-host LACP 20G",
+          "default_run": "run-1",
+          "arches": [
+            {
+              "arch": "x86_64",
+              "runs": [
+                {
+                  "run_id": "run-1",
+                  "schema_version": "5.5",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-21T07:29:01.513360483Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.5.3/20260620/x86_64/summary.json",
+                    "timeseries": "results/v1.5.3/20260620/x86_64/timeseries.json.gz",
+                    "histograms": "results/v1.5.3/20260620/x86_64/histograms.json.gz",
+                    "env": "results/v1.5.3/20260620/x86_64/env.json"
+                  },
+                  "bytes": {
+                    "summary": 10026026,
+                    "timeseries": 1645579,
+                    "histograms": 132,
+                    "env": 748
+                  },
+                  "headline": {
+                    "adapters": 50,
+                    "scenarios": [
+                      "chain-api-get-json",
+                      "chain-api-get-json-1c",
+                      "chain-api-post-4k",
+                      "chain-auth-get-json",
+                      "chain-auth-get-json-1c",
+                      "chain-auth-post-4k",
+                      "chain-fullstack-get-json",
+                      "chain-fullstack-get-json-1c",
+                      "chain-fullstack-post-4k",
+                      "chain-security-get-json",
+                      "chain-security-get-json-1c",
+                      "chain-security-post-4k",
+                      "churn-close",
+                      "driver-mc-get",
+                      "driver-pg-read",
+                      "driver-redis-get",
+                      "driver-session-rw",
+                      "get-json",
+                      "get-json-16k",
+                      "get-json-1c",
+                      "get-json-1k",
+                      "get-json-64k",
+                      "get-json-64k-h2",
+                      "get-json-8k",
+                      "get-json-h2",
+                      "get-simple",
+                      "get-simple-1024c",
+                      "get-simple-128c",
+                      "get-simple-256c",
+                      "get-simple-512c",
+                      "post-16k",
+                      "post-1m",
+                      "post-4k",
+                      "post-4k-h2",
+                      "post-64k",
+                      "post-64k-h2",
+                      "post-8k",
+                      "sse-fanout-1024",
+                      "sse-fanout-128",
+                      "ws-echo",
+                      "ws-hub-broadcast-1024",
+                      "ws-hub-broadcast-128",
+                      "ws-large-echo"
+                    ],
+                    "top_by_scenario": {
+                      "chain-api-get-json": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 883234.4436518458
+                      },
+                      "chain-api-get-json-1c": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 18748.76288066357
+                      },
+                      "chain-api-post-4k": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 552923.3690924683
+                      },
+                      "chain-auth-get-json": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 871464.3463646336
+                      },
+                      "chain-auth-get-json-1c": {
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 18588.987498795137
+                      },
+                      "chain-auth-post-4k": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 549126.0176526208
+                      },
+                      "chain-fullstack-get-json": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 820877.576236352
+                      },
+                      "chain-fullstack-get-json-1c": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 17414.739129018413
+                      },
+                      "chain-fullstack-post-4k": {
+                        "server": "celeris-iouring-h1-async",
+                        "saturation_rps": 537891.3269542371
+                      },
+                      "chain-security-get-json": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 837968.739826837
+                      },
+                      "chain-security-get-json-1c": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 17885.209948898148
+                      },
+                      "chain-security-post-4k": {
+                        "server": "celeris-iouring-h1-async",
+                        "saturation_rps": 545484.9191476133
+                      },
+                      "churn-close": {
+                        "server": "lithium",
+                        "saturation_rps": 475605.9302083803
+                      },
+                      "driver-mc-get": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 112691.01063341969
+                      },
+                      "driver-pg-read": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 82718.17879961216
+                      },
+                      "driver-redis-get": {
+                        "server": "hertz-h1",
+                        "saturation_rps": 74275.98126386091
+                      },
+                      "driver-session-rw": {
+                        "server": "iris-h2",
+                        "saturation_rps": 127240.3344891927
+                      },
+                      "get-json": {
+                        "server": "lithium",
+                        "saturation_rps": 1034599.7644817705
+                      },
+                      "get-json-16k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 141868.29383962278
+                      },
+                      "get-json-1c": {
+                        "server": "actix",
+                        "saturation_rps": 19538.6928096109
+                      },
+                      "get-json-1k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 976108.2462131457
+                      },
+                      "get-json-64k": {
+                        "server": "netty",
+                        "saturation_rps": 35763.039392334096
+                      },
+                      "get-json-64k-h2": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 35802.311799469
+                      },
+                      "get-json-8k": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 280852.10212080483
+                      },
+                      "get-json-h2": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 560193.6281696352
+                      },
+                      "get-simple": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1017608.7231984157
+                      },
+                      "get-simple-1024c": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 1385772.4134043735
+                      },
+                      "get-simple-128c": {
+                        "server": "lithium",
+                        "saturation_rps": 1022693.2877104863
+                      },
+                      "get-simple-256c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1215620.412299323
+                      },
+                      "get-simple-512c": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 1329254.1703683692
+                      },
+                      "post-16k": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 142307.4496895095
+                      },
+                      "post-1m": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 2237.732522266898
+                      },
+                      "post-4k": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 559256.8552979178
+                      },
+                      "post-4k-h2": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 519541.63715762476
+                      },
+                      "post-64k": {
+                        "server": "gin-h1",
+                        "saturation_rps": 35764.719990113575
+                      },
+                      "post-64k-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 35838.89889339028
+                      },
+                      "post-8k": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 283083.8648196102
+                      },
+                      "sse-fanout-1024": {
+                        "server": "gorilla_ws",
+                        "saturation_rps": 998794.6271412452
+                      },
+                      "sse-fanout-128": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 125432.74855428429
+                      },
+                      "ws-echo": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 852240.0493700659
+                      },
+                      "ws-hub-broadcast-1024": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 955907.9592140265
+                      },
+                      "ws-hub-broadcast-128": {
+                        "server": "celeris-adaptive-h1-async",
+                        "saturation_rps": 127290.50440445705
+                      },
+                      "ws-large-echo": {
+                        "server": "gorilla_ws",
+                        "saturation_rps": 32082.17833156219
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "chain-api-get-json": 883234.4436518458,
+                        "chain-api-get-json-1c": 18748.76288066357,
+                        "chain-api-post-4k": 552923.3690924683,
+                        "chain-auth-get-json": 871464.3463646336,
+                        "chain-auth-get-json-1c": 18588.987498795137,
+                        "chain-auth-post-4k": 549126.0176526208,
+                        "chain-fullstack-get-json": 774640.1577205086,
+                        "chain-fullstack-get-json-1c": 17346.26371243463,
+                        "chain-fullstack-post-4k": 537891.3269542371,
+                        "chain-security-get-json": 837968.739826837,
+                        "chain-security-get-json-1c": 17885.209948898148,
+                        "chain-security-post-4k": 545484.9191476133,
+                        "churn-close": 108662.91168226686,
+                        "driver-mc-get": 112691.01063341969,
+                        "driver-pg-read": 82718.17879961216,
+                        "driver-redis-get": 72856.93086034799,
+                        "driver-session-rw": 84580.75811540258,
+                        "get-json": 1003746.0308850722,
+                        "get-json-16k": 141572.90153985046,
+                        "get-json-1c": 18634.008236933983,
+                        "get-json-1k": 969210.6182845688,
+                        "get-json-64k": 35761.552365756485,
+                        "get-json-64k-h2": 35802.311799469,
+                        "get-json-8k": 279686.50127379823,
+                        "get-json-h2": 560193.6281696352,
+                        "get-simple": 1010813.7900931623,
+                        "get-simple-1024c": 1385772.4134043735,
+                        "get-simple-128c": 1010543.9310691479,
+                        "get-simple-256c": 1194079.5354618153,
+                        "get-simple-512c": 1329254.1703683692,
+                        "post-16k": 142307.4496895095,
+                        "post-1m": 2237.732522266898,
+                        "post-4k": 559256.8552979178,
+                        "post-4k-h2": 519541.63715762476,
+                        "post-64k": 35759.925433692166,
+                        "post-64k-h2": 35838.89889339028,
+                        "post-8k": 283083.8648196102,
+                        "sse-fanout-1024": 998673.9560581071,
+                        "sse-fanout-128": 125432.74855428429,
+                        "ws-echo": 852240.0493700659,
+                        "ws-hub-broadcast-1024": 955907.9592140265,
+                        "ws-hub-broadcast-128": 127290.50440445705,
+                        "ws-large-echo": 30819.05566364912
+                      },
+                      "latency_at_slo": {},
+                      "p99_ns_at_target": {}
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     {
       "version": "v1.5.2",
       "released_at": "2026-06-16T21:02:54.979427Z",
