@@ -1,153 +1,54 @@
 name: Sync Benchmarks
 
-# Single writer of results/index.json and results/latest/.
+# Trigger a Cloudflare Pages rebuild when probatorium publishes a benchmark run.
 #
 # The publisher (probatorium `mage Publish`) commits the four split files of a
-# benchmark cell directly to this repo, then fires a tiny pointer dispatch. This
-# workflow therefore does NOT ingest data — the data is already here — its job is
-# manifest + latest/ maintenance and validation of what was committed:
-#   validate -> update index.json -> refresh latest/ -> commit.
+# benchmark cell directly to this repo under results/<version>/<date>/<arch>/,
+# then fires a tiny pointer repository_dispatch. The static site reads the
+# results/ tree directly at BUILD time (it derives all dashboard assets itself),
+# so this workflow no longer maintains any derived index/latest mirror — its only
+# job is to kick the Pages build so a publish shows up on the dashboard promptly.
 #
-# Canonical event type (the only one this repo listens for) — must match the
-# producer's repository_dispatch event_type in probatorium mage_publish.go:
+# Cloudflare Pages' GitHub integration already rebuilds on every push to main,
+# so this dispatch path mainly covers the case where the publish commit lands via
+# the API without triggering the integration, and gives an explicit manual lever.
+#
+# Canonical event type (must match probatorium mage_publish.go's
+# repository_dispatch event_type):
 #   benchmark-published
-# client_payload pointer shape (<=1 KB):
-#   { version, arch, date, run_id, path, commit }
+# client_payload pointer shape (<=1 KB): { version, arch, date, run_id, path, commit }
 #
-# A manual workflow_dispatch re-runs the same maintenance over the whole tree
-# (no payload required), so the manifest can always be rebuilt from disk.
+# Required repo secret:
+#   CF_PAGES_DEPLOY_HOOK_URL — a Cloudflare Pages "Deploy hook" URL for this project.
 
 on:
   repository_dispatch:
     types: [benchmark-published]
   workflow_dispatch:
-    inputs:
-      path:
-        description: "Cell path to validate (e.g. results/v1.0.0/20260320/x86_64). Empty = just rebuild index/latest from disk."
-        required: false
-        default: ""
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: sync-benchmarks
   cancel-in-progress: false
 
 jobs:
-  sync:
-    name: Validate, index, refresh latest
+  trigger-build:
+    name: Trigger Cloudflare Pages build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Resolve payload
-        id: payload
+      - name: Ping Cloudflare Pages deploy hook
         env:
-          EVENT_NAME: ${{ github.event_name }}
+          HOOK: ${{ secrets.CF_PAGES_DEPLOY_HOOK_URL }}
           P_VERSION: ${{ github.event.client_payload.version }}
-          P_ARCH: ${{ github.event.client_payload.arch }}
           P_DATE: ${{ github.event.client_payload.date }}
-          P_RUN: ${{ github.event.client_payload.run_id }}
-          P_PATH: ${{ github.event.client_payload.path }}
-          P_COMMIT: ${{ github.event.client_payload.commit }}
-          I_PATH: ${{ github.event.inputs.path }}
+          P_ARCH: ${{ github.event.client_payload.arch }}
         run: |
           set -euo pipefail
-          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
-            {
-              echo "version=$P_VERSION"
-              echo "arch=$P_ARCH"
-              echo "date=$P_DATE"
-              echo "run_id=$P_RUN"
-              echo "path=$P_PATH"
-              echo "commit=$P_COMMIT"
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo "version="
-              echo "arch="
-              echo "date="
-              echo "run_id="
-              echo "path=$I_PATH"
-              echo "commit="
-            } >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Sync committed cell to working tree
-        if: steps.payload.outputs.commit != ''
-        env:
-          COMMIT: ${{ steps.payload.outputs.commit }}
-        run: |
-          set -euo pipefail
-          # Bring the working tree to origin/main so the local results/
-          # holds the FULL tree (every previously-published cell) and not
-          # just the one commit the publisher pushed. The old `git checkout
-          # $COMMIT -- results/` replaced the whole results/ with the
-          # single commit's delta, which made the index-sync see a
-          # truncated tree and emit a manifest that listed only the
-          # most-recent run-K (e.g. only run-2 when run-1 + run-2 +
-          # run-3 were on disk). Fetching + checking out the entire
-          # origin/main branch is what makes update-index.mjs's whole-
-          # tree walk authoritative.
-          git fetch origin "$COMMIT" || true
-          git fetch origin main
-          git checkout origin/main -- results/
-
-      - name: Validate published cell
-        if: steps.payload.outputs.path != ''
-        env:
-          V_PATH: ${{ steps.payload.outputs.path }}
-          V_VERSION: ${{ steps.payload.outputs.version }}
-          V_ARCH: ${{ steps.payload.outputs.arch }}
-          V_DATE: ${{ steps.payload.outputs.date }}
-          V_RUN: ${{ steps.payload.outputs.run_id }}
-        run: |
-          set -euo pipefail
-          args=(--path "$V_PATH")
-          [ -n "$V_VERSION" ] && args+=(--version "$V_VERSION")
-          [ -n "$V_ARCH" ] && args+=(--arch "$V_ARCH")
-          [ -n "$V_DATE" ] && args+=(--date "$V_DATE")
-          [ -n "$V_RUN" ] && args+=(--run "$V_RUN")
-          node scripts/validate-results.mjs "${args[@]}"
-
-      - name: Update index.json
-        run: node scripts/update-index.mjs
-
-      - name: Refresh latest/
-        run: node scripts/refresh-latest.mjs
-
-      - name: Commit manifest + latest
-        env:
-          V_PATH: ${{ steps.payload.outputs.path }}
-          V_VERSION: ${{ steps.payload.outputs.version }}
-          V_DATE: ${{ steps.payload.outputs.date }}
-          V_ARCH: ${{ steps.payload.outputs.arch }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add results/index.json
-          # latest/ only exists once a valid (semver-tagged) version has been
-          # indexed; a rebuild with no valid versions yet leaves it absent.
-          [ -e results/latest ] && git add results/latest || true
-          # Also stage the cell the publisher pushed (no-op if already committed).
-          if [ -n "$V_PATH" ]; then git add "$V_PATH" || true; fi
-          if git diff --cached --quiet; then
-            echo "no manifest/latest changes to commit"
+          if [ -z "${HOOK:-}" ]; then
+            echo "CF_PAGES_DEPLOY_HOOK_URL is not set; nothing to trigger." >&2
             exit 0
           fi
-          desc="${V_VERSION:-rebuild}/${V_DATE:-} ${V_ARCH:-}"
-          git commit -m "bench(index): sync ${desc} [skip ci]"
-          git push
-
-      # TODO: once the docs site build exists, trigger it here so a publish
-      # immediately rebuilds the dashboard.
+          echo "Triggering Pages rebuild for ${P_VERSION:-manual}/${P_DATE:-} ${P_ARCH:-}"
+          curl -fsS -X POST "$HOOK" -o /dev/null -w "deploy hook HTTP %{http_code}\n"
