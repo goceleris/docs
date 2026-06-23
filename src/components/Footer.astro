@@ -1,4 +1,5 @@
 ---
+import Logo from "./Logo.astro";
 const year = new Date().getFullYear();
 const cols = [
   {
@@ -23,7 +24,10 @@ const cols = [
 <footer class="site-footer">
   <div class="container grid">
     <div class="about">
-      <div class="f-brand">celeris</div>
+      <a href="/" class="f-brand" aria-label="Celeris home">
+        <Logo />
+        <span>celeris</span>
+      </a>
       <p class="muted">
         High-performance Go HTTP engine. <span class="latin">celeris</span> — Latin, <em>swift</em>.
       </p>
@@ -48,10 +52,19 @@ const cols = [
 
 <style>
   .site-footer {
+    position: relative;
     margin-top: var(--sp-9);
     border-top: 1px solid var(--border);
-    padding-block: var(--sp-7) var(--sp-5);
-    background: var(--surface-1);
+    padding-block: var(--sp-8) var(--sp-5);
+    background: linear-gradient(180deg, var(--surface-1), var(--canvas));
+  }
+  /* fading hairline accent riding the top edge */
+  .site-footer::before {
+    content: "";
+    position: absolute;
+    inset: -1px 0 auto 0;
+    height: 1px;
+    background: var(--hairline-fade);
   }
   .grid {
     display: grid;
@@ -59,10 +72,17 @@ const cols = [
     gap: var(--sp-6);
   }
   .f-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
     font-weight: var(--fw-bold);
     font-size: var(--fs-md);
     letter-spacing: -0.03em;
-    margin-bottom: var(--sp-2);
+    margin-bottom: var(--sp-3);
+  }
+  .about .muted {
+    max-width: 34ch;
+    line-height: var(--lh-snug);
   }
   .muted {
     color: var(--text-muted);
@@ -77,15 +97,17 @@ const cols = [
     gap: var(--sp-2);
   }
   .col h4 {
-    font-size: var(--fs-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--fs-3xs);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--tracking-eyebrow);
     color: var(--text-faint);
-    margin-bottom: var(--sp-1);
+    margin-bottom: var(--sp-2);
   }
   .col a {
     color: var(--text-muted);
     font-size: var(--fs-sm);
+    width: max-content;
     transition: color var(--dur-1);
   }
   .col a:hover {
