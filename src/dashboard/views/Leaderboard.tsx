@@ -2,7 +2,7 @@ import { payload, scenario, adapters, metric, slo, hovered } from "../state";
 import { Panel, CenterNote } from "../components/Panel";
 import { BarList, type BarItem } from "../components/BarList";
 import { METRICS, metricDef, metricValue, scenarioMetrics } from "../metrics";
-import { adapterName, isCeleris, scenarioName } from "../registry";
+import { adapterName, adapterColor, isCeleris, scenarioName } from "../registry";
 import { fmtRps, fmtNsAsMs, fmtBytes, fmtPct, fmtInt, fmtDelta } from "../format";
 
 export function Leaderboard() {
@@ -103,23 +103,63 @@ function DetailPanel({ server, scenario }: { server: string; scenario: string })
   if (m?.sent_vs_handled_delta_pct) rows.push({ k: "Error %", v: fmtPct(m.sent_vs_handled_delta_pct.mean, 3) });
   if (m?.connect_errors && m.connect_errors.mean > 0) rows.push({ k: "Connect errors", v: fmtInt(m.connect_errors.mean) });
 
+  const ts = p.timeseries?.[`${scenario}|${server}`];
+  const sparkValid = (ts?.rps?.mean ?? []).filter((v): v is number => v != null && Number.isFinite(v));
+
   return (
     <Panel title={adapterName(server)} sub={m ? `status: ${m.status}` : "no data"}>
+      {ts && sparkValid.length > 1 && (
+        <div class="spark-wrap">
+          <div class="spark-head">
+            <span>throughput · {ts.window_s ? `${Math.round(ts.window_s)}s run` : "over the run"}</span>
+            <span class="tnum">{ts.n_runs ? `${ts.n_runs} run${ts.n_runs === 1 ? "" : "s"}` : ""}</span>
+          </div>
+          <Sparkline data={ts.rps.mean} color={adapterColor(server)} />
+        </div>
+      )}
       {rows.length === 0 ? (
         <CenterNote>No measured metrics for this cell.</CenterNote>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div class="kv">
           {rows.map((r) => (
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", borderBottom: "1px solid var(--border)", paddingBottom: "8px" }}>
-              <span style={{ color: "var(--text-muted)" }}>{r.k}</span>
-              <span class="tnum" style={{ textAlign: "right" }}>
+            <div class="kv-row">
+              <span class="kv-k">{r.k}</span>
+              <span class="kv-v tnum">
                 {r.v}
-                {r.sub && <div class="panel-sub">{r.sub}</div>}
+                {r.sub && <span class="kv-sub">{r.sub}</span>}
               </span>
             </div>
           ))}
         </div>
       )}
     </Panel>
+  );
+}
+
+/** Tiny throughput-over-the-run sparkline (area + line), no deps. */
+function Sparkline({ data, color }: { data: (number | null)[]; color: string }) {
+  const W = 100;
+  const H = 30;
+  const valid = data
+    .map((v, i) => [i, v] as const)
+    .filter((e): e is [number, number] => e[1] != null && Number.isFinite(e[1] as number));
+  if (valid.length < 2) return null;
+  const ys = valid.map((e) => e[1]);
+  const min = Math.min(...ys);
+  const max = Math.max(...ys);
+  const range = max - min || 1;
+  const n = data.length - 1 || 1;
+  const pts = valid.map(([i, v]) => [(i / n) * W, H - ((v - min) / range) * (H - 3) - 1.5] as [number, number]);
+  const line = pts.map((p, k) => `${k ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join("");
+  const area = `${line}L${pts[pts.length - 1][0].toFixed(1)},${H}L${pts[0][0].toFixed(1)},${H}Z`;
+  return (
+    <svg class="spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <path d={area} style={{ fill: `color-mix(in oklch, ${color} 16%, transparent)`, stroke: "none" }} />
+      <path
+        d={line}
+        vector-effect="non-scaling-stroke"
+        style={{ fill: "none", stroke: color, strokeWidth: 1.6, strokeLinejoin: "round", strokeLinecap: "round" }}
+      />
+    </svg>
   );
 }

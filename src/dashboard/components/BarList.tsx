@@ -57,8 +57,10 @@ export function BarList({ items, max, fmt, crownTop = true }: Props) {
                   class="bar-fill"
                   style={{
                     width: `${pct}%`,
-                    background: cel ? color : `color-mix(in oklch, ${color} 78%, transparent)`,
-                    boxShadow: cel ? `0 0 10px ${color}66` : "none",
+                    background: cel
+                      ? "linear-gradient(90deg, var(--accent-dim), var(--accent-bright))"
+                      : `linear-gradient(90deg, color-mix(in oklch, ${color} 48%, transparent), ${color})`,
+                    boxShadow: cel ? "0 0 14px var(--accent-glow)" : "none",
                   }}
                 />
               </span>

@@ -1,3 +1,4 @@
+import { Fragment } from "preact";
 import { payload } from "../state";
 import { isCeleris, scenarioName } from "../registry";
 import { fmtRps } from "../format";
@@ -19,34 +20,25 @@ export function HeadlineStrip() {
     if (v.mean > peak.rps) peak = { scn, rps: v.mean };
   }
 
-  const Sep = () => <span class="hl-sep">·</span>;
+  const stats: { n: string; l: string; key?: boolean; title?: string }[] = [
+    { n: `${wins}/${scns.length}`, l: "scenarios won", key: true },
+  ];
+  if (peak.rps > 0) stats.push({ n: `${fmtRps(peak.rps)}`, l: "peak req/s", title: scenarioName(peak.scn) });
+  stats.push({ n: String(p.meta.adapters), l: "servers" });
+  stats.push({ n: String(p.meta.scenarios), l: "scenarios" });
+  stats.push({ n: String(p.meta.runs_included), l: p.meta.runs_included === 1 ? "run averaged" : "runs averaged" });
 
   return (
     <div class="headline scroll-thin">
-      <span class="lead">
-        Celeris is fastest in <span class="hl-num">{wins}</span>/<span class="hl-num">{scns.length}</span> scenarios
-      </span>
-      {peak.rps > 0 && (
-        <>
-          <Sep />
-          <span class="hl-chip">
-            peak <span class="hl-num">{fmtRps(peak.rps)}</span> rps
-            <span style={{ color: "var(--text-faint)" }}> ({scenarioName(peak.scn)})</span>
-          </span>
-        </>
-      )}
-      <Sep />
-      <span class="hl-chip">
-        avg of <span class="hl-num">{p.meta.runs_included}</span> run{p.meta.runs_included === 1 ? "" : "s"}
-      </span>
-      <Sep />
-      <span class="hl-chip">
-        <span class="hl-num">{p.meta.adapters}</span> adapters
-      </span>
-      <Sep />
-      <span class="hl-chip">
-        <span class="hl-num">{p.meta.scenarios}</span> scenarios
-      </span>
+      {stats.map((s, i) => (
+        <Fragment key={s.l}>
+          {i > 0 && <span class="hl-div" />}
+          <div class={`hstat${s.key ? " key" : ""}`} title={s.title}>
+            <span class="hn">{s.n}</span>
+            <span class="hl">{s.l}</span>
+          </div>
+        </Fragment>
+      ))}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import Header from "../../components/Header.astro";
 import Dashboard from "../../dashboard/Dashboard";
 
 const jsonLd = {
@@ -17,8 +18,9 @@ const jsonLd = {
   title="Benchmarks · Celeris"
   description="Browse Celeris benchmark results by version: throughput, latency-at-SLO, tail latency, memory and CPU versus competitor frameworks across languages, averaged across every cluster run."
   chrome={false}
-  bodyClass="dash-lock"
+  bodyClass="dash-page"
   jsonLd={jsonLd}
 >
+  <Header solid />
   <Dashboard client:only="preact" />
 </BaseLayout>

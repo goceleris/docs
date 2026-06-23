@@ -45,8 +45,10 @@ export default function Dashboard() {
 
   return (
     <div class="dash">
-      <Topbar />
-      <HeadlineStrip />
+      <div class="dtop">
+        <Topbar />
+        <HeadlineStrip />
+      </div>
       <div class="dash-body">
         <ControlRail />
         <main class="dash-main">
@@ -119,7 +121,7 @@ function ErrorState({ msg }: { msg: string }) {
 function NoData() {
   return (
     <div class="dash">
-      <Topbar />
+      <div class="dtop"><Topbar /></div>
       <div class="empty" style={{ gridRow: "2 / -1" }}>
         <div class="empty-card">
           <svg width="56" height="56" viewBox="0 0 32 32" fill="none" aria-hidden="true" style={{ margin: "0 auto 16px" }}>
