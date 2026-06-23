@@ -36,9 +36,8 @@ export const CATEGORY_META: Record<ScenarioCategory, CategoryMeta> = {
   concurrency: { display: "Concurrency", order: 2 },
   chain: { display: "Chain / Middleware", order: 3 },
   driver: { display: "Driver", order: 4 },
-  ws: { display: "WebSocket", order: 5 },
-  sse: { display: "SSE", order: 6 },
-  tls: { display: "TLS", order: 7 },
+  streaming: { display: "Streaming", order: 5 },
+  tls: { display: "TLS", order: 6 },
 };
 
 interface AdapterOverlay {
@@ -186,8 +185,7 @@ const CHAIN_PROFILES = ["api", "auth", "security", "fullstack"];
 export function scenarioCategory(id: string): ScenarioCategory {
   if (id.startsWith("chain-")) return "chain";
   if (id.startsWith("driver-")) return "driver";
-  if (id.startsWith("ws-")) return "ws";
-  if (id.startsWith("sse-")) return "sse";
+  if (id.startsWith("ws-") || id.startsWith("sse-")) return "streaming";
   if (id.startsWith("tls-")) return "tls";
   if (id.startsWith("auto-mix")) return "concurrency";
   if (/-\d+c$/.test(id)) return "concurrency"; // any -<N>c connection sweep

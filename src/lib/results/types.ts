@@ -300,8 +300,7 @@ export type ScenarioCategory =
   | "concurrency"
   | "chain"
   | "driver"
-  | "ws"
-  | "sse"
+  | "streaming"
   | "tls";
 
 export interface AdapterMeta {
