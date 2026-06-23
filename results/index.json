@@ -1,15 +1,243 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-21T13:20:26.435Z",
+  "updated_at": "2026-06-23T23:42:29.664Z",
   "latest": {
-    "version": "v1.5.3",
-    "date": "20260620",
+    "version": "v1.5.4",
+    "date": "20260623",
     "run_id": "run-1"
   },
   "arches": [
     "x86_64"
   ],
   "versions": [
+    {
+      "version": "v1.5.4",
+      "released_at": "2026-06-23T23:42:12.529581Z",
+      "latest_date": "20260623",
+      "dates": [
+        {
+          "date": "20260623",
+          "generated_at": "2026-06-23T23:42:12.529581Z",
+          "git_sha": "dev",
+          "loadgen_version": "v1.4.10",
+          "fabric": "3-host Tailscale overlay",
+          "default_run": "run-1",
+          "arches": [
+            {
+              "arch": "x86_64",
+              "runs": [
+                {
+                  "run_id": "run-1",
+                  "schema_version": "5.5",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-23T23:39:33.298808Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.5.4/20260623/x86_64/summary.json",
+                    "timeseries": "results/v1.5.4/20260623/x86_64/timeseries.json.gz",
+                    "histograms": "results/v1.5.4/20260623/x86_64/histograms.json.gz",
+                    "env": "results/v1.5.4/20260623/x86_64/env.json"
+                  },
+                  "bytes": {
+                    "summary": 6542861,
+                    "timeseries": 1013216,
+                    "histograms": 134,
+                    "env": 706
+                  },
+                  "headline": {
+                    "adapters": 51,
+                    "scenarios": [
+                      "churn-close",
+                      "driver-mc-get",
+                      "driver-mc-multiget",
+                      "driver-pg-read",
+                      "driver-pg-read-range",
+                      "driver-pg-update-tx",
+                      "driver-pg-write",
+                      "driver-redis-get",
+                      "driver-redis-pipeline",
+                      "driver-redis-set",
+                      "driver-session-rw",
+                      "get-json",
+                      "get-json-1c",
+                      "get-json-1k",
+                      "get-json-h2",
+                      "get-simple",
+                      "get-simple-1024c",
+                      "get-simple-128c",
+                      "get-simple-256c",
+                      "get-simple-512c",
+                      "post-1m",
+                      "post-4k",
+                      "post-4k-h2",
+                      "sse-fanout-1024",
+                      "sse-fanout-128",
+                      "ws-echo",
+                      "ws-hub-broadcast-1024",
+                      "ws-hub-broadcast-128",
+                      "ws-large-echo"
+                    ],
+                    "top_by_scenario": {
+                      "churn-close": {
+                        "server": "lithium",
+                        "saturation_rps": 466092.81399676355
+                      },
+                      "driver-mc-get": {
+                        "server": "celeris-epoll-auto+upg-async",
+                        "saturation_rps": 109878.43065943866
+                      },
+                      "driver-mc-multiget": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 107381.87547128876
+                      },
+                      "driver-pg-read": {
+                        "server": "celeris-adaptive-h1-async",
+                        "saturation_rps": 83074.17560492585
+                      },
+                      "driver-pg-read-range": {
+                        "server": "celeris-iouring-h1-async",
+                        "saturation_rps": 55158.33065092192
+                      },
+                      "driver-pg-update-tx": {
+                        "server": "celeris-adaptive-h1-async",
+                        "saturation_rps": 10315.715857163097
+                      },
+                      "driver-pg-write": {
+                        "server": "hertz-h2",
+                        "saturation_rps": 84864.21853585771
+                      },
+                      "driver-redis-get": {
+                        "server": "hertz-h1",
+                        "saturation_rps": 73999.99002124471
+                      },
+                      "driver-redis-pipeline": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 55566.587509972436
+                      },
+                      "driver-redis-set": {
+                        "server": "hertz-h2",
+                        "saturation_rps": 101708.8351272289
+                      },
+                      "driver-session-rw": {
+                        "server": "fiber-h1",
+                        "saturation_rps": 52233.49465827791
+                      },
+                      "get-json": {
+                        "server": "lithium",
+                        "saturation_rps": 1026104.4255545278
+                      },
+                      "get-json-1c": {
+                        "server": "hyper",
+                        "saturation_rps": 19138.426623026484
+                      },
+                      "get-json-1k": {
+                        "server": "lithium",
+                        "saturation_rps": 968180.1587470672
+                      },
+                      "get-json-h2": {
+                        "server": "aspnet-h2",
+                        "saturation_rps": 571950.7344335429
+                      },
+                      "get-simple": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1015332.3483914084
+                      },
+                      "get-simple-1024c": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 1380022.0182499185
+                      },
+                      "get-simple-128c": {
+                        "server": "lithium",
+                        "saturation_rps": 1018361.3583043313
+                      },
+                      "get-simple-256c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1203364.9558259181
+                      },
+                      "get-simple-512c": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 1329323.3961598016
+                      },
+                      "post-1m": {
+                        "server": "chi-h1",
+                        "saturation_rps": 2237.530264087866
+                      },
+                      "post-4k": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 559496.3973058155
+                      },
+                      "post-4k-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 525630.9800250006
+                      },
+                      "sse-fanout-1024": {
+                        "server": "axum",
+                        "saturation_rps": 1021821.1615446723
+                      },
+                      "sse-fanout-128": {
+                        "server": "axum",
+                        "saturation_rps": 127968.15243343286
+                      },
+                      "ws-echo": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 827530.1028142064
+                      },
+                      "ws-hub-broadcast-1024": {
+                        "server": "axum",
+                        "saturation_rps": 1021499.4589912271
+                      },
+                      "ws-hub-broadcast-128": {
+                        "server": "axum",
+                        "saturation_rps": 127961.93729808432
+                      },
+                      "ws-large-echo": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 34405.44630269538
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "churn-close": 112880.09857542657,
+                        "driver-mc-get": 109878.43065943866,
+                        "driver-mc-multiget": 96606.882098883,
+                        "driver-pg-read": 83074.17560492585,
+                        "driver-pg-read-range": 55158.33065092192,
+                        "driver-pg-update-tx": 10315.715857163097,
+                        "driver-pg-write": 78966.97796278767,
+                        "driver-redis-get": 71065.8909160711,
+                        "driver-redis-pipeline": 55566.587509972436,
+                        "driver-redis-set": 101503.74282197788,
+                        "driver-session-rw": 51907.150778765106,
+                        "get-json": 1020043.9269835345,
+                        "get-json-1c": 18775.384529568244,
+                        "get-json-1k": 962767.8473608643,
+                        "get-json-h2": 561757.3319736557,
+                        "get-simple": 1012079.1277302812,
+                        "get-simple-1024c": 1380022.0182499185,
+                        "get-simple-128c": 1000485.7944081385,
+                        "get-simple-256c": 1194924.5528714266,
+                        "get-simple-512c": 1329323.3961598016,
+                        "post-1m": 2237.2966978766144,
+                        "post-4k": 559496.3973058155,
+                        "post-4k-h2": 525630.9800250006,
+                        "sse-fanout-1024": 1001865.0477186125,
+                        "sse-fanout-128": 123973.53954225603,
+                        "ws-echo": 827530.1028142064,
+                        "ws-hub-broadcast-1024": 953110.4315452923,
+                        "ws-hub-broadcast-128": 126403.88868713287,
+                        "ws-large-echo": 34405.44630269538
+                      },
+                      "latency_at_slo": {},
+                      "p99_ns_at_target": {}
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     {
       "version": "v1.5.3",
       "released_at": "2026-06-21T13:20:04.009161Z",
