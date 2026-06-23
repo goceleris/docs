@@ -1,0 +1,38 @@
+{
+  "name": "celeris-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "scripts": {
+    "build:data": "bun scripts/build-data.ts",
+    "validate": "bun scripts/build-data.ts --validate-only",
+    "fixtures": "bun scripts/dev-fixtures.ts",
+    "demo:data": "bun scripts/dev-fixtures.ts && RESULTS_ROOT=.dev-results bun scripts/build-data.ts",
+    "demo": "bun run demo:data && astro dev",
+    "dev": "bun run build:data && astro dev",
+    "start": "bun run dev",
+    "build": "bun run build:data && astro build && pagefind --site dist",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "astro": "^5.6.0",
+    "@astrojs/mdx": "^4.2.0",
+    "@astrojs/preact": "^4.0.0",
+    "@astrojs/sitemap": "^3.3.0",
+    "preact": "^10.26.0",
+    "@preact/signals": "^2.0.0",
+    "uplot": "^1.6.32"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.9",
+    "bun-types": "^1.3.14",
+    "pagefind": "^1.3.0",
+    "sharp": "^0.34.0",
+    "typescript": "^5.8.0"
+  }
+}
