@@ -1,0 +1,29 @@
+---
+/** Celeris mark — three accelerating chevrons (motion / swiftness). */
+interface Props {
+  size?: number;
+}
+const { size = 26 } = Astro.props;
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 32 32"
+  fill="none"
+  aria-hidden="true"
+  class="celeris-logo"
+>
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="var(--surface-3)" stroke="var(--border-strong)"></rect>
+  <g stroke="var(--accent)" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M9 10 L15 16 L9 22" opacity="0.45"></path>
+    <path d="M14 10 L20 16 L14 22" opacity="0.72"></path>
+    <path d="M19 10 L25 16 L19 22" opacity="1"></path>
+  </g>
+</svg>
+
+<style>
+  .celeris-logo {
+    filter: drop-shadow(0 0 6px var(--accent-glow));
+  }
+</style>

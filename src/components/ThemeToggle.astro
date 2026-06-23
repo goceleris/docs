@@ -1,0 +1,55 @@
+---
+/** Dark/light toggle. Tiny inline handler; theme is applied pre-paint in BaseLayout. */
+---
+
+<button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme">
+  <svg class="i-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4"></circle>
+    <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"></path>
+  </svg>
+  <svg class="i-moon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path>
+  </svg>
+</button>
+
+<style>
+  .theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    transition: color var(--dur-1), background var(--dur-1);
+  }
+  .theme-toggle:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+  .theme-toggle .i-sun {
+    display: none;
+  }
+  .theme-toggle .i-moon {
+    display: block;
+  }
+  :global([data-theme="light"]) .theme-toggle .i-sun {
+    display: block;
+  }
+  :global([data-theme="light"]) .theme-toggle .i-moon {
+    display: none;
+  }
+</style>
+
+<script>
+  const btn = document.getElementById("theme-toggle");
+  btn?.addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme") || "dark";
+    const next = cur === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("celeris-theme", next);
+    } catch {}
+  });
+</script>

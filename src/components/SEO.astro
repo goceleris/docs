@@ -1,0 +1,54 @@
+---
+/**
+ * Per-page SEO: canonical, description, Open Graph / Twitter, optional JSON-LD.
+ * Renders only <meta>/<link>/<script type=ld+json> — no client JS.
+ */
+interface Props {
+  title: string;
+  description: string;
+  /** Absolute or site-relative OG image path. */
+  image?: string;
+  /** og:type — "website" | "article". */
+  type?: "website" | "article";
+  /** Structured-data object(s) serialized to JSON-LD. */
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  image = "/og/default.png",
+  type = "website",
+  jsonLd,
+  noindex = false,
+} = Astro.props;
+
+const site = Astro.site ?? new URL("https://goceleris.dev");
+const canonical = new URL(Astro.url.pathname, site).href.replace(/\/$/, "") || site.href;
+const ogImage = new URL(image, site).href;
+const blocks = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
+
+<meta property="og:type" content={type} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:site_name" content="Celeris" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+
+{
+  blocks.map((b) => (
+    <script type="application/ld+json" set:html={JSON.stringify(b)} />
+  ))
+}

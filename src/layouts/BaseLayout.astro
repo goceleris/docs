@@ -1,0 +1,116 @@
+---
+import "../styles/global.css";
+import SEO from "../components/SEO.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  image?: string;
+  type?: "website" | "article";
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  noindex?: boolean;
+  /** When false, omit the global header/footer (used by the full-screen dashboard). */
+  chrome?: boolean;
+  /** Extra class on <body> for page-specific layout (e.g. the dvh-locked dashboard). */
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description,
+  image,
+  type,
+  jsonLd,
+  noindex = false,
+  chrome = true,
+  bodyClass = "",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="generator" content={Astro.generator} />
+    <SEO title={title} description={description} image={image} type={type} jsonLd={jsonLd} noindex={noindex} />
+    {/* No-flash theme: apply stored preference before first paint. */}
+    <script is:inline>
+      (() => {
+        try {
+          const t = localStorage.getItem("celeris-theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.setAttribute("data-theme", t);
+          }
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body class={bodyClass}>
+    {chrome && <Header />}
+    <slot />
+    {chrome && <Footer />}
+
+    {/* Add a copy button (custom SVG) to every Shiki code block. */}
+    <script is:inline>
+      (function () {
+        var COPY =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        var DONE =
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
+        function init() {
+          document.querySelectorAll("pre.astro-code").forEach(function (pre) {
+            if (pre.dataset.copyReady) return;
+            pre.dataset.copyReady = "1";
+            var wrap = document.createElement("div");
+            wrap.className = "code-wrap";
+            pre.parentNode.insertBefore(wrap, pre);
+            wrap.appendChild(pre);
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "code-copy";
+            btn.setAttribute("aria-label", "Copy code");
+            btn.innerHTML = COPY;
+            function flash() {
+              btn.innerHTML = DONE;
+              btn.classList.add("done");
+              setTimeout(function () {
+                btn.innerHTML = COPY;
+                btn.classList.remove("done");
+              }, 1200);
+            }
+            function fallback(text) {
+              try {
+                var ta = document.createElement("textarea");
+                ta.value = text;
+                ta.style.position = "fixed";
+                ta.style.opacity = "0";
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                document.body.removeChild(ta);
+                flash();
+              } catch (e) {}
+            }
+            btn.addEventListener("click", function () {
+              var text = pre.innerText;
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(flash, function () {
+                  fallback(text);
+                });
+              } else {
+                fallback(text);
+              }
+            });
+            wrap.appendChild(btn);
+          });
+        }
+        if (document.readyState !== "loading") init();
+        else document.addEventListener("DOMContentLoaded", init);
+      })();
+    </script>
+  </body>
+</html>
