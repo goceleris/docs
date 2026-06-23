@@ -1,0 +1,116 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import "../styles/docs.css";
+import { heroStat } from "../lib/site";
+import manifest from "../data/generated/manifest.json";
+import type { Manifest } from "../lib/results/types";
+
+const m = manifest as Manifest;
+const stat = heroStat();
+const adapters = stat?.totalAdapters ?? 25;
+const arches = m.arches.length ? m.arches.join(" & ") : "x86_64 & arm64";
+---
+
+<BaseLayout
+  title="Methodology · Celeris benchmarks"
+  description="How Celeris benchmarks are run and averaged: the cluster, run shape, metrics, scenario families, aggregation, and how fairness and honesty are enforced."
+  type="article"
+>
+  <main class="container" style="padding-block: var(--sp-7) var(--sp-9);">
+    <article class="prose" style="margin-inline:auto;">
+      <h1>Benchmark methodology</h1>
+      <p class="lead">
+        Every number on the <a href="/benchmarks">dashboard</a> is produced by
+        <a href="https://github.com/goceleris/probatorium" target="_blank" rel="noopener">probatorium</a>'s
+        benchmark runs, and shown as the average of <strong>all runs</strong> for a release. Here's
+        exactly how it works — so you can reproduce it.
+      </p>
+
+      <blockquote>
+        <strong>Benchmarking vs validation.</strong> This page is about <em>benchmarking</em> —
+        the performance runs behind the dashboard, executed weekly and on demand. Probatorium also
+        runs a separate <em>validation</em> suite (nightly, plus a 24-hour weekend soak) that hammers
+        Celeris with realistic Markov-chain traffic, fuzzers and connection/WebSocket torture to prove
+        correctness and stability. That's about robustness, not the numbers here.
+      </blockquote>
+
+      <h2>The cluster</h2>
+      <p>
+        Benchmarks run on a dedicated three-host cluster: one load generator and two servers under
+        test, covering <strong>{arches}</strong>. The load generator and server are separate machines
+        connected over a high-bandwidth fabric (20G LACP LAN, or a Tailscale overlay), so the network
+        isn't the bottleneck. Kernel tunables applied for a run are recorded alongside its results.
+      </p>
+
+      <h2>Run shape</h2>
+      <p>
+        Each <em>cell</em> — one (server, scenario) pair — runs for a fixed measurement window after a
+        warm-up period, against a fixed connection count. Two modes are captured:
+      </p>
+      <ul>
+        <li><strong>Saturation</strong> — blast as hard as possible to find peak throughput.</li>
+        <li><strong>Rated</strong> — a closed-loop paced sweep that records tail latency at a target rate.</li>
+      </ul>
+      <p>
+        A release seeds several back-to-back runs (and we keep running new dates over time), so a
+        version accumulates many runs. The dashboard averages across all of them.
+      </p>
+
+      <h2>What we measure</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td>Saturation RPS</td><td>Peak requests/sec (higher is better)</td></tr>
+          <tr><td>RPS @ SLO</td><td>Max RPS sustained while p99 stays under 10 / 50 / 100 / 500 / 1000 ms</td></tr>
+          <tr><td>Rated p99</td><td>Tail latency at the rated rate (lower is better)</td></tr>
+          <tr><td>Peak / steady RSS</td><td>Resident memory under load</td></tr>
+          <tr><td>Mean CPU</td><td>Server CPU utilisation</td></tr>
+          <tr><td>GC pause p99</td><td>Garbage-collector pause (Go runtimes only)</td></tr>
+          <tr><td>Goroutine / FD high-water</td><td>Concurrency and file-descriptor peaks</td></tr>
+          <tr><td>Error %</td><td>Sent-vs-handled delta; connect errors are tracked separately</td></tr>
+        </tbody>
+      </table>
+      <p>
+        Each cell carries a status: <strong>ok</strong>, <strong>not&nbsp;applicable</strong> (the
+        framework can't serve that route/protocol), <strong>dnf</strong> (crash, timeout or dial
+        failure), or <strong>suspect</strong> (completed but exceeded its error budget).
+      </p>
+
+      <h2>Scenario families</h2>
+      <p>The matrix spans these families so no single workload tells the whole story:</p>
+      <ul>
+        <li><strong>Static</strong> — GET/POST of varying body sizes, plus connection churn and h2c.</li>
+        <li><strong>Concurrency</strong> — 1 / 128 / 1024 connections and a mixed-protocol blend.</li>
+        <li><strong>Chain</strong> — increasingly deep middleware stacks (api → auth → security → fullstack).</li>
+        <li><strong>Driver</strong> — Postgres, Redis, memcached and session read/write.</li>
+        <li><strong>Streaming</strong> — WebSocket echo & hub broadcast, SSE fan-out.</li>
+        <li><strong>TLS</strong> — HTTPS via a shared terminator.</li>
+      </ul>
+
+      <h2>How averaging works</h2>
+      <p>
+        For each (server, scenario) we take the <strong>arithmetic mean</strong> across every included
+        run, and also carry the <strong>min, max, standard deviation and run count</strong> so the
+        dashboard can show confidence (a “±X% over N runs” chip). Latency-at-SLO is averaged per SLO
+        bound independently; missing measurements are never imputed to zero.
+      </p>
+      <p>
+        Short pre-flight <em>smoke</em> runs (under 30&nbsp;seconds) are excluded from the averages by
+        default — they're warm-up-dominated and would bias the mean. The provenance of every run
+        (included or excluded, and why) is retained.
+      </p>
+
+      <h2>Fairness &amp; honesty</h2>
+      <ul>
+        <li>Every framework is built with <strong>its own release flags</strong> and runs on identical hardware.</li>
+        <li>A warm-up precedes each measurement so JITs, pools and caches are settled.</li>
+        <li>The load generator's own CPU (p95) is recorded — if it's the bottleneck, the cell is flagged, not reported as a server ceiling.</li>
+        <li>Losses are shown plainly; <strong>not-applicable</strong> and <strong>DNF</strong> cells are never rendered as a fake zero, and <strong>suspect</strong> cells are never crowned a winner.</li>
+      </ul>
+      <p>
+        {adapters} frameworks across Go, Rust, C++, C#, Python and TypeScript are included. Browse it
+        all on the <a href="/benchmarks">dashboard</a>.
+      </p>
+    </article>
+  </main>
+</BaseLayout>

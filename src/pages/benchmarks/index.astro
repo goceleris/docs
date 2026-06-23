@@ -1,0 +1,24 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Dashboard from "../../dashboard/Dashboard";
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: "Celeris HTTP engine benchmarks",
+  description:
+    "Throughput, latency-at-SLO, tail latency and resource usage for the Celeris Go HTTP engine versus competitor frameworks across languages, averaged over all cluster runs per release.",
+  creator: { "@type": "Organization", name: "Celeris", url: "https://github.com/goceleris" },
+  license: "https://www.apache.org/licenses/LICENSE-2.0",
+};
+---
+
+<BaseLayout
+  title="Benchmarks · Celeris"
+  description="Browse Celeris benchmark results by version: throughput, latency-at-SLO, tail latency, memory and CPU versus competitor frameworks across languages, averaged across every cluster run."
+  chrome={false}
+  bodyClass="dash-lock"
+  jsonLd={jsonLd}
+>
+  <Dashboard client:only="preact" />
+</BaseLayout>
