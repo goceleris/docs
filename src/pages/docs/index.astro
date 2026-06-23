@@ -67,7 +67,7 @@ const jsonLd = {
           <section class="hub-card">
             <div class="hub-card-head">
               <span class="hub-ico"><GroupIcon group={g.name} size={20} /></span>
-              <h2>{g.name}</h2>
+              <h2><a class="hub-card-go" href={`/docs/${g.pages[0].id}`}>{g.name}</a></h2>
             </div>
             <p class="hub-blurb">{BLURB[g.name]}</p>
             <ul class="hub-links">
@@ -93,15 +93,19 @@ const jsonLd = {
     margin-bottom: clamp(2rem, 5vw, 3.5rem);
   }
   .hub-eyebrow {
-    font-size: var(--fs-2xs);
+    font-family: var(--font-mono);
+    font-size: var(--eyebrow);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--accent);
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--text-faint);
     margin-bottom: var(--sp-3);
   }
   .hub-hero h1 {
-    font-size: clamp(2rem, 4.5vw, 3rem);
-    letter-spacing: -0.03em;
+    font-size: var(--h1);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-head);
+    line-height: 1.1;
+    font-optical-sizing: auto;
     margin-bottom: var(--sp-3);
   }
   .grad {
@@ -130,23 +134,42 @@ const jsonLd = {
     border-radius: var(--r-md);
     font-size: var(--fs-sm);
     font-weight: var(--fw-semibold);
-    transition: transform var(--dur-1), box-shadow var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+    transition: transform var(--dur-1), box-shadow var(--dur-1), border-color var(--dur-1), color var(--dur-1),
+      filter var(--dur-1);
   }
   .hbtn.primary {
-    background: var(--accent);
+    border: 0;
     color: var(--text-on-accent);
-    box-shadow: 0 8px 24px var(--accent-glow);
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.45),
+      inset 0 -1px 0 oklch(0 0 0 / 0.18),
+      0 1px 2px oklch(0 0 0 / 0.35),
+      0 4px 16px var(--accent-glow);
   }
   .hbtn.primary:hover {
     transform: translateY(-1px);
+    filter: brightness(1.05);
   }
   .hbtn.ghost {
-    border: 1px solid var(--border-strong);
     color: var(--text);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
   }
   .hbtn.ghost:hover {
     border-color: var(--accent);
     color: var(--accent-bright);
+  }
+  .hbtn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hbtn,
+    .hbtn.primary:hover {
+      transition: none;
+      transform: none;
+    }
   }
 
   .hub-grid {
@@ -155,18 +178,96 @@ const jsonLd = {
     gap: var(--sp-4);
   }
   .hub-card {
+    position: relative;
+    isolation: isolate;
     border: 1px solid var(--border);
     border-radius: var(--r-lg);
-    background: var(--surface-1);
+    background: linear-gradient(180deg, var(--surface-2), var(--surface-1) 64%);
+    box-shadow: var(--edge-highlight), var(--shadow-3);
     padding: var(--sp-5);
-    transition: border-color var(--dur-2), transform var(--dur-2), background var(--dur-2);
+    cursor: pointer;
+    user-select: none;
+    transition: transform var(--dur-2) var(--ease);
+  }
+  /* Whole-card link → first page of the chapter (stretched-link pattern).
+     Sits above the passive content but below the per-page links. */
+  .hub-card-go {
+    color: inherit;
+  }
+  .hub-card-go::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+  }
+  .hub-card:hover .hub-card-go {
+    color: var(--accent-bright);
+  }
+  @supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+    .hub-card {
+      border-color: transparent;
+    }
+    .hub-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      border-radius: inherit;
+      padding: 1px;
+      pointer-events: none;
+      background: linear-gradient(
+        180deg,
+        oklch(1 0 0 / 0.22) 0%,
+        oklch(1 0 0 / 0.07) 22%,
+        oklch(1 0 0 / 0.04) 60%,
+        oklch(1 0 0 / 0.02) 100%
+      );
+      -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      transition: background var(--dur-2) var(--ease);
+    }
+    .hub-card:hover::before {
+      background: linear-gradient(
+        180deg,
+        oklch(0.92 0.13 142 / 0.55) 0%,
+        oklch(1 0 0 / 0.1) 30%,
+        oklch(1 0 0 / 0.04) 100%
+      );
+    }
+  }
+  .hub-card::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: 0 12px 50px var(--accent-glow);
+    opacity: 0;
+    transition: opacity var(--dur-3) var(--ease);
   }
   .hub-card:hover {
-    border-color: var(--border-accent);
     transform: translateY(-2px);
-    background: var(--surface-2);
+  }
+  .hub-card:hover::after {
+    opacity: 0.6;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hub-card,
+    .hub-card::after,
+    .hub-card::before {
+      transition: none;
+    }
+    .hub-card:hover {
+      transform: none;
+    }
   }
   .hub-card-head {
+    position: relative;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: var(--sp-3);
@@ -184,16 +285,23 @@ const jsonLd = {
     flex: none;
   }
   .hub-card-head h2 {
-    font-size: var(--fs-md);
-    letter-spacing: -0.01em;
+    font-size: var(--h-card);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tracking-head);
+    line-height: 1.1;
+    font-optical-sizing: auto;
   }
   .hub-blurb {
+    position: relative;
+    z-index: 2;
     color: var(--text-muted);
     font-size: var(--fs-sm);
     line-height: var(--lh-snug);
     margin-bottom: var(--sp-4);
   }
   .hub-links {
+    position: relative;
+    z-index: 4;
     list-style: none;
     padding: 0;
     margin: 0;
