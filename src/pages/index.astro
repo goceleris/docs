@@ -1,9 +1,29 @@
 ---
-import { Code } from "astro:components";
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { heroStat, fmtRpsShort, SITE_URL } from "../lib/site";
+import CodeWindow from "../components/CodeWindow.astro";
+import { heroStat, heroBars, fmtRpsShort, fmtMs, SITE_URL } from "../lib/site";
 
 const stat = heroStat();
+const bench = heroBars();
+const maxRps = bench ? bench.bars[0].rps : 0;
+
+// Latency view (back of the flip card): same frameworks, p99 latency, lower is
+// better. Celeris is pinned first (it's at par with the fastest), then the rest
+// ascending. Bar length is proportional to latency (lower = shorter bar).
+const latRest = bench ? bench.bars.filter((b) => b.p99 != null && !b.isCeleris).sort((a, b) => (a.p99 as number) - (b.p99 as number)) : [];
+const celLat = bench?.bars.find((b) => b.isCeleris && b.p99 != null) ?? null;
+const latBars = celLat ? [celLat, ...latRest] : latRest;
+const maxP99 = latBars.length ? Math.max(...latBars.map((b) => b.p99 as number)) : 0;
+const celP99 = celLat?.p99 ?? null;
+const hasLatency = latBars.length >= 3;
+
+// Real anchors for the "net/http ceiling" chart (same scenario, get-simple-1024c).
+const celBar = bench?.bars.find((b) => b.isCeleris) ?? null;
+const netBar = bench?.bars.find((b) => /net\/http/i.test(b.name)) ?? null;
+const showCeiling = !!(celBar && netBar);
+const celLabel = celBar ? fmtRpsShort(celBar.rps) : "";
+const netLabel = netBar ? fmtRpsShort(netBar.rps) : "";
+const ratioLabel = celBar && netBar ? `+${Math.round((celBar.rps / netBar.rps - 1) * 100)}%` : "";
 
 const helloCode = `package main
 
@@ -50,12 +70,12 @@ const engines = [
 ];
 
 const features = [
-  { t: "Zero-allocation hot path", d: "Pooled contexts, pre-encoded HPACK, inline param & handler buffers. No interface boxing on the critical path." },
-  { t: "HTTP/1.1 + h2c", d: "RFC-9112 H1 and full HTTP/2 cleartext with stream multiplexing, flow control and a zero-alloc HEADERS fast path." },
-  { t: "SIMD parser", d: "SSE2 (amd64) and NEON (arm64) request parsing with a SWAR fallback — and smuggling / rapid-reset hardening built in." },
-  { t: "Batteries-included middleware", d: "Auth, CORS, CSRF, rate-limit, circuit-breaker, compress, cache, metrics, OTel, WebSocket, SSE — production-ready, in-tree." },
-  { t: "Familiar API", d: "Route groups, hierarchical middleware, named routes and error-returning handlers. The Gin/Echo model you already know." },
-  { t: "Graceful everything", d: "Zero-downtime restart via socket inheritance, draining shutdown, load-shedding overload control and connection hooks." },
+  { t: "Zero-allocation hot path", d: "Pooled contexts, pre-encoded HPACK, inline param & handler buffers. No interface boxing on the critical path.", icon: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>' },
+  { t: "HTTP/1.1 + h2c", d: "RFC-9112 H1 and full HTTP/2 cleartext with stream multiplexing, flow control and a zero-alloc HEADERS fast path.", icon: '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>' },
+  { t: "SIMD parser", d: "SSE2 (amd64) and NEON (arm64) request parsing with a SWAR fallback — and smuggling / rapid-reset hardening built in.", icon: '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/>' },
+  { t: "Batteries-included middleware", d: "Auth, CORS, CSRF, rate-limit, circuit-breaker, compress, cache, metrics, OTel, WebSocket, SSE — production-ready, in-tree.", icon: '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>' },
+  { t: "Familiar API", d: "Route groups, hierarchical middleware, named routes and error-returning handlers. The Gin/Echo model you already know.", icon: '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>' },
+  { t: "Graceful everything", d: "Zero-downtime restart via socket inheritance, draining shutdown, load-shedding overload control and connection hooks.", icon: '<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>' },
 ];
 
 const jsonLd = [
@@ -86,49 +106,106 @@ const jsonLd = [
   <!-- HERO -->
   <section class="hero">
     <div class="hero-glow" aria-hidden="true"></div>
-    <div class="streaks" aria-hidden="true"></div>
     <div class="container hero-inner">
-      <a class="pill" href="/benchmarks">
-        <span class="dot"></span>
-        {stat ? <>Fastest Go framework in <b>{stat.goWinRate}</b> scenarios</> : <>Continuously benchmarked across frameworks</>}
-        <svg class="arr" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-      </a>
+      <div class="hero-copy">
+        <a class="pill" href="/benchmarks">
+          <span class="dot"></span>
+          {stat ? <>Fastest Go framework in <b>{stat.goWinRate}</b> scenarios</> : <>Continuously benchmarked across frameworks</>}
+          <svg class="arr" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+        </a>
 
-      <h1>
-        High-performance<br />HTTP for <span class="grad">Go</span>.
-      </h1>
-      <p class="lede">
-        Celeris bypasses <code>net/http</code> with its own io_uring &amp; epoll event loop —
-        a zero-allocation engine built for <strong>best-in-class throughput</strong> that stays fast
-        and stays up under extreme, sustained load, with the routing and middleware API you already know.
-      </p>
+        <h1>
+          High-performance<br />HTTP for <span class="grad">Go</span>.
+        </h1>
+        <p class="lede">
+          Celeris bypasses <code>net/http</code> with its own io_uring &amp; epoll event loop —
+          a zero-allocation engine built for <strong>best-in-class throughput</strong> that stays fast
+          and stays up under extreme, sustained load, with the routing and middleware API you already know.
+        </p>
+        <p class="hero-rotate" aria-label="Built for extreme throughput, sustained load, zero-alloc latency, and net/http drop-in">
+          <span class="hr-pre">Built for</span>
+          <span class="rotate" data-rotate="extreme throughput|sustained load|zero-alloc latency|net/http drop-in">extreme throughput</span><span class="caret" aria-hidden="true"></span>
+        </p>
 
-      <p class="matrix-note">
-        <span class="mx">protocol × engine</span> — any protocol on any engine, extensible to both.
-      </p>
-
-      <div class="cta">
-        <a class="btn primary" href="/docs">Get started</a>
-        <a class="btn ghost" href="/benchmarks">See the benchmarks</a>
+        <div class="cta">
+          <a class="btn primary" href="/docs">Get started</a>
+          <a class="btn ghost" href="/benchmarks">See the benchmarks</a>
+        </div>
       </div>
 
+      {bench && (
+        <figure class="bench" aria-label={`Sustained requests per second: ${bench.bars.map((b) => `${b.name} ${b.rps.toLocaleString()}`).join(", ")}`}>
+          {hasLatency && (
+            <button type="button" class="bench-flip" data-bench-flip aria-pressed="false" aria-label="Flip to p99 latency">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6" /><path d="M3 12a9 9 0 0 1 15-6.7L21 8" /><path d="M3 22v-6h6" /><path d="M21 12a9 9 0 0 1-15 6.7L3 16" /></svg>
+            </button>
+          )}
+          <div class="bench-3d">
+            <div class="bench-face bench-front">
+              <figcaption class="bench-cap">
+                <span class="bench-kicker">sustained req/s</span>
+                <span class="bench-sub">across the frameworks you know</span>
+              </figcaption>
+              <div class="bench-bars">
+                {bench.bars.map((b) => (
+                  <div class:list={["bench-row", { win: b.isCeleris }]}>
+                    <span class="bench-name"><span class="bn">{b.name}</span>{b.lang && <span class="bl">{b.lang}</span>}</span>
+                    <span class="bench-track"><span class="bench-fill" style={`--w:${Math.max(2, Math.round((b.rps / maxRps) * 100))}%`}></span></span>
+                    <span class="bench-val">{fmtRpsShort(b.rps)}</span>
+                  </div>
+                ))}
+              </div>
+              {stat && (
+                <div class="bench-kpi">
+                  <span class="kpi-n" data-countup data-to={stat.peakRps}>{fmtRpsShort(stat.peakRps)}</span>
+                  <span class="kpi-l">peak req/s · {stat.version}</span>
+                </div>
+              )}
+            </div>
+            {hasLatency && (
+              <div class="bench-face bench-back">
+                <figcaption class="bench-cap">
+                  <span class="bench-kicker">p99 latency</span>
+                  <span class="bench-sub">lower is better · under full load</span>
+                </figcaption>
+                <div class="bench-bars">
+                  {latBars.map((b) => (
+                    <div class:list={["bench-row", { win: b.isCeleris }]}>
+                      <span class="bench-name"><span class="bn">{b.name}</span>{b.lang && <span class="bl">{b.lang}</span>}</span>
+                      <span class="bench-track"><span class="bench-fill" style={`--w:${Math.max(2, Math.round(((b.p99 as number) / maxP99) * 100))}%`}></span></span>
+                      <span class="bench-val">{fmtMs(b.p99 as number)}</span>
+                    </div>
+                  ))}
+                </div>
+                {celP99 != null && (
+                  <div class="bench-kpi">
+                    <span class="kpi-n">{fmtMs(celP99)}</span>
+                    <span class="kpi-l">Celeris p99 · {stat?.version}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </figure>
+      )}
+    </div>
+
+    <div class="container hero-foot">
       <div class="stats">
         {stat ? (
           <>
-            <div class="stat"><div class="n">{fmtRpsShort(stat.peakRps)}</div><div class="l">peak req/s</div></div>
-            <div class="stat" title="Scenarios where Celeris has the highest throughput of all full Go web frameworks (gin, echo, fiber, chi, iris, hertz)">
-              <div class="n">{stat.goWinRate}</div><div class="l">fastest Go framework</div>
-            </div>
+            <div class="stat"><div class="n">{stat.goWinRate}</div><div class="l">fastest Go framework</div></div>
             {stat.goMaxMarginPct != null && (
               <div
                 class="stat"
-                title={`Up to +${stat.goMaxMarginPct}% higher throughput than the next-fastest full Go framework (gin, echo, fiber, chi, iris, hertz) — on ${stat.goMaxMarginScenario}. Median lead across wins is +${stat.goWinMarginPct}%.`}
+                title={`Up to +${stat.goMaxMarginPct}% higher throughput than the next-fastest full Go framework — on ${stat.goMaxMarginScenario}. Median lead across wins is +${stat.goWinMarginPct}%.`}
               >
                 <div class="n"><span class="upto">up to</span>+{stat.goMaxMarginPct}%</div>
                 <div class="l">vs next framework</div>
               </div>
             )}
             <div class="stat"><div class="n">0</div><div class="l">hot-path allocs</div></div>
+            <div class="stat"><div class="n">{stat.totalAdapters}</div><div class="l">servers benchmarked</div></div>
           </>
         ) : (
           <>
@@ -143,44 +220,104 @@ const jsonLd = [
 
   <!-- QUICKSTART -->
   <section class="container band">
-    <div class="split">
+    <div class="split reveal">
       <div>
+        <span class="idx">quickstart</span>
         <h2>Hello, world — in the API you know.</h2>
         <p class="muted">
           A familiar Gin/Echo-style surface over an engine that does the hard part. Handlers
           return <code>error</code>; the rest is routing, groups and middleware.
         </p>
         <div class="install">
-          <span class="prompt">$</span> go get github.com/goceleris/celeris@latest
+          <span class="prompt">$</span>
+          <span class="install-cmd">go get github.com/goceleris/celeris@latest</span>
+          <button class="install-copy" type="button" aria-label="Copy install command">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+          </button>
         </div>
+        <ul class="ticks">
+          <li>One import, one <code>Config</code> — no codegen, no build tags</li>
+          <li>Runs the standard library's <code>http.Handler</code> too</li>
+          <li>Linux gets io_uring/epoll; everything else gets a clean fallback</li>
+        </ul>
       </div>
-      <div class="code-card">
-        <Code code={helloCode} lang="go" theme="github-dark-default" />
-      </div>
+      <CodeWindow code={helloCode} file="main.go" />
     </div>
   </section>
 
   <!-- PROBLEM -->
-  <section class="container band center">
+  <section class="container band center problem reveal">
     <h2>The <code>net/http</code> ceiling is real.</h2>
-    <p class="muted narrow">
+    <p class="muted statement">
       Go's standard server is excellent — until a flood of traffic hits a syscall and scheduler
       wall and throughput plateaus. Celeris replaces the I/O layer with a completion-driven event
       loop that pushes throughput far higher and holds it steady under sustained, extreme load —
       while your handler code stays untouched.
     </p>
+    {showCeiling && (
+      <figure
+        class="cf"
+        role="img"
+        aria-label={`net/http plateaus at ${netLabel} req/s; Celeris keeps climbing to ${celLabel} req/s — ${ratioLabel} more headroom. Illustrative shape, real measured peaks at 1024 connections.`}
+      >
+        <svg class="cv" viewBox="0 0 500 220" aria-hidden="true">
+          <defs>
+            <linearGradient id="cvs" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0" stop-color="var(--accent-dim)" />
+              <stop offset="1" stop-color="var(--accent-bright)" />
+            </linearGradient>
+            <linearGradient id="cva" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="var(--accent)" stop-opacity="0.2" />
+              <stop offset="1" stop-color="var(--accent)" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <g class="g">
+            <line x1="60" y1="40" x2="460" y2="40" />
+            <line x1="60" y1="110" x2="460" y2="110" />
+            <line x1="60" y1="180" x2="460" y2="180" />
+          </g>
+          <g class="y">
+            <text x="52" y="43">1.4M</text>
+            <text x="52" y="113">700k</text>
+            <text x="52" y="183">0</text>
+          </g>
+          <path class="ax" d="M60,34V180H464" />
+          <text class="xl" x="460" y="198" text-anchor="end">offered load →</text>
+          <path class="bd" d="M150,118C260,116 340,96 460,40L460,118Z" />
+          <line class="ce" x1="150" y1="118" x2="460" y2="118" />
+          <text class="cl" x="300" y="136" text-anchor="middle">net/http ceiling</text>
+          <path class="fl" d="M60,154C110,140 150,118 150,118 260,116 340,96 460,40L460,180 60,180Z" />
+          <path class="nt" d="M60,154C110,140 150,118 150,118 260,119 360,118 460,118" />
+          <path class="ln" d="M60,154C110,140 150,118 150,118 260,116 340,96 460,40" />
+          <text class="tn" x="348" y="108" text-anchor="middle">{ratioLabel}</text>
+          <circle class="dn" cx="460" cy="118" r="3.5" />
+          <text class="vn" x="454" y="132" text-anchor="end">{netLabel}</text>
+          <circle class="dc" cx="460" cy="40" r="4" />
+          <text class="vc" x="454" y="33" text-anchor="end">{celLabel}</text>
+        </svg>
+        <figcaption class="cf-legend">
+          <span><i class="sw rival"></i> net/http — plateaus</span>
+          <span><i class="sw cel"></i> Celeris — climbs past it</span>
+        </figcaption>
+      </figure>
+    )}
   </section>
 
   <!-- ENGINES -->
   <section class="container band">
-    <div class="sec-head">
+    <div class="sec-head reveal">
+      <span class="idx">01 · engines</span>
       <h2>Three engines. One port.</h2>
-      <p class="muted">Pick a path — or let Celeris pick for you, live.</p>
+      <p class="lede-sm">Pick a path — or let Celeris pick for you, live. Any protocol runs on any engine.</p>
     </div>
-    <div class="cards three">
+    <div class="cards engines reveal-stagger">
       {engines.map((e) => (
-        <article class="card engine">
-          <header><span class="chev" aria-hidden="true">›››</span><h3>{e.name}</h3><span class="tag">{e.tag}</span></header>
+        <article class:list={["card", "engine", { feature: e.tag === "default" }]}>
+          <header>
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6l5 6-5 6M12 6l5 6-5 6" /></svg>
+            <h3>{e.name}</h3>
+            <span class="tag">{e.tag}</span>
+          </header>
           <p>{e.body}</p>
         </article>
       ))}
@@ -189,12 +326,14 @@ const jsonLd = [
 
   <!-- FEATURES -->
   <section class="container band">
-    <div class="sec-head">
+    <div class="sec-head reveal">
+      <span class="idx">02 · what you get</span>
       <h2>Built for production, not just throughput.</h2>
     </div>
-    <div class="cards two">
+    <div class="cards features reveal-stagger">
       {features.map((f) => (
         <article class="card feat">
+          <span class="feat-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={f.icon} /></span>
           <h3>{f.t}</h3>
           <p>{f.d}</p>
         </article>
@@ -204,11 +343,10 @@ const jsonLd = [
 
   <!-- API EXAMPLE -->
   <section class="container band">
-    <div class="split reverse">
-      <div class="code-card">
-        <Code code={apiCode} lang="go" theme="github-dark-default" />
-      </div>
+    <div class="split reverse reveal">
+      <CodeWindow code={apiCode} file="routes.go" />
       <div>
+        <span class="idx">03 · ergonomics</span>
         <h2>Route, group, compose.</h2>
         <p class="muted">
           Hierarchical middleware, named routes, content negotiation and per-route async
@@ -225,9 +363,9 @@ const jsonLd = [
 
   <!-- VALIDATION / BENCHMARKS -->
   <section class="container band">
-    <div class="validate">
+    <div class="validate reveal">
       <div>
-        <span class="kicker">Benchmarked &amp; validated</span>
+        <span class="idx">04 · benchmarked &amp; validated</span>
         <h2>Numbers you can re-run.</h2>
         <p class="muted">
           <a href="https://github.com/goceleris/probatorium" target="_blank" rel="noopener">probatorium</a>
@@ -262,124 +400,389 @@ const jsonLd = [
       <a class="btn ghost" href="https://github.com/goceleris/celeris" target="_blank" rel="noopener">Star on GitHub</a>
     </div>
   </section>
+
+  {/* Count-up for the hero KPI — sub-1KB, reduced-motion aware, final value on reduce. */}
+  <script is:inline>
+    (function () {
+      var el = document.querySelector("[data-countup]");
+      if (!el) return;
+      function fmt(n) {
+        if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
+        if (n >= 1e3) return Math.round(n / 1e3) + "k";
+        return "" + Math.round(n);
+      }
+      var to = parseFloat(el.getAttribute("data-to") || "0");
+      if (!to || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return;
+      function run() {
+        var start = Math.round(to * 0.4), dur = 900, t0 = 0;
+        function step(ts) {
+          if (!t0) t0 = ts;
+          var p = Math.min(1, (ts - t0) / dur);
+          var eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = fmt(start + (to - start) * eased);
+          if (p < 1) requestAnimationFrame(step);
+          else el.textContent = fmt(to);
+        }
+        requestAnimationFrame(step);
+      }
+      if ("IntersectionObserver" in window) {
+        var io = new IntersectionObserver(function (es) {
+          es.forEach(function (e) { if (e.isIntersecting) { run(); io.disconnect(); } });
+        }, { threshold: 0.4 });
+        io.observe(el);
+      } else { run(); }
+    })();
+  </script>
+
+  {/* Install command copy — mirrors the code-block copy button. */}
+  <script is:inline>
+    (function () {
+      var btn = document.querySelector(".install-copy");
+      var cmd = document.querySelector(".install-cmd");
+      if (!btn || !cmd) return;
+      var COPY = btn.innerHTML;
+      var DONE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>';
+      function flash() {
+        btn.innerHTML = DONE; btn.classList.add("done");
+        setTimeout(function () { btn.innerHTML = COPY; btn.classList.remove("done"); }, 1200);
+      }
+      function fallback(text) {
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+          document.body.removeChild(ta); flash();
+        } catch (e) {}
+      }
+      btn.addEventListener("click", function () {
+        var text = cmd.textContent.trim();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(flash, function () { fallback(text); });
+        } else {
+          fallback(text);
+        }
+      });
+    })();
+  </script>
+
+  {/* Hero typed rotator — adds life without touching the static H1 (SEO/LCP safe).
+      Reduced-motion shows the first phrase, no caret. */}
+  <script is:inline>
+    (function () {
+      var el = document.querySelector("[data-rotate]");
+      if (!el) return;
+      var words = (el.getAttribute("data-rotate") || "").split("|").filter(Boolean);
+      if (words.length < 2) return;
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      el.classList.add("typing");
+      var i = 0, ch = 0, deleting = false;
+      function tick() {
+        var w = words[i];
+        ch += deleting ? -1 : 1;
+        el.textContent = w.slice(0, ch);
+        var delay = deleting ? 45 : 80;
+        if (!deleting && ch === w.length) { delay = 1500; deleting = true; }
+        else if (deleting && ch === 0) { deleting = false; i = (i + 1) % words.length; delay = 350; }
+        setTimeout(tick, delay);
+      }
+      setTimeout(tick, 1200);
+    })();
+  </script>
+
+  {/* Bench flip card: toggle throughput <-> p99 latency. */}
+  <script is:inline>
+    (function () {
+      var fig = document.querySelector(".bench");
+      var btn = document.querySelector("[data-bench-flip]");
+      if (!fig || !btn) return;
+      btn.addEventListener("click", function () {
+        var flipped = fig.classList.toggle("flipped");
+        btn.setAttribute("aria-pressed", String(flipped));
+        btn.setAttribute("aria-label", flipped ? "Flip to throughput" : "Flip to p99 latency");
+      });
+    })();
+  </script>
+
+  {/* Ceiling chart: draw in when scrolled into view (static final state without JS / reduced-motion). */}
+  <script is:inline>
+    (function () {
+      var cf = document.querySelector(".cf");
+      if (!cf) return;
+      cf.classList.add("anim");
+      if ("IntersectionObserver" in window) {
+        var io = new IntersectionObserver(function (es) {
+          es.forEach(function (e) { if (e.isIntersecting) { cf.classList.add("in"); io.disconnect(); } });
+        }, { threshold: 0.35 });
+        io.observe(cf);
+      } else { cf.classList.add("in"); }
+    })();
+  </script>
 </BaseLayout>
 
 <style>
   .muted { color: var(--text-muted); }
-  .narrow { max-width: 52ch; margin-inline: auto; }
-  code { color: var(--accent-bright); background: var(--accent-wash); padding: 0.1em 0.35em; border-radius: 4px; }
+  .statement { max-width: var(--measure-statement); margin-inline: auto; text-wrap: balance; }
+  /* net/http ceiling chart */
+  .cf { margin: var(--sp-7) auto 0; width: 100%; max-width: 560px; font-family: var(--font-mono); }
+  .cv { display: block; width: 100%; height: auto; overflow: visible; font-size: 11px; }
+  /* canvas-coloured halo so labels stay legible where they cross lines */
+  .cv text { paint-order: stroke; stroke: var(--canvas); stroke-width: 2.5px; stroke-linejoin: round; }
+  .cv .g line { stroke: var(--border); }
+  .cv .ax { fill: none; stroke: var(--border-strong); }
+  .cv .y text, .cv .xl, .cv .cl { fill: var(--text-faint); }
+  .cv .y text { text-anchor: end; }
+  .cv .bd { fill: var(--accent-wash); }
+  .cv .ce { stroke: var(--text-faint); stroke-width: 1.25; stroke-dasharray: 5 4; }
+  .cv .nt { fill: none; stroke: var(--text-faint); stroke-width: 2; }
+  .cv .fl { fill: url(#cva); }
+  .cv .ln { fill: none; stroke: url(#cvs); stroke-width: 2.5; stroke-linecap: round; filter: drop-shadow(0 0 4px var(--accent-glow)); }
+  .cv .tn { fill: var(--accent-bright); font-size: 13px; font-weight: 700; }
+  .cv .dn { fill: var(--surface-1); stroke: var(--text-faint); stroke-width: 1.75; }
+  .cv .dc { fill: var(--accent-bright); stroke: var(--surface-1); stroke-width: 1.5; }
+  .cv .vn { fill: var(--text-muted); font-weight: 600; }
+  .cv .vc { fill: var(--accent-bright); font-weight: 600; }
+  /* draw-in on scroll-into-view; static final state without JS or with reduced motion */
+  @media (prefers-reduced-motion: no-preference) {
+    .cf.anim .nt, .cf.anim .ln { stroke-dasharray: 520; stroke-dashoffset: 520; }
+    .cf.anim .fl, .cf.anim .bd, .cf.anim .tn, .cf.anim .dn, .cf.anim .vn, .cf.anim .dc, .cf.anim .vc { opacity: 0; }
+    .cf.anim.in .nt { animation: cf-draw 1.4s var(--ease-out) 0.1s forwards; }
+    .cf.anim.in .ln { animation: cf-draw 1.4s var(--ease-out) 0.35s forwards; }
+    .cf.anim.in .fl, .cf.anim.in .bd, .cf.anim.in .tn, .cf.anim.in .dn, .cf.anim.in .vn, .cf.anim.in .dc, .cf.anim.in .vc { animation: cf-fade 0.7s ease 1s forwards; }
+  }
+  @keyframes cf-draw { to { stroke-dashoffset: 0; } }
+  @keyframes cf-fade { to { opacity: 1; } }
+  .cf-legend { display: flex; justify-content: center; gap: var(--sp-5); margin-top: var(--sp-3); font-size: var(--fs-2xs); color: var(--text-muted); flex-wrap: wrap; }
+  .cf-legend .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .cf-legend .sw.rival { background: var(--text-faint); }
+  .cf-legend .sw.cel { background: linear-gradient(90deg, var(--accent-dim), var(--accent-bright)); }
+  code { color: var(--text); background: var(--surface-2); padding: 0.1em 0.4em; border-radius: 5px; font-family: var(--font-mono); font-size: 0.88em; border: 1px solid var(--border); }
 
-  /* HERO */
-  .hero { position: relative; overflow: hidden; padding-block: clamp(4rem, 12vw, 9rem) clamp(3rem, 7vw, 6rem); border-bottom: 1px solid var(--border); }
-  .hero-glow {
-    position: absolute; inset: -40% 0 auto 0; height: 80%;
-    background: radial-gradient(60% 60% at 50% 0%, var(--accent-glow), transparent 70%);
-    pointer-events: none; filter: blur(8px);
+  /* ---------- HERO ---------- */
+  .hero { position: relative; isolation: isolate; overflow: hidden; padding-block: clamp(4rem, 9vw, 7rem) var(--section-y); border-bottom: 1px solid var(--border); }
+  .hero-glow { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(48% 52% at 74% -8%, var(--accent-glow) 0%, transparent 66%); }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background-image: linear-gradient(oklch(1 0 0 / 0.04) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 30px 30px;
+    -webkit-mask-image: radial-gradient(120% 80% at 28% 0%, #000, transparent 72%);
+    mask-image: radial-gradient(120% 80% at 28% 0%, #000, transparent 72%);
   }
-  .streaks {
-    position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
-    background-image: repeating-linear-gradient(115deg, transparent 0 38px, color-mix(in oklch, var(--accent) 22%, transparent) 38px 39px);
-    -webkit-mask-image: radial-gradient(120% 90% at 80% 0%, black, transparent 60%);
-    mask-image: radial-gradient(120% 90% at 80% 0%, black, transparent 60%);
-    animation: drift 16s linear infinite;
+  .hero::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0.05; mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='g2'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g2)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
   }
-  @keyframes drift { to { background-position: 240px 0; } }
-  @media (prefers-reduced-motion: reduce) { .streaks { animation: none; } }
-  .hero-inner { position: relative; }
-  .hero h1 { font-size: var(--fs-3xl); letter-spacing: -0.04em; margin-bottom: var(--sp-4); }
-  .grad {
-    background: linear-gradient(100deg, var(--accent-bright), var(--accent-2));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    /* background-clip:text + negative letter-spacing clips the last glyph's edge;
-       pad the clip box and offset so the trailing "." stays snug. */
-    padding-right: 0.1em;
-    margin-right: -0.08em;
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
-  }
-  .lede { font-size: clamp(1.05rem, 2.2vw, 1.35rem); color: var(--text-muted); max-width: 58ch; line-height: var(--lh-snug); }
+
+  .hero-inner { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(12, 1fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
+  .hero-copy { grid-column: 1 / 7; padding-top: clamp(0.5rem, 2vw, 2rem); }
+  @media (max-width: 880px) { .hero-inner { grid-template-columns: 1fr; } .hero-copy { grid-column: 1 / -1; } }
+
+  .hero h1 { font-size: var(--fs-hero); letter-spacing: var(--tracking-hero); line-height: var(--lh-display); font-weight: var(--fw-semibold); margin-bottom: var(--sp-3); text-wrap: balance; font-optical-sizing: auto; }
+  .grad { color: var(--text); }
+  .lede { font-size: var(--fs-md); color: var(--text-muted); max-width: 60ch; line-height: var(--lh-snug); margin-top: 0; text-wrap: pretty; }
   .lede strong { color: var(--text); font-weight: var(--fw-semibold); }
-  .matrix-note { margin-top: var(--sp-4); font-size: var(--fs-sm); color: var(--text-muted); }
-  .matrix-note .mx {
-    color: var(--accent-bright);
-    font-weight: var(--fw-semibold);
-    font-family: var(--font-mono);
-    letter-spacing: -0.01em;
-    padding: 2px 7px;
-    margin-right: 4px;
-    border: 1px solid var(--border-accent);
-    border-radius: var(--r-full);
-    background: var(--accent-wash);
-    white-space: nowrap;
-  }
+  .hero-rotate { margin-top: var(--sp-4); display: flex; align-items: baseline; gap: 0.5ch; flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-muted); }
+  .hero-rotate .rotate { color: var(--accent-bright); font-weight: var(--fw-medium); }
+  .caret { display: inline-block; width: 2px; height: 1em; background: var(--accent); transform: translateY(2px); animation: caret-blink 1.05s steps(1) infinite; }
+  @keyframes caret-blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .caret { display: none; } }
 
   .pill {
-    display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: var(--sp-5);
+    display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: var(--sp-6);
     padding: 0.4rem 0.85rem; border: 1px solid var(--border-strong); border-radius: var(--r-full);
-    font-size: var(--fs-2xs); color: var(--text-muted); transition: border-color var(--dur-1), color var(--dur-1);
+    font-size: var(--fs-2xs); color: var(--text-muted); transition: border-color var(--dur-1), color var(--dur-1), background var(--dur-1);
   }
-  .pill:hover { border-color: var(--border-accent); color: var(--text); }
+  .pill:hover { border-color: var(--border-accent); color: var(--text); background: var(--accent-soft); }
   .pill b { color: var(--accent-bright); }
   .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-  .pill .arr { color: var(--accent); }
+  .pill .arr { color: var(--text-faint); }
 
-  .cta { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-6); }
-  .btn { display: inline-flex; align-items: center; padding: 0.7rem 1.3rem; border-radius: var(--r-md); font-weight: var(--fw-semibold); font-size: var(--fs-sm); transition: transform var(--dur-1), box-shadow var(--dur-1), background var(--dur-1); }
-  .btn.primary { background: var(--accent); color: var(--text-on-accent); box-shadow: 0 8px 24px var(--accent-glow); }
-  .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 30px var(--accent-glow); }
-  .btn.ghost { border: 1px solid var(--border-strong); color: var(--text); }
-  .btn.ghost:hover { border-color: var(--accent); color: var(--accent-bright); }
+  .cta { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-7); }
 
+  /* ---------- premium buttons ---------- */
+  .btn { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0.8rem 1.4rem; border-radius: var(--r-md); font-weight: var(--fw-semibold); font-size: var(--fs-base); cursor: pointer; transition: transform var(--dur-2) var(--ease), filter var(--dur-1) var(--ease); }
+  .btn.primary {
+    border: 0; color: var(--text-on-accent);
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.45), inset 0 -1px 0 oklch(0 0 0 / 0.18), 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 16px var(--accent-glow);
+  }
+  .btn.primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .btn.primary:active { transform: translateY(0); filter: brightness(0.97); }
+  .btn.ghost {
+    color: var(--text); background: var(--surface-1); border: 1px solid var(--border-strong);
+    box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.04);
+    transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), transform var(--dur-2) var(--ease);
+  }
+  .btn.ghost:hover { background: linear-gradient(180deg, var(--surface-2), var(--surface-1)); border-color: var(--accent); color: var(--accent-bright); transform: translateY(-1px); }
+  .btn.ghost:active { transform: translateY(0); }
+  .btn:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright), 0 4px 18px var(--accent-glow); }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover, .btn:active { transform: none; } }
+
+  /* ---------- HERO BENCH (instrument readout) ---------- */
+  .bench {
+    grid-column: 7 / 13; justify-self: end; width: 100%; margin: 0;
+    margin-right: calc(-1 * clamp(0px, 3vw, 2.5rem));
+    position: relative; perspective: 1600px;
+  }
+  @media (max-width: 880px) { .bench { grid-column: 1 / -1; margin-right: 0; max-width: 560px; } }
+  .bench-3d { position: relative; width: 100%; transition: transform var(--dur-3) var(--ease); transform-style: preserve-3d; }
+  .bench.flipped .bench-3d { transform: rotateY(180deg); }
+  .bench-face {
+    padding: clamp(1.1rem, 2.5vw, 1.6rem); border: 1px solid var(--border-strong); border-radius: var(--r-lg);
+    background: var(--surface-1); box-shadow: var(--shadow-2), var(--edge-highlight);
+    -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  }
+  .bench-front { position: relative; }
+  .bench-back { position: absolute; inset: 0; transform: rotateY(180deg); }
+  @media (prefers-reduced-motion: reduce) { .bench-3d { transition: none; } }
+  .bench-flip {
+    position: absolute; top: 0.85rem; right: 0.85rem; z-index: 5;
+    display: inline-grid; place-items: center; width: 30px; height: 30px;
+    border-radius: var(--r-sm); border: 1px solid var(--border-strong);
+    background: color-mix(in oklch, var(--surface-2) 85%, transparent); color: var(--text-muted);
+    transition: color var(--dur-1), border-color var(--dur-1);
+  }
+  .bench-flip svg { transition: transform 0.5s var(--ease); }
+  .bench-flip:hover { color: var(--accent-bright); border-color: var(--border-accent); }
+  .bench-flip:hover svg { transform: rotate(180deg); }
+  .bench-flip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright); }
+  .bench-cap { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-4); padding-bottom: var(--sp-3); padding-right: 2.2rem; border-bottom: 1px solid var(--border); }
+  .bench-kicker { font-family: var(--font-mono); font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); color: var(--text-muted); }
+  .bench-sub { font-size: var(--fs-2xs); color: var(--text-muted); }
+  .bench-bars { display: flex; flex-direction: column; gap: 0.6rem; }
+  .bench-row { display: grid; grid-template-columns: 6.25rem 1fr 3.4rem; align-items: center; gap: var(--sp-3); font-size: var(--fs-xs); transition: opacity var(--dur-1) var(--ease); }
+  /* hover-to-focus: spotlight the hovered row, recede the rest */
+  .bench-bars:hover .bench-row { opacity: 0.5; }
+  .bench-bars:hover .bench-row:hover { opacity: 1; }
+  .bench-name { display: flex; align-items: baseline; gap: 0.45ch; min-width: 0; color: var(--text-muted); }
+  .bench-name .bn { font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bench-name .bl { flex: none; font-size: var(--fs-3xs); color: var(--text-faint); }
+  .bench-row.win .bench-name .bn { color: var(--accent-bright); font-weight: var(--fw-semibold); }
+  .bench-row.win .bench-name .bl { color: var(--accent-dim); }
+  .bench-track { position: relative; height: 22px; background: var(--surface-3); border-radius: var(--r-xs); overflow: hidden; }
+  .bench-fill { position: absolute; inset: 0 auto 0 0; width: var(--w); border-radius: var(--r-xs); background: oklch(0.5 0.04 220); transform-origin: left; overflow: hidden; transition: filter var(--dur-1) var(--ease); }
+  .bench-row:hover .bench-fill { filter: brightness(1.12); }
+  .bench-row.win .bench-fill { background: linear-gradient(90deg, var(--accent-dim), var(--accent-bright)); box-shadow: 0 0 18px var(--accent-glow); }
+  /* light sheen sweeping the winning bar — subtle sign of life */
+  .bench-row.win .bench-fill::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(105deg, transparent 30%, oklch(1 0 0 / 0.4) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: bench-sheen 3.4s ease-in-out infinite;
+  }
+  @keyframes bench-sheen { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .bench-row.win .bench-fill::after { display: none; } }
+  .bench-val { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); font-weight: var(--fw-medium); }
+  .bench-row.win .bench-val { color: var(--accent-bright); font-weight: var(--fw-bold); }
+  .bench-kpi { display: flex; align-items: baseline; gap: 0.6rem; margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--border); }
+  .kpi-n { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--accent-bright); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; line-height: 1; }
+  .kpi-l { font-size: var(--fs-2xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .bench-fill { animation: growx linear both; animation-timeline: view(); animation-range: entry 0% cover 30%; }
+    }
+  }
+  @keyframes growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  /* ---------- stats ---------- */
+  .hero-foot { position: relative; z-index: 1; }
   .stats { display: flex; gap: clamp(1.5rem, 5vw, 3.5rem); margin-top: var(--sp-7); flex-wrap: wrap; }
-  .stat .n { font-size: clamp(1.6rem, 3.5vw, 2.4rem); font-weight: var(--fw-bold); color: var(--accent-bright); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+  .stat .n { font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
   .stat .n .upto { font-size: 0.5em; font-weight: var(--fw-medium); color: var(--text-faint); letter-spacing: 0; margin-right: 0.35em; vertical-align: 0.25em; text-transform: uppercase; }
-  .stat .l { font-size: var(--fs-2xs); color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .stat .l { font-size: var(--fs-2xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
 
-  /* BANDS */
-  .band { padding-block: clamp(3rem, 7vw, 5.5rem); }
-  .band.center { text-align: center; }
+  /* ---------- bands + section system ---------- */
+  .band { padding-block: var(--section-y); }
+  .band + .band { border-top: 1px solid var(--border); }
+  .band.center { text-align: center; padding-block: calc(var(--section-y) * 1.2); }
   .band.center .cta { justify-content: center; }
-  .band h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); letter-spacing: -0.03em; margin-bottom: var(--sp-3); }
-  .sec-head { margin-bottom: var(--sp-6); }
+  .band.center h2 { font-size: var(--fs-3xl); }
+  .band h2 { font-size: var(--h2); letter-spacing: var(--tracking-head); line-height: 1.05; margin-bottom: var(--sp-3); font-weight: var(--fw-semibold); font-optical-sizing: auto; }
 
-  .split { display: grid; grid-template-columns: 1fr 1.05fr; gap: clamp(1.5rem, 4vw, 3.5rem); align-items: center; }
+  .sec-head { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2) var(--sp-4); align-items: baseline; margin-bottom: var(--sp-6); }
+  .sec-head h2 { grid-column: 2; margin: 0; }
+  .sec-head .lede-sm { grid-column: 2; max-width: 54ch; color: var(--text-muted); font-size: var(--fs-md); line-height: 1.5; margin-top: var(--sp-2); }
+  .idx { font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--text-faint); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .idx::before { content: ""; display: inline-block; width: 1.4rem; height: 1px; background: var(--border-strong); vertical-align: 0.3em; margin-right: 0.6rem; }
+
+  .split { display: grid; grid-template-columns: 1fr 1.05fr; gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start; }
+  .split > div:first-child { padding-top: var(--sp-2); }
+  .split .ticks { margin-top: var(--sp-5); }
   .split.reverse { grid-template-columns: 1.05fr 1fr; }
-  .code-card { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-2); }
+  .split h2 { font-size: var(--h2); letter-spacing: var(--tracking-head); margin-bottom: var(--sp-3); font-weight: var(--fw-semibold); }
+  .code-card { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-3); }
   .code-card :global(pre) { margin: 0; border: none; border-radius: 0; padding: var(--sp-5); }
 
-  .install { margin-top: var(--sp-5); padding: 0.85rem 1.1rem; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-1); font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); }
-  .install .prompt { color: var(--accent); margin-right: 0.6rem; user-select: none; }
+  .install { display: flex; align-items: center; gap: 0.55rem; margin-top: var(--sp-5); padding: 0.6rem 0.6rem 0.6rem 1.1rem; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-1); font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); }
+  .install .prompt { color: var(--accent); user-select: none; }
+  .install-cmd { flex: 1; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+  .install-cmd::-webkit-scrollbar { display: none; }
+  .install-copy { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: var(--r-sm); border: 1px solid var(--border-strong); background: color-mix(in oklch, var(--surface-2) 80%, transparent); color: var(--text-muted); opacity: 0; transition: opacity var(--dur-1), color var(--dur-1), border-color var(--dur-1); }
+  .install:hover .install-copy, .install-copy:focus-visible { opacity: 1; }
+  .install-copy:hover { color: var(--text); border-color: var(--border-accent); }
+  .install-copy.done { color: var(--accent-bright); border-color: var(--border-accent); opacity: 1; }
+  @media (max-width: 520px) { .install-copy { opacity: 1; } }
 
+  /* ---------- cards (gradient-hairline + premium surface) ---------- */
   .cards { display: grid; gap: var(--sp-4); }
-  .cards.three { grid-template-columns: repeat(3, 1fr); }
-  .cards.two { grid-template-columns: repeat(3, 1fr); }
-  .card { border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-5); background: var(--surface-1); transition: border-color var(--dur-2), transform var(--dur-2); }
-  .card:hover { border-color: var(--border-accent); transform: translateY(-2px); }
-  .card h3 { font-size: var(--fs-md); margin-bottom: var(--sp-2); }
-  .card p { color: var(--text-muted); font-size: var(--fs-sm); }
-  .card.engine header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: var(--sp-3); }
+  .cards.engines { grid-template-columns: repeat(3, 1fr); }
+  .cards.features { grid-template-columns: repeat(3, 1fr); }
+  .card {
+    position: relative; isolation: isolate; border-radius: var(--r-lg); border: 1px solid var(--border);
+    padding: var(--sp-5); background: linear-gradient(180deg, var(--surface-2), var(--surface-1) 64%);
+    box-shadow: var(--edge-highlight), var(--shadow-3); transition: transform var(--dur-2) var(--ease);
+  }
+  @supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+    .card { border-color: transparent; }
+    .card::before {
+      content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; padding: 1px; pointer-events: none;
+      background: linear-gradient(180deg, oklch(1 0 0 / 0.22) 0%, oklch(1 0 0 / 0.07) 22%, oklch(1 0 0 / 0.04) 60%, oklch(1 0 0 / 0.02) 100%);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      transition: background var(--dur-2) var(--ease);
+    }
+    .card:hover::before { background: linear-gradient(180deg, oklch(0.92 0.13 142 / 0.55) 0%, oklch(1 0 0 / 0.1) 30%, oklch(1 0 0 / 0.04) 100%); }
+  }
+  .card::after { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; box-shadow: 0 12px 50px var(--accent-glow); opacity: 0; transition: opacity var(--dur-3) var(--ease); }
+  .card:hover { transform: translateY(-2px); }
+  .card:hover::after { opacity: 0.6; }
+  @media (prefers-reduced-motion: reduce) { .card, .card::after, .card::before { transition: none; } .card:hover { transform: none; } }
+  .card h3 { font-size: var(--h-card); margin-bottom: var(--sp-2); font-weight: var(--fw-semibold); position: relative; z-index: 2; }
+  .card p { color: var(--text-muted); font-size: var(--fs-sm); position: relative; z-index: 2; }
+  .card.engine header { display: flex; align-items: center; gap: 0.55rem; margin-bottom: var(--sp-3); position: relative; z-index: 2; }
   .card.engine h3 { margin: 0; font-family: var(--font-mono); color: var(--accent-bright); }
-  .card.engine .chev { color: var(--accent); letter-spacing: -2px; opacity: 0.8; }
+  .card.engine .chev { color: var(--accent-dim); flex: none; }
   .card.engine .tag { margin-left: auto; font-size: var(--fs-3xs); color: var(--text-faint); border: 1px solid var(--border); border-radius: var(--r-full); padding: 1px 8px; }
+  .card.engine.feature .tag { color: var(--accent-bright); border-color: var(--border-accent); background: var(--accent-wash); }
+
+  .feat-ico {
+    position: relative; z-index: 2; display: inline-grid; place-items: center;
+    width: 38px; height: 38px; margin-bottom: var(--sp-3);
+    border-radius: var(--r-md); background: var(--accent-wash);
+    border: 1px solid var(--border-accent); color: var(--accent-bright);
+  }
 
   .ticks { list-style: none; padding: 0; margin-top: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
-  .ticks li { padding-left: 1.5rem; position: relative; color: var(--text-muted); }
-  .ticks li::before { content: "›››"; position: absolute; left: 0; color: var(--accent); letter-spacing: -2px; font-size: 0.8em; }
+  .ticks li { padding-left: 1.6rem; position: relative; color: var(--text-muted); }
+  .ticks li::before {
+    content: ""; position: absolute; left: 0; top: 0.45em; width: 0.7rem; height: 0.7rem;
+    background: var(--text-muted); -webkit-mask: var(--chev-mask) center / contain no-repeat; mask: var(--chev-mask) center / contain no-repeat;
+  }
 
-  .validate { display: grid; grid-template-columns: 1.5fr 1fr; gap: clamp(1.5rem, 4vw, 3rem); align-items: center; border: 1px solid var(--border-accent); border-radius: var(--r-lg); padding: clamp(1.5rem, 4vw, 3rem); background: linear-gradient(120deg, var(--accent-wash), transparent); }
-  .kicker { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); }
+  /* ---------- validate ---------- */
+  .validate { display: grid; grid-template-columns: 1.5fr 1fr; gap: clamp(1.5rem, 4vw, 3rem); align-items: center; border: 1px solid var(--border-accent); border-radius: var(--r-lg); padding: clamp(1.5rem, 4vw, 3rem); background: linear-gradient(120deg, var(--accent-wash), transparent); box-shadow: var(--edge-highlight), var(--shadow-3); }
+  .validate h2 { font-size: var(--h2); letter-spacing: var(--tracking-head); margin-bottom: var(--sp-3); font-weight: var(--fw-semibold); }
   .validate p a { color: var(--accent-bright); text-decoration: underline; text-underline-offset: 2px; }
   .validate .btn { margin-top: var(--sp-4); }
   .validate-stat { text-align: right; }
-  .validate-stat .big { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: var(--fw-bold); color: var(--accent-bright); letter-spacing: -0.04em; line-height: 1; }
+  .validate-stat .big { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: var(--fw-bold); color: var(--accent-bright); letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
 
   .final h2 { margin-bottom: var(--sp-5); }
 
   @media (max-width: 820px) {
     .split, .split.reverse, .validate { grid-template-columns: 1fr; }
-    .cards.three, .cards.two { grid-template-columns: 1fr; }
+    .cards.engines, .cards.features { grid-template-columns: 1fr; }
     .validate-stat { text-align: left; }
   }
 </style>
