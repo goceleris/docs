@@ -111,6 +111,51 @@ pre {
   border-radius: var(--r-full);
 }
 
+/* Cross-document view transitions — pure CSS, zero JS, graceful no-op where
+   unsupported. A quick crossfade between pages reads as "one app". */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.18s;
+}
+
+/* Scroll-reveal: fade + rise as an element enters the viewport. Compositor-only
+   (opacity/transform), progressive-enhancement only — when animation-timeline is
+   unsupported (Firefox 2026) or motion is reduced, content shows in its final
+   state immediately (the un-animated state IS the finished state). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 55%;
+    }
+    .reveal-stagger > * {
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 18%;
+    }
+  }
+}
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Benchmarks page: global header on top + a viewport-locked dashboard below it. */
+.dash-page {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 /* Layout helper: centered content column. */
 .container {
   width: 100%;

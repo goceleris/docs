@@ -26,15 +26,23 @@
   --text-faint: oklch(0.58 0.012 256);
   --text-on-accent: oklch(0.16 0.03 150);
 
+  /* popover/modal surface — one step above surface-3 for true floating overlays */
+  --surface-pop: oklch(0.3 0.02 256);
+
   /* ---- Brand accent (celeris = swift) ---- */
   --accent: oklch(0.86 0.21 142);
   --accent-bright: oklch(0.91 0.22 140);
   --accent-dim: oklch(0.7 0.16 145);
   --accent-glow: oklch(0.86 0.21 142 / 0.28);
   --accent-wash: oklch(0.86 0.21 142 / 0.1);
+  /* hover tint, distinct from the flatter --accent-wash */
+  --accent-soft: oklch(0.86 0.21 142 / 0.16);
 
-  /* secondary accent for gradients / highlights (cool cyan) */
+  /* secondary accent — a real second DATA color (cool cyan), not just gradients */
   --accent-2: oklch(0.82 0.13 220);
+  --accent-2-bright: oklch(0.88 0.13 218);
+  /* deeper periwinkle stop used only in the bold-direction hero aurora */
+  --accent-3: oklch(0.62 0.18 274);
 
   /* ---- Semantic status (fixed; never reused for adapter hues) ---- */
   --ok: oklch(0.82 0.17 150);
@@ -52,25 +60,44 @@
   --lang-zig: oklch(0.78 0.14 70);
   --lang-celeris: var(--accent);
 
-  /* ---- Typography ---- */
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo,
+  /* ---- Typography ----
+     Self-hosted via the Astro Fonts API (--font-inter / --font-jetbrains-mono);
+     fall back to the named face then the system stack if the API var is absent. */
+  --font-sans: var(--font-inter, "Inter"), system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", Menlo,
     Consolas, monospace;
 
-  --fs-3xs: 0.6875rem; /* 11px — dense axis labels */
-  --fs-2xs: 0.75rem;   /* 12px */
-  --fs-xs: 0.8125rem;  /* 13px — data values */
-  --fs-sm: 0.875rem;   /* 14px — body */
-  --fs-base: 1rem;     /* 16px */
-  --fs-md: 1.125rem;
-  --fs-lg: 1.375rem;
-  --fs-xl: 1.875rem;
-  --fs-2xl: 2.75rem;
-  --fs-3xl: clamp(2.75rem, 6vw, 4.75rem); /* hero */
+  /* Modular scale — 1.2 (minor third), USED by the semantic role tokens below. */
+  --fs-3xs: 0.6875rem;  /* 11px — dense axis labels */
+  --fs-2xs: 0.75rem;    /* 12px — eyebrows, chips */
+  --fs-xs: 0.8125rem;   /* 13px — data values */
+  --fs-sm: 0.875rem;    /* 14px — secondary body */
+  --fs-base: 1rem;      /* 16px — body */
+  --fs-md: 1.125rem;    /* 18px — lede, card title */
+  --fs-lg: 1.3125rem;   /* 21px — h3 */
+  --fs-xl: 1.5625rem;   /* 25px */
+  --fs-2xl: 1.9375rem;  /* 31px — h2 */
+  --fs-3xl: 2.375rem;   /* 38px — page/prose h1 */
+  --fs-4xl: 3rem;       /* 48px */
 
-  --lh-tight: 1.1;
+  /* Fluid hero size — per art direction (bold overrides below). */
+  --fs-hero: clamp(2.5rem, 5.5vw, 3.75rem);
+
+  /* Semantic role tokens — pages reference THESE, never raw rungs. */
+  --h1: clamp(1.9rem, 1.4rem + 2.2vw, 2.375rem);
+  --h2: var(--fs-2xl);
+  --h3: var(--fs-lg);
+  --h-card: var(--fs-md);
+  --eyebrow: var(--fs-2xs);
+
+  --lh-tight: 1.05;
   --lh-snug: 1.35;
   --lh-normal: 1.6;
+  --lh-display: 0.98;
+  --tracking-hero: -0.038em;
+  --tracking-head: -0.022em;
+  --tracking-eyebrow: 0.08em;
+  --measure-statement: 54ch;
 
   --fw-normal: 400;
   --fw-medium: 500;
@@ -84,9 +111,13 @@
   --sp-4: 1rem;
   --sp-5: 1.5rem;
   --sp-6: 2rem;
+  --sp-6b: 2.5rem;
   --sp-7: 3rem;
   --sp-8: 4rem;
   --sp-9: 6rem;
+
+  /* Section vertical rhythm — one token every page section uses (bold overrides). */
+  --section-y: clamp(3.5rem, 8vw, 7rem);
 
   /* ---- Radii ---- */
   --r-xs: 4px;
@@ -99,6 +130,15 @@
   --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
   --shadow-2: 0 8px 30px oklch(0 0 0 / 0.45);
   --shadow-accent: 0 0 0 1px var(--border-accent), 0 6px 28px var(--accent-glow);
+  /* Raised-surface recipe: a top edge-highlight + soft drop. Use for cards/panels;
+     reserve plain --border for dividers and inputs. */
+  --edge-highlight: inset 0 1px 0 oklch(1 0 0 / 0.06);
+  --elev-raised: var(--edge-highlight), var(--shadow-1);
+  --elev-hover: var(--edge-highlight), 0 10px 30px oklch(0 0 0 / 0.4);
+  /* 3-layer ambient drop for premium cards */
+  --shadow-3: 0 1px 2px oklch(0 0 0 / 0.35), 0 6px 16px oklch(0 0 0 / 0.28), 0 20px 48px oklch(0 0 0 / 0.22);
+  /* fading hairline used by dividers + the scrolled header */
+  --hairline-fade: linear-gradient(90deg, transparent, var(--border-strong) 18%, var(--border-strong) 82%, transparent);
 
   /* ---- Motion ---- */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -106,6 +146,9 @@
   --dur-1: 0.12s;
   --dur-2: 0.22s;
   --dur-3: 0.4s;
+
+  /* chevron mask used for tick bullets / accents (single right chevron) */
+  --chev-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E");
 
   /* ---- Layout ---- */
   --maxw: 1200px;
@@ -120,14 +163,22 @@
   --surface-1: oklch(1 0 0);
   --surface-2: oklch(0.97 0.004 256);
   --surface-3: oklch(0.94 0.006 256);
+  --surface-pop: oklch(1 0 0);
   --overlay: oklch(0.2 0.01 256 / 0.4);
   --border: oklch(0 0 0 / 0.1);
   --border-strong: oklch(0 0 0 / 0.18);
   --text: oklch(0.22 0.015 256);
   --text-muted: oklch(0.42 0.015 256);
-  --text-faint: oklch(0.55 0.012 256);
+  --text-faint: oklch(0.5 0.012 256);
   --accent: oklch(0.62 0.18 142);
   --accent-bright: oklch(0.56 0.19 142);
+  --accent-glow: oklch(0.62 0.18 142 / 0.16);
+  --accent-soft: oklch(0.62 0.18 142 / 0.12);
   --text-on-accent: oklch(0.99 0.02 150);
+  /* light-tuned elevation: softer, cooler than the dark drops */
+  --shadow-1: 0 1px 2px oklch(0.4 0.02 256 / 0.12);
+  --shadow-2: 0 10px 34px oklch(0.4 0.03 256 / 0.16);
+  --edge-highlight: inset 0 1px 0 oklch(1 0 0 / 0.7);
+  --elev-hover: var(--edge-highlight), 0 12px 32px oklch(0.4 0.03 256 / 0.18);
   color-scheme: light;
 }

@@ -1,4 +1,5 @@
 ---
+import { Font } from "astro:assets";
 import "../styles/global.css";
 import SEO from "../components/SEO.astro";
 import Header from "../components/Header.astro";
@@ -36,6 +37,8 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="generator" content={Astro.generator} />
+    <Font cssVariable="--font-inter" preload />
+    <Font cssVariable="--font-jetbrains-mono" />
     <SEO title={title} description={description} image={image} type={type} jsonLd={jsonLd} noindex={noindex} />
     {/* No-flash theme: apply stored preference before first paint. */}
     <script is:inline>
