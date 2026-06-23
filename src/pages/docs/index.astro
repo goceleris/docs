@@ -1,0 +1,217 @@
+---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import GroupIcon from "../../components/docs/GroupIcon.astro";
+
+type Doc = CollectionEntry<"docs">;
+
+const GROUP_ORDER = [
+  "Getting Started",
+  "Routing & Handlers",
+  "Middleware",
+  "Real-Time",
+  "Data & Integration",
+  "Reference",
+  "Operations",
+];
+
+const BLURB: Record<string, string> = {
+  "Getting Started": "Install Celeris, learn the mental model, and serve your first request.",
+  "Routing & Handlers": "Routes and params, reading requests, binding, responses, errors, and files.",
+  Middleware: "The chain and ordering, plus the in-tree catalog — security, auth, traffic, content.",
+  "Real-Time": "Incremental streaming, Server-Sent Events, and WebSocket fan-out.",
+  "Data & Integration": "Database & cache drivers on the event loop, and net/http interop.",
+  Reference: "Every Config field, the four I/O engines, and the full Context API.",
+  Operations: "Deploy behind TLS, shut down cleanly, observe, tune for load, and test.",
+};
+
+const all = (await getCollection("docs")).filter((d: Doc) => !d.data.draft);
+const groups = GROUP_ORDER.map((name) => ({
+  name,
+  pages: all
+    .filter((d: Doc) => d.data.group === name)
+    .sort((a: Doc, b: Doc) => a.data.order - b.data.order),
+})).filter((g) => g.pages.length > 0);
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "Celeris documentation",
+  description: "User documentation for the Celeris Go HTTP engine.",
+};
+---
+
+<BaseLayout
+  title="Documentation · Celeris"
+  description="User documentation for Celeris — the high-performance Go HTTP engine. Routing, middleware, real-time streaming, engines, deployment, and the full reference."
+  jsonLd={jsonLd}
+>
+  <main class="container hub">
+    <header class="hub-hero">
+      <p class="hub-eyebrow">Documentation</p>
+      <h1>Build high-performance services with <span class="grad">Celeris</span></h1>
+      <p class="hub-lede">
+        Everything you need to ship — from your first route to surviving extreme load.
+        Every page is grounded in the real API, with runnable Go examples.
+      </p>
+      <div class="hub-cta">
+        <a class="hbtn primary" href="/docs/getting-started">Get started →</a>
+        <a class="hbtn ghost" href="/docs/core-concepts">Core concepts</a>
+        <a class="hbtn ghost" href="/benchmarks">Benchmarks</a>
+      </div>
+    </header>
+
+    <div class="hub-grid">
+      {
+        groups.map((g) => (
+          <section class="hub-card">
+            <div class="hub-card-head">
+              <span class="hub-ico"><GroupIcon group={g.name} size={20} /></span>
+              <h2>{g.name}</h2>
+            </div>
+            <p class="hub-blurb">{BLURB[g.name]}</p>
+            <ul class="hub-links">
+              {g.pages.map((p) => (
+                <li>
+                  <a href={`/docs/${p.id}`}>{p.data.title}</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      }
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .hub {
+    padding-block: clamp(2.5rem, 6vw, 4.5rem) var(--sp-9);
+  }
+  .hub-hero {
+    max-width: 60ch;
+    margin-bottom: clamp(2rem, 5vw, 3.5rem);
+  }
+  .hub-eyebrow {
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    margin-bottom: var(--sp-3);
+  }
+  .hub-hero h1 {
+    font-size: clamp(2rem, 4.5vw, 3rem);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--sp-3);
+  }
+  .grad {
+    background: linear-gradient(100deg, var(--accent-bright), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding-right: 0.08em;
+    margin-right: -0.06em;
+  }
+  .hub-lede {
+    font-size: var(--fs-md);
+    color: var(--text-muted);
+    line-height: var(--lh-snug);
+  }
+  .hub-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    margin-top: var(--sp-5);
+  }
+  .hbtn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.6rem 1.1rem;
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    transition: transform var(--dur-1), box-shadow var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+  }
+  .hbtn.primary {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    box-shadow: 0 8px 24px var(--accent-glow);
+  }
+  .hbtn.primary:hover {
+    transform: translateY(-1px);
+  }
+  .hbtn.ghost {
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+  }
+  .hbtn.ghost:hover {
+    border-color: var(--accent);
+    color: var(--accent-bright);
+  }
+
+  .hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--sp-4);
+  }
+  .hub-card {
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface-1);
+    padding: var(--sp-5);
+    transition: border-color var(--dur-2), transform var(--dur-2), background var(--dur-2);
+  }
+  .hub-card:hover {
+    border-color: var(--border-accent);
+    transform: translateY(-2px);
+    background: var(--surface-2);
+  }
+  .hub-card-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+  .hub-ico {
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--r-md);
+    background: var(--accent-wash);
+    border: 1px solid var(--border-accent);
+    color: var(--accent-bright);
+    flex: none;
+  }
+  .hub-card-head h2 {
+    font-size: var(--fs-md);
+    letter-spacing: -0.01em;
+  }
+  .hub-blurb {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-snug);
+    margin-bottom: var(--sp-4);
+  }
+  .hub-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .hub-links a {
+    display: block;
+    padding: 5px 8px;
+    margin-inline: -8px;
+    border-radius: var(--r-sm);
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    transition: color var(--dur-1), background var(--dur-1);
+  }
+  .hub-links a:hover {
+    color: var(--accent-bright);
+    background: var(--surface-2);
+  }
+</style>
