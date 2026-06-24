@@ -61,7 +61,13 @@ export function ControlRail() {
         <h3>Adapters ({sel.size})</h3>
         <div class="rail-actions">
           <button class="mini-btn" onClick={() => setAdapters(present)}>All</button>
-          <button class="mini-btn" onClick={() => setAdapters(celerisIds())}>Only Celeris</button>
+          <button class="mini-btn" onClick={() => setAdapters(celerisIds())}>Celeris</button>
+          <button
+            class="mini-btn"
+            onClick={() => setAdapters(present.filter((id) => COMPETITORS.adapters[id]?.language === "go"))}
+          >
+            Go
+          </button>
           <button
             class="mini-btn"
             onClick={() => setAdapters([...celerisIds(), ...CURATED_RIVALS.filter((r) => present.includes(r))])}
