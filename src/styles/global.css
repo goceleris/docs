@@ -177,16 +177,26 @@ pre {
   border: 0;
 }
 
-/* Shiki code blocks (from markdown) — framed to match surfaces. */
+/* Shiki code blocks (from markdown) — framed to match surfaces.
+   Dual-theme: github-dark by default (matches the dark shell), github-light
+   under [data-theme="light"] so code is cohesive with the page in both modes. */
 .astro-code,
 pre.astro-code {
   padding: var(--sp-4) var(--sp-5);
   border-radius: var(--r-md);
   border: 1px solid var(--border);
-  background: oklch(0.13 0.012 256) !important;
+  background-color: var(--code-bg);
   overflow-x: auto;
   font-size: var(--fs-xs);
   line-height: 1.55;
+}
+[data-theme="light"] .astro-code,
+[data-theme="light"] pre.astro-code {
+  background-color: var(--shiki-light-bg) !important;
+}
+[data-theme="light"] .astro-code,
+[data-theme="light"] .astro-code span {
+  color: var(--shiki-light) !important;
 }
 
 /* Code copy button (injected by BaseLayout). */

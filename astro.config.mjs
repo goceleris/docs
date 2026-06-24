@@ -44,10 +44,16 @@ export default defineConfig({
     ],
   },
   markdown: {
-    // Dark "instrument" syntax theme to match the site shell. Shiki runs at
+    // Dual syntax themes: github-dark by default (the dark shell), github-light
+    // under [data-theme="light"]. defaultColor:"dark" makes the dark theme the
+    // inline default; CSS swaps to the light vars in light mode. Shiki runs at
     // build time, so highlighted code ships as plain HTML (zero client JS).
     shikiConfig: {
-      theme: "github-dark-default",
+      themes: {
+        dark: "github-dark-default",
+        light: "github-light-default",
+      },
+      defaultColor: "dark",
       wrap: false,
     },
   },

@@ -244,25 +244,14 @@
     border-radius: inherit;
     padding: 1px;
     pointer-events: none;
-    background: linear-gradient(
-      180deg,
-      oklch(1 0 0 / 0.22) 0%,
-      oklch(1 0 0 / 0.07) 22%,
-      oklch(1 0 0 / 0.04) 60%,
-      oklch(1 0 0 / 0.02) 100%
-    );
+    background: var(--card-edge);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     transition: background var(--dur-2) var(--ease);
   }
   .docs-nav a:hover::before {
-    background: linear-gradient(
-      180deg,
-      oklch(0.92 0.13 142 / 0.55) 0%,
-      oklch(1 0 0 / 0.1) 30%,
-      oklch(1 0 0 / 0.04) 100%
-    );
+    background: var(--card-edge-hover);
   }
 }
 .docs-nav a::after {
