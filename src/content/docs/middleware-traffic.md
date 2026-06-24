@@ -484,7 +484,7 @@ hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go:1-23`.
 | **Expand** | ≥ 0.70 | Signal best-effort worker widening; pass through |
 | **Reap** | ≥ 0.80 | Opt-in `runtime.GC()`, then pass through |
 | **Reorder** | ≥ 0.85 | Low-priority requests get `503`; others pass |
-| **Backpressure** | ≥ 0.90 | Low-priority requests sleep `BackpressureDelay`; non-delayable get `503`; exempt pass |
+| **Backpressure** | ≥ 0.90 | Low-priority requests get `503` (`BackpressureStatus`); others sleep `BackpressureDelay` (default 50ms) then pass; exempt pass |
 | **Reject** | ≥ 0.95 | All non-exempt requests get `503` + `Retry-After` |
 
 Source: `celeris/middleware/overload/config.go:16-24` and `config.go:177`.
@@ -515,8 +515,10 @@ s.Use(overload.New(overload.Config{
 }))
 ```
 
-`s.Collector()` returns nil until the server has started and only when
-`Config.DisableMetrics` is false. Source: `celeris/server.go:543`.
+`s.Collector()` is created eagerly in `New`, so it is **non-nil before `Start`**
+— the `if col := s.Collector(); col != nil` snippet above can attach the CPU
+monitor at setup time. It returns nil only when `Config.DisableMetrics` is true.
+Source: `celeris/server.go:542`.
 `observe.NewCPUMonitor()` returns a platform-appropriate monitor (Linux reads
 `/proc/stat`; others use `runtime/metrics`) and a non-nil `error`, so check it
 before calling `SetCPUMonitor`. Source: `celeris/observe/cpumon_linux.go:10`,
@@ -648,9 +650,11 @@ import "github.com/goceleris/celeris/middleware/bodylimit"
 s.Use(bodylimit.New(bodylimit.Config{Limit: "10MB"})) // 413 if larger
 ```
 
-`Limit` accepts decimal (`KB`/`MB`/`GB`/`TB`/`PB`/`EB`) and binary
-(`KiB`/`MiB`/…) suffixes, with optional fractions: `"1.5GB"`, `"512KiB"`. An
-invalid `Limit` string **panics** at construction.
+`Limit` accepts both plain (`KB`/`MB`/`GB`/`TB`/`PB`/`EB`) and IEC binary
+(`KiB`/`MiB`/…) suffixes, with optional fractions: `"1.5GB"`, `"512KiB"`. All
+suffixes — including the plain `KB`/`MB`/`GB` forms — are interpreted as powers
+of 1024, so `"10MB"` means 10 × 1024 × 1024 bytes. An invalid `Limit` string
+**panics** at construction.
 Source: `celeris/middleware/bodylimit/config.go:83`.
 
 The middleware checks in two phases: first the `Content-Length` header (fast

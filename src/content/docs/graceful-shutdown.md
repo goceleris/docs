@@ -61,7 +61,7 @@ When `ctx` is canceled, `StartWithContext` cancels the engine's listen context (
 stops accepting and drains in flight requests) and, on a goroutine, calls `Shutdown`
 with a fresh context bounded by `Config.ShutdownTimeout` (defaulting to **30s** when
 unset or non-positive) to run your `OnShutdown` hooks. `StartWithContext` then returns
-the engine's exit error. Source: `celeris/server.go:759-784`.
+the engine's exit error. Source: `celeris/server.go:771-794`.
 
 > `StartWithContext` is blocking. It returns once the engine has stopped accepting and
 > drained, or when the engine returns a fatal error. The internal `Shutdown` goroutine
@@ -76,7 +76,7 @@ the engine's exit error. Source: `celeris/server.go:759-784`.
 accepting new connections, drains in flight requests bounded by the `ctx` you pass,
 closes the internal CPU monitor, and runs your `OnShutdown` hooks. `Config.ShutdownTimeout`
 is **not** consulted on this path — *you* own the deadline via the context you pass.
-Source: `celeris/server.go:366-381`.
+Source: `celeris/server.go:367-382`.
 
 ```go
 // You own the drain deadline here.
@@ -93,8 +93,8 @@ if err := s.Shutdown(shutCtx); err != nil {
 > cancellation — a later `Shutdown` call cannot unwind the running engine. The
 > context-driven entry points (`StartWithContext` / `StartWithListenerAndContext`)
 > cancel the listen context for you and work uniformly on every engine. Source:
-> `celeris/server.go:353-359` (`Start` uses `context.Background()`),
-> `celeris/engine/epoll/engine.go:141-159`, `celeris/engine/iouring/engine.go:305-309`
+> `celeris/server.go:354-360` (`Start` uses `context.Background()`),
+> `celeris/engine/epoll/engine.go:157-159`, `celeris/engine/iouring/engine.go:305-309`
 > (native `Shutdown` is a no-op; drain happens on listen-context cancellation).
 
 ### Entry points at a glance
@@ -107,12 +107,12 @@ if err := s.Shutdown(shutCtx); err != nil {
 | `StartWithListener(ln)` | engine error or process exit | n/a (drain via `StartWithListenerAndContext`) | Socket handoff with the context entry point below. |
 | `Shutdown(ctx)` | drain + hooks complete | the `ctx` you pass | Programmatic shutdown from your own code. |
 
-Source: `celeris/server.go:353`, `366`, `693`, `704`, `759`.
+Source: `celeris/server.go:354`, `367`, `705`, `716`, `771`.
 
 ## Shutdown sequence
 
 `Shutdown(ctx)` runs a fixed, well-defined sequence. Knowing the order matters when
-you register hooks that depend on it. Source: `celeris/server.go:366-381`.
+you register hooks that depend on it. Source: `celeris/server.go:367-382`.
 
 1. **Returns immediately if never started.** If the server was never started (no
    engine installed), `Shutdown` closes the CPU monitor (a no-op if it was never
@@ -144,7 +144,7 @@ error logging inside the hook.
 `Server.OnShutdown(fn)` registers a function to run during `Shutdown`, after the
 request drain completes. This is where you close database pools, flush log buffers,
 deregister from service discovery, or persist in-memory state. Source:
-`celeris/server.go:223-226`.
+`celeris/server.go:224-227`.
 
 ```go
 s := celeris.New(celeris.Config{
@@ -188,12 +188,49 @@ Rules to internalize:
   run and the process does not crash. This is a safety net, not a license to skip
   error handling — log failures yourself.
 
+### Draining session write-behind
+
+The session middleware has an opt-in `WriteBehind` mode that moves the post-handler
+store write off the response critical path: the encoded session is snapshotted and
+handed to a single background worker, so the response returns before the store write
+lands. The tradeoff is durability — a response acknowledged to the client does not
+guarantee the session write is durable across an abrupt death (SIGKILL, panic, power
+loss). A **graceful** shutdown, however, can drain every in-flight and queued write,
+so nothing enqueued is lost.
+
+To get that guarantee, construct the middleware with a handle you can close and drain
+it from an `OnShutdown` hook. Use `session.NewWithCloser` (returns the middleware plus
+an `io.Closer`) or `session.NewHandler` (returns a `*Handler` with `Close() error`).
+Both block until every queued write has been applied; when `WriteBehind` is disabled
+the closer is a no-op, so this wiring is always safe.
+
+```go
+mw, closer := session.NewWithCloser(session.Config{
+	Store:       sessionStore,
+	WriteBehind: true,
+})
+s.Use(mw)
+
+// Flush the write-behind queue during the drain so no enqueued session write is lost.
+s.OnShutdown(func(ctx context.Context) {
+	if err := closer.Close(); err != nil {
+		log.Printf("draining session write-behind: %v", err)
+	}
+})
+```
+
+Plain `session.New` gives you no such handle, so a graceful stop cannot drain the
+queue and the final updates of in-flight requests may be lost — prefer
+`NewWithCloser`/`NewHandler` whenever `WriteBehind` is on. See
+[Middleware](/docs/middleware) for the full session configuration surface. Source:
+`celeris/middleware/session/writebehind.go`, `celeris/middleware/session/session.go:319,395`.
+
 ## Pause and resume accept
 
 Sometimes you want to stop taking *new* connections while keeping the existing ones
 served — for example, to quiesce a node for maintenance, fail a load-balancer health
 check, or back off under pressure — without tearing the whole server down.
-`PauseAccept` and `ResumeAccept` do exactly that. Source: `celeris/server.go:511-539`.
+`PauseAccept` and `ResumeAccept` do exactly that. Source: `celeris/server.go:515-540`.
 
 ```go
 // Stop accepting new connections; in flight requests keep running.
@@ -217,7 +254,7 @@ _ = s.ResumeAccept()
 (net/http) engine does **not** support it: both methods return
 `celeris.ErrAcceptControlNotSupported` on `std`, and also when the server has not been
 started yet (no engine is installed). Always check the error and have a fallback (a
-full `Shutdown`) for portability. Source: `celeris/server.go:514-538`,
+full `Shutdown`) for portability. Source: `celeris/server.go:515-539`,
 `celeris/errors.go:29-31`, `celeris/engine/engine.go:27-35`. See
 [Engines](/docs/engines) for which engine runs where.
 
@@ -240,8 +277,8 @@ The pieces:
 | `Server.StartWithListener(ln)` | Start the server on an existing `net.Listener` instead of binding `Config.Addr`. |
 | `Server.StartWithListenerAndContext(ctx, ln)` | Same, plus signal-driven graceful shutdown bounded by `Config.ShutdownTimeout`. |
 
-Source: `celeris/server.go:736-751` (`InheritListener`), `693-699`
-(`StartWithListener`), `704-731` (`StartWithListenerAndContext`).
+Source: `celeris/server.go:748-763` (`InheritListener`), `705-711`
+(`StartWithListener`), `716-743` (`StartWithListenerAndContext`).
 
 ### `InheritListener` takes an env-var *name*, not an address
 
@@ -268,7 +305,7 @@ if ln == nil {
 Passing an address like `InheritListener(":8080")` is wrong — there is no env var
 named `:8080`, so it returns `nil, nil` and you silently fall through to a cold bind.
 `InheritListener` returns an error only when the variable *is* set but holds an
-invalid fd. Source: `celeris/server.go:736-751`.
+invalid fd. Source: `celeris/server.go:748-763`.
 
 ### Listener ownership: hands off
 
@@ -282,7 +319,7 @@ on it or `Close` it yourself.** What happens to the listener depends on the engi
   design — the multi-worker native engines need their own per-worker sockets.
 
 In both cases the contract is the same: after calling `StartWithListener`, the
-listener belongs to Celeris. Source: `celeris/server.go:681-699`.
+listener belongs to Celeris. Source: `celeris/server.go:557-711`.
 
 > Because native engines rebind via `SO_REUSEPORT`, the old and new processes can both
 > hold a socket on the port simultaneously during the handoff window — which is exactly
@@ -303,7 +340,7 @@ To avoid it when using socket handoff, **leave `Config.Addr` empty** (or set it 
 value that matches the listener). Two cases are deliberately *allowed* and do not
 error: the default `":8080"`, and any `"<host>:0"` (pick-any-port), since delegating
 port selection to the pre-bound listener is a common, intentional pattern. Source:
-`celeris/resource/config.go:147-161`.
+`celeris/resource/config.go:152-161`.
 
 ```go
 // ✅ No Addr → no ambiguity. The listener decides the bind address.
@@ -422,12 +459,12 @@ std via the shared inherited fd), so no client connection is refused.
 **What's the default drain timeout?**
 30 seconds — used by `StartWithContext` and `StartWithListenerAndContext` when
 `Config.ShutdownTimeout` is zero or negative. When you call `Shutdown(ctx)` yourself
-there is no default; you supply the context (`celeris/config.go:100-102`,
-`celeris/server.go:765-768`).
+there is no default; you supply the context (`celeris/config.go:109-111`,
+`celeris/server.go:777-780`).
 
 **Is calling `Shutdown` on a server I never started safe?**
 Yes. It returns `nil` immediately (after a harmless CPU-monitor cleanup). Source:
-`celeris/server.go:366-371`.
+`celeris/server.go:367-372`.
 
 **Do `OnShutdown` hooks run if the engine never started?**
 No. If no engine was installed, `Shutdown` returns before reaching the hook loop. Hooks

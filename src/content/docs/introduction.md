@@ -12,11 +12,12 @@ keeping a routing and middleware API you already know from Gin and Echo. The
 name is Latin for *swift*.
 
 ```go
-import "github.com/goceleris/celeris" // module github.com/goceleris/celeris, package celeris
+import "github.com/goceleris/celeris"
 ```
 
-The current release is **`celeris.Version` = `1.5.0`** (defined in
-[`server.go`](https://github.com/goceleris/celeris/blob/main/server.go)).
+The current release is **[`v1.5.4`](https://github.com/goceleris/celeris/releases/latest)** —
+always pull the [latest release](https://github.com/goceleris/celeris/releases/latest)
+from GitHub.
 
 > New here and want to ship something? Skip ahead to
 > [Getting started](/docs/getting-started). This page is the map of the
@@ -125,7 +126,7 @@ around Celeris.
 | **Native engines are Linux-only** | io_uring, epoll, and adaptive exist only on Linux. On macOS/Windows/BSD, Celeris automatically uses the **std** (`net/http`) engine — your code is unchanged, but you won't see native-engine performance off Linux. This fallback is automatic; you do not configure it. |
 | **No built-in TLS** | Celeris has **no HTTPS listener and no TLS configuration** — `Config` exposes no certificate fields, and every engine (io_uring, epoll, adaptive, and std) binds a plain TCP listener. Terminate TLS at an upstream proxy (Caddy, Nginx, Envoy) and forward cleartext to Celeris. See [Deployment](/docs/deployment). |
 | **Cleartext H1 / h2c only** | Protocols are HTTP/1.1 and HTTP/2 *cleartext* (h2c). There is no h2 over TLS (ALPN) because there is no TLS. `Protocol: celeris.Auto` (the default) detects H1 vs h2c per connection. |
-| **Go 1.26+** | Celeris requires a modern toolchain (the module declares `go 1.26.4`). Build with Go 1.26.3 or newer. |
+| **Go 1.26+** | Celeris requires a modern toolchain (the module declares `go 1.26.4`). Build with Go 1.26.4 or newer. |
 
 > **Common pitfall — expecting `https://`.** A fresh Celeris server listens on
 > plain TCP. `curl https://localhost:8080` will fail; `curl http://localhost:8080`
@@ -142,8 +143,8 @@ Operations. If you just want to ship, jump straight to
 
 - **Module:** `github.com/goceleris/celeris` · **package:** `celeris`.
 - **Version:** the running version is the exported `celeris.Version` constant
-  (currently `1.5.0`). Pin a version in your `go.mod` and upgrade deliberately.
-- **Go toolchain:** Go 1.26.3+ (the module targets `go 1.26.4`).
+  (currently `1.5.4`). Pin a version in your `go.mod` and upgrade deliberately.
+- **Go toolchain:** Go 1.26.4+ (the module targets `go 1.26.4`).
 - **Platforms:** Linux for io_uring/epoll/adaptive; any OS Go supports for the
   std engine. The engine choice is automatic unless you set
   [`Config.Engine`](/docs/configuration).

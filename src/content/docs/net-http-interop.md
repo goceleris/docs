@@ -144,9 +144,11 @@ The two hard limits to remember:
   are not propagated. This rules out Server-Sent Events, chunked streaming, and
   long-poll handlers through `Adapt` — write those natively (see [Streaming](/docs/streaming)
   and [Server-Sent Events](/docs/sse)).
-- **The response body is capped at 100 MB.** If the handler writes more than
-  100 MB, the underlying `Write` returns an error and the adapted handler aborts
-  with `500`. Source: `celeris/bridge.go:92-117`.
+- **The response body is capped at 100 MB.** If the handler tries to write more
+  than 100 MB, the underlying `Write` returns an error to the stdlib handler;
+  `Adapt` does not inspect this and still replays the bytes buffered before the
+  limit with the handler's own status (200 unless it called `WriteHeader`), so the
+  client may receive a truncated response. Source: `celeris/bridge.go:109-117`.
 
 > The reconstructed `http.ResponseWriter` does **not** implement `http.Hijacker`
 > or `http.Flusher`. A handler that type-asserts for either (WebSocket upgrade,
@@ -379,11 +381,12 @@ proxy := adapters.ReverseProxy(target,
 s.Any("/api/*path", proxy)
 ```
 
-> `ReverseProxy` delegates to `celeris.Adapt`, so it inherits the same **buffering**
+> `ReverseProxy` delegates to `celeris.Adapt` (Source:
+> `celeris/middleware/adapters/adapters.go:236`), so it inherits the same **buffering**
 > behaviour: the backend response is read fully into memory (100 MB cap) before it
 > reaches the client. **Streaming responses — SSE, WebSocket upgrade, or large
 > downloads — are not supported through this proxy.** Source:
-> `celeris/middleware/adapters/doc.go:65-67`.
+> `celeris/bridge.go:92-117`.
 
 ## Caveats
 
@@ -394,7 +397,7 @@ performance feature. Know the trade-offs before you commit to one.
   routes through a capturing `http.ResponseWriter`. `WrapMiddleware` costs roughly
   8–15 heap allocations per request. On a hot path served thousands of times per
   second, that overhead is measurable. Source:
-  `celeris/middleware/adapters/doc.go:29-36`.
+  `celeris/middleware/adapters/adapters.go:104-152` (`buildRequest`).
 - **No zero-copy, no streaming.** `Adapt`, `WrapMiddleware`, and `ReverseProxy`
   all buffer the full response in memory (100 MB cap). `ToHandler` buffers the
   request body the same way. Nothing flushes incrementally.

@@ -24,7 +24,7 @@ s := celeris.New(celeris.Config{
 })
 ```
 
-The `Config` struct is defined in `celeris/config.go:63-212`. Defaults are filled in
+The `Config` struct is defined in `celeris/config.go:71-233`. Defaults are filled in
 at `Start` by `celeris/resource/config.go:167` (`WithDefaults`) and validated by
 `celeris/resource/config.go:89` (`Validate`).
 
@@ -351,6 +351,43 @@ celeris.Config{
 }
 ```
 
+## Memory
+
+### `MemoryLimitBytes`
+
+An **optional** soft heap ceiling (in bytes) applied via
+`runtime/debug.SetMemoryLimit` at `Start`. It is **opt-in only** and, when set,
+clips the peak-RSS balloon that a connection-ramp burst would otherwise produce.
+
+| Field              | Type    | Default     | Effect                                            |
+| ------------------ | ------- | ----------- | ------------------------------------------------- |
+| `MemoryLimitBytes` | `int64` | `0` (unset) | Soft heap ceiling via `debug.SetMemoryLimit`      |
+
+- **`0` (default)** — Celeris does **not** touch the process GC; the runtime
+  default (`GOGC=100`, no limit) stands, and embedders keep full control
+  (`celeris/config.go:142-152`, applied at `celeris/server.go:647-648`).
+- **`> 0`** — the GC collects *before* the heap balloons during a connection-ramp
+  burst, trading a few extra GC cycles during the ramp for a lower high-water
+  mark. Steady-state RSS sits far below the limit, so steady throughput is
+  unaffected. A negative value is a config error
+  (`memoryLimitBytes must be >= 0`, `celeris/resource/config.go:128-130`).
+
+> **`SetMemoryLimit` is process-global.** Set this only when Celeris owns the
+> process (e.g. a dedicated server binary), never when Celeris is embedded
+> alongside other heap-sensitive code that manages its own GC target.
+
+`celeris.DeriveMemoryLimit(workers)` returns a generous, ready-to-use ceiling —
+`max(256 MiB, workers*32 MiB)` (`celeris/config.go:62-69`). It is sized **high**
+on purpose: the goal is to clip the ramp balloon, not to run the heap tight (a
+too-tight limit GC-thrashes under load). It is never applied implicitly — you
+must pass it explicitly.
+
+```go
+cfg := celeris.Config{Addr: ":8080", Workers: 8}
+cfg.MemoryLimitBytes = celeris.DeriveMemoryLimit(cfg.Workers) // soft heap ceiling
+s := celeris.New(cfg)
+```
+
 ## Behaviour, observability, and callbacks
 
 ### `DisableMetrics`
@@ -382,6 +419,15 @@ the full dispatch model.
 celeris.Config{AsyncHandlers: false}            // default: inline; mark I/O routes .Async()
 celeris.Config{AsyncHandlers: true}             // default async; mark hot CPU routes .Sync()
 ```
+
+> **Driver fast path keys off the *effective* async state.** Celeris drivers opened
+> `WithEngine(srv)` pick their netpoll-park fast path from whether the server is
+> *effectively* async — i.e. `AsyncHandlers: true` **or** any route opted in via
+> `.Async()` / `.UsesDriver()` (`celeris/config.go:187-195`). The effective state is
+> read at driver construction, so if you keep `AsyncHandlers: false` and rely on
+> per-route `.Async()` / `.UsesDriver()`, **open the driver *after* registering those
+> routes** — or set `AsyncHandlers: true` to be order-independent. See
+> [Data stores](/docs/data-stores).
 
 ### `OnExpectContinue`
 

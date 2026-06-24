@@ -63,10 +63,11 @@ func authFailed(err error) bool {
 }
 ```
 
-`keyauth` and `jwt` add finer-grained sentinels (`ErrMissingKey`, `ErrTokenMissing`,
-`ErrJWTExpired`, …) that still satisfy `errors.Is(err, celeris.ErrUnauthorized)`
-because they wrap a 401 `*celeris.HTTPError`. See [Error handling](/docs/error-handling)
-for how returned errors map to responses.
+`jwt` adds finer-grained sentinels (`ErrTokenMissing`, `ErrJWTExpired`, …) that
+**also** satisfy `errors.Is(err, celeris.ErrUnauthorized)` — they wrap the canonical
+sentinel. `keyauth.ErrMissingKey` is the exception: it's a standalone 401 that does
+**not** chain to `celeris.ErrUnauthorized`, so match it directly. See
+[Error handling](/docs/error-handling) for how returned errors map to responses.
 
 ### Constant-time comparison
 
@@ -261,8 +262,12 @@ s.Use(keyauth.New(keyauth.Config{
 
 | Sentinel | Meaning | `errors.Is(..., celeris.ErrUnauthorized)` |
 | -------- | ------- | ----------------------------------------- |
-| `keyauth.ErrMissingKey` | No key found in any configured source | ✓ (401) |
-| `keyauth.ErrUnauthorized` | Key found but rejected | ✓ (alias) |
+| `keyauth.ErrMissingKey` | No key found in any configured source | ✗ — a distinct 401; match it directly |
+| `keyauth.ErrUnauthorized` | Key found but rejected | ✓ (alias of `celeris.ErrUnauthorized`) |
+
+> Unlike `jwt`'s sentinels (which wrap `celeris.ErrUnauthorized`), `keyauth.ErrMissingKey`
+> is a standalone 401 — a generic `errors.Is(err, celeris.ErrUnauthorized)` will **not**
+> match it. Match `keyauth.ErrMissingKey` directly, or use `keyauth.ErrUnauthorized`.
 
 Read the validated key downstream with `keyauth.KeyFromContext(c)` (returns `""`
 when unauthenticated). On rejection the default `ErrorHandler` returns the error
@@ -540,6 +545,7 @@ persistence mid-handler.
 | `IdleTimeout` | `time.Duration` | 30m | Expiry after inactivity (server-side). |
 | `AbsoluteTimeout` | `time.Duration` | 24h | Max lifetime. `-1` disables. |
 | `KeyGenerator` | `func() string` | 32-byte hex | Session ID generator. |
+| `WriteBehind` | `bool` | `false` | Move the post-handler store write off the response critical path (see [Write-behind](#write-behind-persistence)). |
 | `Skip`, `SkipPaths`, `ErrorHandler` | — | — | `ErrorHandler` runs on store errors. |
 
 > **`SameSiteNoneMode` requires `CookieSecure: true`** — `New` panics otherwise.
@@ -640,11 +646,47 @@ available backends.
 
 ### Out-of-band access
 
-`session.NewHandler(cfg)` returns a `*session.Handler` exposing both `Middleware()`
-(install with `s.Use`) and `GetByID(ctx, id)` for inspecting a session outside the
-request pipeline (admin tools, background jobs, WebSocket handlers). Sessions
+`session.NewHandler(cfg)` returns a `*session.Handler` exposing `Middleware()`
+(install with `s.Use`), `GetByID(ctx, id)` for inspecting a session outside the
+request pipeline (admin tools, background jobs, WebSocket handlers), and
+`Close()` for draining deferred writes on shutdown (see below). Sessions
 returned by `GetByID` are **read-only** — calling `Save`/`Regenerate`/`Destroy` on
 them panics.
+
+### Write-behind persistence
+
+By default the store write completes *before* the response is sent. Set
+`WriteBehind: true` to move it off the response critical path: the encoded
+session is snapshotted and handed to a single bounded background worker (one
+goroutine, writes serialized in enqueue order), so the `store.Set` overlaps the
+next request instead of gating the current response — useful on session-heavy
+workloads with a remote store.
+
+The tradeoff is durability: an acknowledged response no longer guarantees the
+session is durable in the store. An abrupt process death (SIGKILL, panic, power
+loss) between the response and the deferred write loses that one update. Leave it
+`false` where a read after a write must observe it across a crash; enable it for
+crash-tolerant updates (last-seen, view counters, cart state). `Destroy` stays
+synchronous regardless, and the cookie is always written on the response.
+
+A **graceful** shutdown does not lose writes — but you must drain the queue. With
+`WriteBehind` enabled, install the middleware via `NewWithCloser` (or
+`NewHandler`) so you hold a handle that flushes in-flight and queued writes:
+
+```go
+mw, closer := session.NewWithCloser(session.Config{
+    Store:       sessionredis.New(rdb),
+    WriteBehind: true,
+})
+s.Use(mw)
+defer closer.Close() // drains the write-behind queue on shutdown
+```
+
+`Handler.Close()` (from `NewHandler`) and the `io.Closer` from `NewWithCloser`
+block until every enqueued write has been applied, and are a no-op when
+`WriteBehind` is `false`. Plain `session.New(...)` gives no such handle, so a
+graceful stop cannot drain the queue — prefer `NewWithCloser`/`NewHandler` when
+`WriteBehind` is on.
 
 ## Auth stacking recipe
 

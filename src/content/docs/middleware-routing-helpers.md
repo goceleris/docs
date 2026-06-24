@@ -390,8 +390,8 @@ s.Pre(methodoverride.New(methodoverride.Config{
 Method override changes the method *before* CSRF middleware runs. Make sure the
 overridden targets (`PUT`, `DELETE`, `PATCH`) are **not** in your CSRF
 middleware's safe-methods list, or the protection is bypassed
-(`celeris/middleware/methodoverride/doc.go:72-76`, "CSRF Middleware
-Interaction"). See [Security middleware](/docs/middleware-security).
+(the package warns about CSRF risk for query-based overrides at
+`celeris/middleware/methodoverride/doc.go:17`). See [Security middleware](/docs/middleware-security).
 
 ## healthcheck — Kubernetes-style probes
 
@@ -405,7 +405,7 @@ request straight through (`celeris/middleware/healthcheck/healthcheck.go:66-91`)
 > **`Server.Use`** (it is route middleware, not pre-routing), and install it
 > **first** so probes are answered before any heavier middleware runs. The
 > package's own examples use `server.Use(healthcheck.New())`
-> (`celeris/middleware/healthcheck/doc.go:10`).
+> (`celeris/middleware/healthcheck/example_test.go:13`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/healthcheck"

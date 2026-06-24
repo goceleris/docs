@@ -114,7 +114,7 @@ so calling them from several goroutines concurrently is safe — each complete
 message arrives intact. Reading, however, is single-goroutine: have at most **one**
 goroutine in `ReadMessage`/`ReadMessageReuse`/`NextReader` at a time. The common
 pattern is one read loop plus any number of writer goroutines
-(`celeris/middleware/websocket/doc.go:67-72`).
+(`celeris/middleware/websocket/doc.go:30-32`).
 
 ### Reading messages
 
@@ -549,6 +549,21 @@ hub := websocket.NewHub(websocket.HubConfig{
 conns, so a shutdown path that synchronises on `Close` cannot race a still
 fanning-out message (`celeris/middleware/websocket/hub.go:315`).
 
+### Bounding broadcast concurrency
+
+A `Broadcast` fans out to every conn concurrently. `HubConfig.MaxConcurrency`
+caps how many of those per-conn writes run at once via a semaphore, keeping
+goroutine pressure bounded on very large hubs
+(`celeris/middleware/websocket/hub.go:46`). Leave it `0` (the default) to use
+`DefaultHubConcurrency()` — `runtime.GOMAXPROCS(0) * 4`
+(`celeris/middleware/websocket/hub.go:54`):
+
+```go
+hub := websocket.NewHub(websocket.HubConfig{
+    MaxConcurrency: 256, // cap in-flight per-conn writes during a Broadcast
+})
+```
+
 ### Reusing an encoded message
 
 When you publish the same payload repeatedly, build a `PreparedMessage` once and
@@ -685,7 +700,7 @@ _ = c.WriteControl(
 ## Engine behavior
 
 The same `Handler` runs on every engine, but the I/O underneath differs in ways
-worth knowing (`celeris/middleware/websocket/doc.go:146`):
+worth knowing (`celeris/middleware/websocket/doc.go:41-44`):
 
 | Aspect                | Native engines (epoll, io_uring)                                        | std engine (hijack)                                     |
 | --------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -701,7 +716,7 @@ The practical takeaways:
 1. **Don't rely on `NetConn()` or `SetReadDeadline`/`SetWriteDeadline` for
    portable code.** They only do something on the std engine. For an idle
    timeout that works everywhere, set `Config.IdleTimeout` — both paths converge
-   to the same observable behaviour (`celeris/middleware/websocket/doc.go:177`).
+   to the same observable behaviour (`celeris/middleware/websocket/config.go:104-110`).
 2. **Backpressure tuning only matters on native engines.** On the std path the
    relevant fields are simply ignored.
 

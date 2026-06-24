@@ -12,7 +12,7 @@ hands you the same `*celeris.Context`. What changes between engines is *how* the
 kernel is asked to do I/O — and on the right kernel that difference is the
 difference between good and exceptional throughput.
 
-You select an engine with one field, `Config.Engine` (`celeris/config.go:69`). The
+You select an engine with one field, `Config.Engine` (`celeris/config.go`). The
 zero value is the right answer on almost every box: **Adaptive on Linux, Std
 everywhere else** (`celeris/resource/config.go:13-19`). This page explains the four
 engines, the adaptive controller that picks between them, how the engine relates
@@ -30,7 +30,7 @@ s := celeris.New(celeris.Config{Addr: ":8080", Engine: celeris.IOUring})
 ## The four engines
 
 Celeris ships four engine implementations, exposed as the `EngineType` constants
-in `celeris/config.go:29-38`.
+in `celeris/config.go`.
 
 | Engine                 | Constant            | Where it runs        | What it is                                                                 |
 | ---------------------- | ------------------- | -------------------- | ------------------------------------------------------------------------- |
@@ -41,17 +41,21 @@ in `celeris/config.go:29-38`.
 
 ### Adaptive — the default on Linux
 
-Adaptive runs **both** the epoll and io_uring sub-engines behind the same listening
-socket, scores them on live telemetry, and switches the active engine when the
-standby is meaningfully better for the current workload. You get the best engine
-for the box and the moment without choosing. See [The adaptive
+Adaptive starts on **one** sub-engine behind the listening socket and builds the
+other **lazily**, only if a switch ever needs it — a server that starts on epoll
+and never promotes never constructs the io_uring standby (and vice versa), so the
+standby's heap never exists. It watches live telemetry and switches the active
+engine when the workload crosses a load threshold. You get the best engine for the
+box and the moment without choosing. See [The adaptive
 controller](#the-adaptive-controller) below for the signals it uses.
 
 Because connections cannot migrate between epoll and io_uring once accepted, the
 *start* engine matters for long-lived keep-alive throughput. By default Adaptive
 **starts on epoll** (best for the ramp-from-zero, low-concurrency, latency case)
-and promotes *new* connections to io_uring under sustained high load. The only way
-to make it start on io_uring is the `WorkloadHint` (see below).
+and promotes *new* connections to io_uring under sustained high load. The two ways
+to influence the start engine are the `WorkloadHint` config field (see below) and
+the `CELERIS_ADAPTIVE_START` env override (`epoll` | `iouring` | `auto`), an
+operator escape hatch that pins the start engine and disables runtime switching.
 
 ### Epoll
 
@@ -99,8 +103,8 @@ elsewhere. The distinction worth internalising:
   your code runs unchanged on a Mac.
 - **Explicitly setting a native engine off Linux is a validation error.** It is
   *not* silently downgraded. `Config.Validate` returns `engine <name> requires
-  Linux` (`celeris/resource/config.go:138-145`), and `Start` surfaces it as a
-  `config validation` error before binding the socket (`celeris/server.go:571-573`).
+  Linux` (`celeris/resource/config.go`), and `Start` surfaces it as a
+  `config validation` error before binding the socket (`celeris/server.go`).
 
 ```go
 // On macOS: this returns a non-nil error from Start, it does NOT fall back.
@@ -138,20 +142,25 @@ Sources: `celeris/engine/capability.go`, `celeris/engine/engine.go:46-72`,
 
 The adaptive engine does not guess from configuration — it watches the live
 `EngineMetrics` counters and derives load signals from them. The counters it reads
-are documented field-by-field in `celeris/engine/engine.go:85-132`; the signals it
-builds from them are:
+are documented field-by-field in `celeris/engine/engine.go`; the signals that
+actually drive the decision are:
 
 | Signal                  | Derived from                                  | What it tells the controller                                              |
 | ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------ |
-| **Conns per worker**    | `ActiveConnections / Workers`                 | Keep-alive concurrency pressure — the primary io_uring-vs-epoll signal.   |
-| **Accept rate**         | `AcceptCount` over time                        | New-connection arrival rate.                                              |
-| **Close rate**          | `CloseCount` over time                          | A high close-vs-accept ratio means short-lived "churn" connections.       |
-| **Bytes per request**   | `(BytesRead + BytesWritten) / RequestCount`   | Large-payload / link-bound traffic, where io_uring offers no edge.         |
+| **Conns per worker**    | `ActiveConnections / Workers`                 | The **primary** signal: keep-alive concurrency pressure. epoll and io_uring tie at low concurrency; io_uring pulls ahead and keeps scaling above ~24 conns/worker. |
+| **Bytes per request**   | `(BytesRead + BytesWritten) / RequestCount`   | Large-payload (>8 KB avg) traffic is link-bound — the engines tie — so an io_uring switch is *suppressed*. |
+| **Error rate**          | `ErrorCount` over time                         | If io_uring starts erroring on this host, a safety revert to epoll fires regardless of load. |
 
-It uses these to keep the *active* engine matched to the workload, and to decide
-which engine *new* connections are promoted onto. Switching is damped against
-oscillation — after rapid flips the controller briefly locks the active engine so a
-borderline workload does not thrash.
+Switching is **measured-vs-measured** and intentionally asymmetric. While epoll is
+active, a sustained high conns-per-worker reading promotes *new* connections to
+io_uring (an immediate snap past a heavy-load high-watermark, otherwise after a
+short sustain). Once on io_uring it stays there: because established connections
+are pinned and cannot migrate, the controller does **not** load-revert to epoll on
+a load dip (that would only strand io_uring keep-alives) — the only thing that
+reverts it is the io_uring error-rate safety net. Switching is gated by kernel,
+`RLIMIT_MEMLOCK`, and protocol viability, and is damped against oscillation: after
+three switches in five minutes the controller locks the active engine for five
+minutes, plus a post-switch cooldown, so a borderline workload does not thrash.
 
 ### `WorkloadHint` — picking the start engine
 
@@ -179,7 +188,8 @@ s := celeris.New(celeris.Config{
 ```
 
 `WorkloadHighConcurrency` starts on io_uring **only when the kernel and
-`RLIMIT_MEMLOCK` allow it** (`celeris/config.go:57-59`). If io_uring is unavailable,
+`RLIMIT_MEMLOCK` allow it and `Protocol` is not `H2C`** (h2c never benefits from
+io_uring) (`celeris/config.go`). If io_uring is unavailable,
 Adaptive falls back to starting on epoll.
 
 ### Observing switches with `EngineSwitches`
@@ -203,12 +213,12 @@ nil — guard for that.)
 
 A frequent confusion is treating the engine as a protocol selector. It is not. The
 engine is an **I/O strategy**; the protocol is set separately with `Config.Protocol`
-(`celeris/config.go:14-21`). **All four engines support the same protocol surface:**
+(`celeris/config.go`). **All four engines support the same protocol surface:**
 
 - **HTTP/1.1** and **h2c** (HTTP/2 cleartext), with `Protocol: celeris.Auto`
   (the default) auto-detecting between them per connection.
 - **`Upgrade: h2c`** promotion of an H1 connection to cleartext H2, controlled by
-  `Config.EnableH2Upgrade` (`celeris/config.go:200-211`), independent of engine.
+  `Config.EnableH2Upgrade` (`celeris/config.go`), independent of engine.
 
 ```go
 s := celeris.New(celeris.Config{
@@ -240,7 +250,7 @@ goroutine while the worker returns immediately to the event loop. This trades th
 per-worker serialization ceiling (`Workers × 1/RTT`) for goroutine-per-connection
 parallelism, which is exactly `net/http`'s model. The cost is a goroutine spawn
 (~100ns) plus scheduler overhead per request — a measured ~3–5% regression on a
-pure static-response benchmark (`celeris/config.go:138-177`).
+pure static-response benchmark (`celeris/config.go`).
 
 You control this at three levels (most-specific wins): **route > group > server
 default**.
@@ -337,12 +347,14 @@ A few practical notes:
   locked memory for its rings and provided-buffer pools, so raise the process
   `RLIMIT_MEMLOCK` (e.g. `LimitMEMLOCK=infinity` in a systemd unit, or
   `--ulimit memlock=-1:-1` for a container). If memlock is too low, io_uring setup
-  fails — under Adaptive this means it never starts on / promotes to io_uring.
+  fails — under Adaptive this means it never starts on / promotes to io_uring. In a
+  container you must **also** allow the io_uring syscalls in seccomp; see
+  [Deployment → Running io_uring in a container](/docs/deployment#running-io_uring-in-a-container).
 - **Tune workers and buffers** with `Config.Workers` (default `GOMAXPROCS`),
   `Config.BufferSize` (per-connection I/O buffer; `0` = engine default), and the
   socket options `Config.SocketRecvBuf` / `Config.SocketSendBuf` (`SO_RCVBUF` /
   `SO_SNDBUF`; `0` = OS default). `Config.MaxConns` caps simultaneous connections
-  per worker. All are in `celeris/config.go:71-131`. The full config reference is on
+  per worker. All are in `celeris/config.go`. The full config reference is on
   [Configuration](/docs/configuration).
 
 ```go
@@ -375,7 +387,7 @@ if info := s.EngineInfo(); info != nil {
 }
 ```
 
-`EngineInfo` is a struct with two fields (`celeris/config.go:217-223`):
+`EngineInfo` is a struct with two fields (`celeris/config.go`):
 
 | Field     | Type            | Description                                       |
 | --------- | --------------- | ------------------------------------------------- |
@@ -387,7 +399,7 @@ if info := s.EngineInfo(); info != nil {
 
 ### `EngineMetrics` fields
 
-`EngineMetrics` (`celeris/engine/engine.go:85-132`) is a snapshot of the engine's
+`EngineMetrics` (`celeris/engine/engine.go`) is a snapshot of the engine's
 own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 
 | Field                | Type      | Meaning                                                                       |
@@ -403,9 +415,11 @@ own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 | `CloseCount`         | `uint64`  | Cumulative connections closed since start. `Accept − Close` = live count.       |
 | `BytesRead`          | `uint64`  | Cumulative payload bytes received across all connections.                       |
 | `BytesWritten`       | `uint64`  | Cumulative payload bytes sent across all connections.                           |
+| `AdaptiveSwitches`   | `uint64`  | Cumulative completed epoll⇄io_uring switches; `0` on non-adaptive engines.       |
 
-These are the same counters the adaptive controller reads to derive its load
-signals (see [The adaptive controller](#the-adaptive-controller)). They are also
+These are the counters the adaptive controller reads to derive its load signals —
+`ActiveConnections`/`Workers`, `BytesRead`+`BytesWritten`/`RequestCount`, and the
+error rate (see [The adaptive controller](#the-adaptive-controller)). They are also
 re-exported on the metrics `Snapshot` as `EngineMetrics`, alongside `RequestsTotal`,
 `ErrorsTotal`, `ActiveConns`, `EngineSwitches`, latency buckets, and CPU
 utilisation (`celeris/observe/collector.go:40-57`).

@@ -321,7 +321,7 @@ handler panics. Do not access `ctx` or `rec` after release.
 ## Testing middleware
 
 Middleware is a handler that calls `c.Next()` to invoke the rest of the chain
-(`celeris/context.go:312`). To test that interaction you need a real chain, which
+(`celeris/context.go:324`). To test that interaction you need a real chain, which
 is exactly what `WithHandlers` builds. List the handlers in execution order; the
 last one is the terminal handler:
 
@@ -536,15 +536,15 @@ func TestServerIntegration(t *testing.T) {
 Key APIs in play:
 
 - **`celeris.New(Config{Addr: ":0"})`** — `:0` asks the OS for any free port,
-  which keeps parallel tests from colliding on a fixed port (`celeris/config.go:64`).
+  which keeps parallel tests from colliding on a fixed port (`celeris/config.go:74`).
 - **`s.Addr() net.Addr`** — returns the listener's bound address, or `nil` if the
   server hasn't started yet. Use it to discover the OS-assigned port
-  (`celeris/server.go:433`).
+  (`celeris/server.go:434`).
 - **`s.Start() error`** — runs the accept loop; it blocks, so call it in a
-  goroutine (`celeris/server.go:353`).
+  goroutine (`celeris/server.go:354`).
 - **`s.Shutdown(ctx) error`** — stops accepting new connections, drains in-flight
   requests, fires `OnShutdown` hooks, and returns `nil` if the server was never
-  started. Always give it a bounded context (`celeris/server.go:366`).
+  started. Always give it a bounded context (`celeris/server.go:367`).
 
 > Routes must be registered **before** `Start` — handler chains are baked at
 > registration time, and the `*Server` is only safe for concurrent use after

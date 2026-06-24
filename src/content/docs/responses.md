@@ -47,8 +47,9 @@ A few rules to keep in mind:
   `code` argument use whatever you pass; `Status*` helpers use the value from
   `Status` (see below).
 - **Detached contexts reject standard writes.** If the connection has been
-  detached (e.g. by WebSocket or SSE middleware), body methods return
-  `ErrDetached`. Use the streaming write API instead — see
+  detached (e.g. by WebSocket or SSE middleware), the body-*writing* methods
+  (`JSON`, `String`, `HTML`, `Blob`, …) return `ErrDetached`. (`NoContent`, which
+  sends no body, is exempt.) Use the streaming write API instead — see
   [Streaming, SSE & WebSocket](/docs/streaming).
 - **Return the error.** All body writers return `error`. Returning it from your
   handler lets Celeris centralise error handling — see
@@ -57,7 +58,7 @@ A few rules to keep in mind:
 | Error | Returned when |
 | --- | --- |
 | `ErrResponseWritten` | A body method is called after a response was already sent. |
-| `ErrDetached` | A standard body method is called on a detached context. |
+| `ErrDetached` | A body-*writing* method (`JSON`/`String`/`Blob`/…) is called on a detached context. `NoContent` is exempt. |
 
 ## Status codes
 

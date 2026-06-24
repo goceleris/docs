@@ -244,9 +244,12 @@ convention:
   `RemoveTrailingSlashRedirect`, and combined `HTTPSWWWRedirect` /
   `HTTPSNonWWWRedirect`, each `func(config ...Config) celeris.HandlerFunc`
   (`celeris/middleware/redirect/redirect.go`).
-- **`session`** offers both `New(config ...Config) celeris.HandlerFunc` and
-  `NewHandler(config ...Config) *Handler` when you need the handle object
-  (`celeris/middleware/session/session.go`).
+- **`session`** offers `New(config ...Config) celeris.HandlerFunc`,
+  `NewHandler(config ...Config) *Handler` when you need the handle object, and
+  `NewWithCloser(config ...Config) (celeris.HandlerFunc, io.Closer)` when you want
+  a closer to drain the optional write-behind queue on shutdown
+  (`celeris/middleware/session/session.go`). See [Authentication
+  middleware](/docs/middleware-auth) for `Config.WriteBehind` and graceful drain.
 
 ### Auth conventions
 
@@ -412,7 +415,7 @@ Details: [Security middleware](/docs/middleware-security).
 | `basicauth` | HTTP Basic authentication.                                 |
 | `keyauth`   | API-key authentication with a `Validator`.                 |
 | `jwt`       | JWT validation; supports stacking via `ContinueOnIgnoredError`. |
-| `session`   | Server-side sessions (`New` or `NewHandler`).              |
+| `session`   | Server-side sessions (`New`, `NewHandler`, or `NewWithCloser`). |
 
 Details: [Authentication middleware](/docs/middleware-auth).
 

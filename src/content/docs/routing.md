@@ -77,7 +77,7 @@ method := resolveMethodFromConfig()
 s.Handle(method, "/rpc", rpcHandler)
 ```
 
-Source: `celeris/server.go:149-151`.
+Source: `celeris/server.go:150-152`.
 
 > The standard verb methods are just thin wrappers over `Handle`, so there is no
 > behavioural difference for `GET`/`POST`/etc. versus `Handle("GET", …)`.
@@ -226,7 +226,7 @@ handler).
 ## Route groups
 
 `Server.Group(prefix, middleware...)` creates a `*RouteGroup` that shares a path
-prefix and a middleware stack across many routes (`celeris/server.go:335`). Group
+prefix and a middleware stack across many routes (`celeris/server.go:336`). Group
 middleware runs **after** server-level middleware but **before** the route's own
 handlers.
 
@@ -272,7 +272,7 @@ api.GET("/items", listItems)
 > At the **server** level the same rule is enforced more strictly: `s.Use(...)`
 > **panics** if called after any route is registered, to surface the silent
 > inconsistency where some routes get the middleware and others don't
-> (`celeris/server.go:128-134`). On a group it does not panic — it simply applies
+> (`celeris/server.go:129-135`). On a group it does not panic — it simply applies
 > only going forward — so be deliberate about ordering.
 
 ## The `*Route` handle
@@ -348,8 +348,8 @@ strings. There are two builders on `*Server`:
 
 | Method                                    | Param substitution               | Source                  |
 | ----------------------------------------- | -------------------------------- | ----------------------- |
-| `URL(name, params...) (string, error)`    | positional, in pattern order     | `celeris/server.go:250` |
-| `URLMap(name, map) (string, error)`       | by parameter name                | `celeris/server.go:280` |
+| `URL(name, params...) (string, error)`    | positional, in pattern order     | `celeris/server.go:251` |
+| `URLMap(name, map) (string, error)`       | by parameter name                | `celeris/server.go:281` |
 
 ```go
 s.GET("/users/:id/posts/:pid", showPost).Name("post")
@@ -388,7 +388,7 @@ if errors.Is(err, celeris.ErrRouteNotFound) {
 ## Introspection
 
 `Server.Routes()` returns a `[]RouteInfo` describing every registered route, sorted
-by method then path for deterministic output (`celeris/server.go:241`). Handy for
+by method then path for deterministic output (`celeris/server.go:242`). Handy for
 startup logging, debug endpoints, or generating an API map.
 
 ```go
@@ -397,7 +397,7 @@ for _, r := range s.Routes() {
 }
 ```
 
-`RouteInfo` fields (`celeris/server.go:39-46`):
+`RouteInfo` fields (`celeris/server.go:40-46`):
 
 | Field          | Type     | Description                                                |
 | -------------- | -------- | --------------------------------------------------------- |
@@ -436,7 +436,7 @@ has to be unique within a single pattern.
 **How do I serve a directory of files?**
 Use `s.Static(prefix, root)` (or `group.Static`). It registers a catch-all GET route
 with built-in path-traversal protection — you don't manage the `*path` parameter
-yourself (`celeris/server.go:232-237`).
+yourself (`celeris/server.go:233-238`).
 
 **What happens on a path match with the wrong method?**
 The router returns the set of allowed methods; register a handler with

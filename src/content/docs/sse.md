@@ -582,7 +582,7 @@ subscribed to several brokers at once.
 **Can a broker-subscribed client also use `MaxQueueDepth`?** Yes — they're
 independent layers. The broker writes via `WritePreparedEvent` (always
 synchronous), so the per-client queue only engages if something calls
-`client.Send` directly. Source: `celeris/middleware/sse/doc.go:46-71`.
+`client.Send` directly. Source: `celeris/middleware/sse/prepared.go:26-42`.
 
 **How do I detect that a client left?** Select on `client.Context().Done()`, or
 watch for a non-nil error from `Send`. Heartbeats turn a silently dead connection

@@ -71,8 +71,9 @@ capability table in the next section maps these requirements to concrete backend
 ### `NewMemoryKV` — the in-memory backend
 
 `store.NewMemoryKV` (`middleware/store/memory.go:56`) returns a sharded,
-in-memory `*MemoryKV` that implements `KV` **plus every optional extension**
-(`GetAndDeleter`, `Scanner`, `PrefixDeleter`, `SetNXer`, `Counter`). It is the
+in-memory `*MemoryKV` that implements `KV` **plus every optional extension
+except `Scripter`** (`GetAndDeleter`, `Scanner`, `PrefixDeleter`, `SetNXer`,
+`Counter` — server-side Lua scripting is Redis-only). It is the
 default store for every middleware that takes one, and the reference backend.
 
 ```go
@@ -119,12 +120,17 @@ sessionStore := store.Prefixed(kv, "sess:")
 cacheStore   := store.Prefixed(kv, "cache:")
 ```
 
-The wrapper surfaces *most* capabilities: the value returned by `Prefixed`
-re-implements whichever of `GetAndDeleter`, `Scanner`, `PrefixDeleter`, and
-`SetNXer` the inner backend supports, rewriting keys and prefixes accordingly
-(`middleware/store/prefix.go:37-95`). So a `Prefixed(memoryKV, ...)` still works for
-session, cache, CSRF, and idempotency, and a `Prefixed(redisKV, ...)` exposes those
-four where the Redis adapter does.
+The wrapper implements all four extension interfaces — `GetAndDeleter`,
+`Scanner`, `PrefixDeleter`, and `SetNXer` — **unconditionally**, rewriting keys
+and prefixes accordingly (`middleware/store/prefix.go:37-95`). When the inner
+backend supports a capability natively, `Prefixed` delegates to it; otherwise it
+falls back (`GetAndDelete` → Get-then-Delete, `SetNX` → a *non-atomic*
+Get-then-Set, and `Scan`/`DeletePrefix` → no-ops when the inner is not a
+`Scanner`). So a `Prefixed(memoryKV, ...)` works for session, cache, CSRF, and
+idempotency, and a `Prefixed(redisKV, ...)` delegates to Redis's native, atomic
+implementations. Note the consequence: a `Prefixed` value always *satisfies*
+`SetNXer`, but only guarantees atomic set-if-absent when the inner backend does
+— matters for idempotency locks under concurrency.
 
 > **`Prefixed` does not forward `Counter` or `Scripter`.** The wrapper only
 > re-implements the four interfaces above, so a `Prefixed(memoryKV, ...)` is *not*
@@ -141,7 +147,7 @@ single-instance app needs zero store configuration:
 
 | Middleware    | Config field | Type | Capabilities required | Default |
 | ------------- | ------------ | ---- | --------------------- | ------- |
-| Session       | `Store` | `store.KV` | `Scanner` for `Reset` (else no-op) | in-memory (`session.NewMemoryStore`) — `middleware/session/config.go:63-66,176-177` |
+| Session       | `Store` | `store.KV` | `Scanner` for `Reset` (else no-op) | in-memory (`session.NewMemoryStore`) — `middleware/session/config.go:63-66,205-206` |
 | Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `middleware/cache/config.go:12-13,84-85` |
 | CSRF          | `Storage` | `store.KV` | `GetAndDeleter` for single-use tokens | **nil** — pure double-submit cookie mode (`middleware/csrf/config.go:73-82`) |
 | Idempotency   | `Store` | `idempotency.KVStore` (`store.KV` + `store.SetNXer`) | **`SetNXer` is mandatory** | in-memory — `middleware/idempotency/config.go:15-24` |
@@ -227,6 +233,16 @@ srv.Use(session.New(session.Config{Store: store}))
 (`middleware/csrf/redisstore`) additionally implements `GetAndDeleter` via Redis
 `GETDEL` for safe single-use tokens.
 
+> **Tip: overlap the session store write with the next request.** When the
+> session store is a network backend (Redis), the post-handler `Set` sits on the
+> response critical path. Set `session.Config.WriteBehind = true`
+> (`middleware/session/config.go:153`) to hand the encoded session to a single
+> bounded background worker so the round trip overlaps subsequent work. Pair it
+> with `session.NewWithCloser` (`middleware/session/session.go`) and drain the
+> returned `io.Closer` on graceful shutdown — an acknowledged response no longer
+> guarantees the session is durable across an abrupt crash, so the drain flushes
+> queued writes. `Session.Destroy` stays synchronous regardless.
+
 ### Capability requirements by middleware
 
 When you swap a backend, double-check the capabilities the middleware needs:
@@ -253,8 +269,8 @@ CPU's cache and saves an epoll/io_uring syscall per round trip.
 
 In practice you pass the `*celeris.Server` itself to `WithEngine` — the server
 satisfies the small provider interface the drivers consume by exposing
-`EventLoopProvider()` (`server.go:446-455`) and `AsyncHandlers()`
-(`server.go:478-497`). The driver pulls the event loop from the first and its
+`EventLoopProvider()` (`server.go:447`) and `AsyncHandlers()`
+(`server.go:479`). The driver pulls the event loop from the first and its
 effective async state from the second.
 
 ### Redis
@@ -473,14 +489,14 @@ The verified driver signatures used above (`driver/redis/commands.go`,
 ### How colocation works
 
 When you pass `WithEngine(srv)`, the driver pulls the server's `EventLoopProvider`
-(`server.go:446`) and registers its connection FDs on it. Concretely:
+(`server.go:447`) and registers its connection FDs on it. Concretely:
 
 - Without `WithEngine`, each driver resolves a **standalone** event loop, shared
   and reference-counted across all drivers that omit `WithEngine`.
 - With `WithEngine`, driver FDs land on the same worker goroutine as HTTP handlers.
   This saves one epoll/io_uring syscall per I/O and improves data locality — the
-  Redis driver docs cite roughly 5–20% lower latency for serial queries
-  (`driver/redis/doc.go:146-156`).
+  Redis driver docs cite lower latency from better data locality for serial
+  queries (`driver/redis/doc.go:6-8`).
 
 **Correctness is identical** with or without `WithEngine`; the difference is purely
 performance.
@@ -500,14 +516,14 @@ at dial time and pick their I/O path accordingly:
 
 - **Async dispatch on** — the handler runs on a spawned, unlocked goroutine, so a
   blocking driver call parks that goroutine on Go's netpoll without stalling an I/O
-  worker. The drivers detect this (`server.go:457-497`, `AsyncHandlers`) and select
+  worker. The drivers detect this (`server.go:479`, `AsyncHandlers`) and select
   their direct net-conn fast path.
 - **Async dispatch off** — the handler runs inline on a `LockOSThread`'d worker. A
   blocking call there would stall the worker, so a different (mini-loop) path is used.
 
 The key detail: `Server.AsyncHandlers()` reports the **effective** state — it
 returns `true` if the server-level `Config.AsyncHandlers` is set **or** any route
-opted in via `.Async()` / `.UsesDriver()` (`server.go:478-497`). So you have two
+opted in via `.Async()` / `.UsesDriver()` (`server.go:479-497`). So you have two
 ways to put a driver route on the fast path:
 
 ```go
@@ -536,7 +552,7 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
 > **Ordering footgun.** `AsyncHandlers()` reflects routes registered *so far*. If
 > you rely on per-route `.UsesDriver()` (rather than the server-wide flag), open
 > your `WithEngine` drivers **after** registering those routes — or just set
-> `Config.AsyncHandlers = true` to be order-independent (`server.go:485-487`).
+> `Config.AsyncHandlers = true` to be order-independent (`server.go:486-488`).
 
 ## Common pitfalls
 
@@ -553,7 +569,7 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
   interface; use `middleware/ratelimit/redisstore` for distributed rate limiting.
 - **`WithEngine` without a native engine.** Colocation needs an event-loop engine.
   On the `std` (net/http) fallback engine, `EventLoopProvider()` returns `nil`
-  (`server.go:441-455`) — the driver transparently falls back to a standalone loop,
+  (`server.go:447-456`) — the driver transparently falls back to a standalone loop,
   so you lose the colocation benefit (correctness is unaffected).
 - **Forgetting to mark fast driver routes.** A sub-300µs driver call on a route
   that isn't `.Async()`/`.UsesDriver()` (and without server-wide `AsyncHandlers`)

@@ -65,7 +65,7 @@ s := celeris.New(celeris.Config{
 ```
 
 How `Auto` handles the HTTP/1.1 `Upgrade: h2c` handshake is controlled by
-`Config.EnableH2Upgrade` (`celeris/config.go:200-211`), a `*bool`:
+`Config.EnableH2Upgrade` (`celeris/config.go:221-232`), a `*bool`:
 
 | `EnableH2Upgrade`  | Effect                                                            |
 | ------------------ | ---------------------------------------------------------------- |
@@ -108,7 +108,7 @@ URL. Celeris gives you two complementary tools to fix this.
 ### `Config.TrustedProxies` — corrects `ClientIP()`
 
 Set `Config.TrustedProxies` to the CIDR ranges (or bare IPs) of your proxies
-(`celeris/config.go:191-195`). When set, `c.ClientIP()` walks the
+(`celeris/config.go:212-216`). When set, `c.ClientIP()` walks the
 `X-Forwarded-For` chain **right-to-left**, skipping hops inside a trusted network,
 and returns the first untrusted address — the real client
 (`celeris/context_request.go:416-484`):
@@ -326,7 +326,7 @@ back with `s.Addr()` after `Start` (`celeris/server.go:431-439`), handy in tests
 ### Workers and GOMAXPROCS
 
 `Config.Workers` sets the number of I/O worker goroutines and **defaults to
-`GOMAXPROCS`** (`celeris/config.go:71-72`). In a container, `GOMAXPROCS` defaults to
+`GOMAXPROCS`** (`celeris/config.go:80-81`). In a container, `GOMAXPROCS` defaults to
 the *node's* CPU count unless you constrain it, which over-subscribes a pod with a
 CPU limit. On Go 1.25+ the runtime reads the cgroup CPU quota automatically;
 otherwise set `GOMAXPROCS` to match the pod's CPU limit (or pin `Workers`
@@ -342,21 +342,118 @@ ENV GOMAXPROCS=4
 s := celeris.New(celeris.Config{Addr: ":8080", Workers: 4})
 ```
 
-Leave `Workers` at its default unless you have a measured reason to change it; the
-engines scale per-core internally.
+Leave `Workers` at its default unless you have a measured reason to change it. The
+worker count is **fixed at startup** — Celeris does not auto-scale workers at
+runtime — so size it once to the CPUs the pod actually has.
 
-### io_uring and RLIMIT_MEMLOCK
+> One Linux-specific exception: when the adaptive engine starts on io_uring, it may
+> reduce the io_uring worker count at startup if `RLIMIT_MEMLOCK` cannot fund the
+> requested rings (`celeris/adaptive`). That is a one-time memlock cap at start, not
+> a runtime scaler — raise `memlock` (below) to fund the full count.
 
-The io_uring engine sets up kernel rings that, on some kernels, are accounted
-against the process's **locked-memory limit** (`RLIMIT_MEMLOCK`). Containers often
-ship with a low default. If io_uring setup is denied, Celeris does not crash — the
-probe's `io_uring_setup` call fails, the io_uring tier is left unselected, and the
-adaptive engine simply falls back to epoll (`celeris/probe/probe.go:118-154`). To
-actually use io_uring in a container, raise the limit:
+### Memory limits and peak RSS
+
+By default Celeris does **not** touch the process GC — the Go runtime's defaults
+apply. The peak-RSS high-water mark of a server is usually set during the initial
+*connection ramp*, when a burst of new connections allocates faster than the GC
+reclaims; steady-state RSS sits well below that spike.
+
+If Celeris owns the process (a dedicated server binary, not a library embedded in a
+larger app), set `Config.MemoryLimitBytes` to apply a **soft heap ceiling** via
+`runtime/debug.SetMemoryLimit` at `Start` (`celeris/config.go`). When set, the GC
+collects before the heap balloons during the ramp, trading a few extra ramp-phase
+GC cycles for a lower peak RSS. `0` (the default) leaves the runtime untouched.
+
+```go
+// Clip the connection-ramp RSS balloon. Size it generously — it is a ceiling,
+// not a steady-state target. DeriveMemoryLimit returns max(256 MiB, workers*32 MiB).
+workers := 4
+s := celeris.New(celeris.Config{
+    Addr:             ":8080",
+    Workers:          workers,
+    MemoryLimitBytes: celeris.DeriveMemoryLimit(workers),
+})
+```
+
+> `SetMemoryLimit` is **process-global**, which is why this is opt-in: do not set it
+> from a library that shares a process with code you don't control. Set it to a
+> generous value — the goal is to clip the ramp spike, not to run the heap tight.
+
+### Running io_uring in a container
+
+io_uring is frequently **disabled by the platform** in containers — not by Celeris.
+There are **two independent gates**, and *both* must pass or Celeris transparently
+falls back to epoll. This is an optimisation, not a fix-or-fail: epoll is at
+throughput parity, so a container that can't use io_uring still runs at full speed.
+When io_uring setup is denied, Celeris does **not** crash — the probe's
+`io_uring_setup` call returns an error, the io_uring tier is left unselected, and the
+adaptive engine runs on epoll (`celeris/probe/probe.go:118-154`). Confirm which
+engine you actually got at runtime with `Server.EngineInfo()` (see
+[Engines](/docs/engines)).
+
+#### Gate 1 — allow the io_uring syscalls in seccomp
+
+io_uring needs three syscalls: `io_uring_setup` (425), `io_uring_enter` (426), and
+`io_uring_register` (427). **Docker blocks all three by default.** Since Docker
+**25.0.0** (the change merged in moby in November 2023 —
+[moby#46762](https://github.com/moby/moby/pull/46762)), the default seccomp profile
+*denies* the io_uring syscalls outright, because io_uring has been a repeated source
+of container-escape exploits — the same reasoning that led Google to turn it off
+across ChromeOS, Android, and its production fleet, and containerd to block it
+earlier. So on any modern Docker/Kubernetes setup io_uring is **off unless you
+opt back in**. A blocked `io_uring_setup` surfaces as `EPERM`, and Celeris drops to
+epoll.
+
+The blunt, **dev-only** way is to disable seccomp filtering entirely:
+
+```bash
+# Dev only — turns OFF all syscall filtering. Never use in production.
+docker run --security-opt seccomp=unconfined myimage
+```
+
+For production, copy Docker's [default seccomp profile](https://github.com/moby/moby/blob/master/profiles/seccomp/default.json),
+add the three syscalls to an allow rule, and point the container at the result:
+
+```jsonc
+// celeris-seccomp.json — Docker's default profile, plus io_uring
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "syscalls": [
+    {
+      "names": ["io_uring_setup", "io_uring_enter", "io_uring_register"],
+      "action": "SCMP_ACT_ALLOW"
+    }
+    // …keep all of Docker's default allow rules below
+  ]
+}
+```
+
+```bash
+docker run --security-opt seccomp=celeris-seccomp.json myimage
+```
+
+In Kubernetes, install that profile on the node and reference it from the Pod (do
+**not** ship `Unconfined` to production):
+
+```yaml
+securityContext:
+  seccompProfile:
+    type: Localhost
+    localhostProfile: profiles/celeris-seccomp.json
+```
+
+> **gVisor (`runsc`) and some hardened PaaS** (e.g. GKE Autopilot, Cloud Run) do not
+> expose io_uring at all — no seccomp profile re-enables it, and Celeris will use
+> epoll. That's expected.
+
+#### Gate 2 — raise locked memory (`RLIMIT_MEMLOCK`)
+
+Even with the syscalls allowed, io_uring rings are accounted against the process's
+**locked-memory limit** on some kernels, and containers often ship a low default
+(a denied setup shows up as `ENOMEM`). Raise it:
 
 ```yaml
 # docker-compose / Kubernetes securityContext / Pod spec
-# Raise locked memory so io_uring rings can be set up.
 ulimits:
   memlock: -1   # unlimited (or a generous byte value)
 ```
@@ -367,9 +464,6 @@ Other io_uring prerequisites (verified by `celeris/probe`):
   to epoll (`celeris/probe/probe.go:118`).
 - **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
   (`celeris/probe/probe_linux.go:99-116`); not required for the basic io_uring path.
-- Some hardened sandboxes (gVisor, restrictive seccomp profiles) block the
-  `io_uring_setup` syscall — Celeris detects this and uses epoll, which is at
-  throughput parity. See [Engines](/docs/engines).
 
 You do not need to do anything special for epoll; it works on Linux 3.10+ out of the
 box. On macOS and Windows the engine is `std` (Go `net/http`).
@@ -499,13 +593,13 @@ The timeout and limit fields most relevant in production (full list in
 
 | Field                | Default | Why it matters in prod                                            |
 | -------------------- | ------- | ---------------------------------------------------------------- |
-| `ReadHeaderTimeout`  | `10s`   | Slow-loris defence — drip-fed headers get killed fast (`config.go:83-93`) |
-| `ReadTimeout`        | `60s`   | Caps total request read time (`config.go:80-82`)                  |
-| `WriteTimeout`       | `60s`   | Caps response write time (`config.go:94-96`)                      |
-| `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`config.go:97-99`) |
-| `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`config.go:100-102`)           |
-| `MaxRequestBodySize` | `100MB` | Reject oversized bodies; `-1` disables (`config.go:108-111`)      |
-| `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`config.go:130-131`)  |
+| `ReadHeaderTimeout`  | `10s`   | Slow-loris defence — drip-fed headers get killed fast (`config.go:92-102`) |
+| `ReadTimeout`        | `60s`   | Caps total request read time (`config.go:89-91`)                  |
+| `WriteTimeout`       | `60s`   | Caps response write time (`config.go:103-105`)                      |
+| `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`config.go:106-108`) |
+| `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`config.go:109-111`)           |
+| `MaxRequestBodySize` | `100MB` | Reject oversized bodies; `-1` disables (`config.go:117-120`)      |
+| `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`config.go:139-140`)  |
 
 Set `IdleTimeout` *below* your load balancer's upstream idle timeout so Celeris
 closes idle keep-alives first, avoiding the race where the LB reuses a connection
@@ -520,7 +614,7 @@ engine selection and the feature matrix, see [Engines](/docs/engines).
 ## Logging and observability in production
 
 Pass a structured `*slog.Logger` via `Config.Logger` (defaults to `slog.Default()`,
-`celeris/config.go:197-198`); use a JSON handler so your log pipeline can parse it:
+`celeris/config.go:218-219`); use a JSON handler so your log pipeline can parse it:
 
 ```go
 logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -531,7 +625,7 @@ s := celeris.New(celeris.Config{Addr: ":8080", Logger: logger})
 
 Built-in metrics are on by default; read a snapshot from the collector for a
 `/metrics`-style endpoint, or disable with `Config.DisableMetrics`
-(`celeris/config.go:133-136`):
+(`celeris/config.go:154-157`):
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU
@@ -555,9 +649,11 @@ Prometheus/OpenTelemetry export, and the full collector snapshot surface, see
   redirects need `proxy.New(...)` to honour `X-Forwarded-Proto`.
 - **Dependency checks in the liveness probe.** A flaky dependency then restarts the
   pod in a loop. Keep liveness trivial; put dependency checks in readiness.
-- **io_uring silently downgraded to epoll in a container.** Usually a low
-  `RLIMIT_MEMLOCK` or a blocked `io_uring_setup` syscall. Raise `memlock`; throughput
-  on epoll is at parity regardless.
+- **io_uring silently downgraded to epoll in a container.** Almost always one of the
+  two gates above: the seccomp profile blocks `io_uring_setup` (→ `EPERM`) or
+  `RLIMIT_MEMLOCK` is too low (→ `ENOMEM`). See
+  [Running io_uring in a container](#running-io_uring-in-a-container); throughput on
+  epoll is at parity regardless.
 - **`GOMAXPROCS` reading the node's CPU count, not the pod's limit.** Over-subscribes
   the scheduler. Set `GOMAXPROCS` to the CPU limit (or rely on Go 1.25+ cgroup
   awareness).

@@ -34,8 +34,8 @@ operational needs and **record the same request independently**.
 | Prometheus | `github.com/goceleris/celeris/middleware/metrics` | Production monitoring, Grafana, SLO/alerting | Separate Go module |
 | OpenTelemetry | `github.com/goceleris/celeris/middleware/otel` | Distributed tracing, cross-service correlation, OTLP backends (Jaeger, Tempo, …) | Separate Go module |
 
-The framework documents this overlap explicitly in
-`celeris/middleware/doc.go` ("Counter overlap"):
+These three systems measure overlapping things, and the counts are **not**
+interchangeable:
 
 > Each system records the same request independently — the Collector's
 > `RequestsTotal`, Prometheus's `celeris_requests_total`, and OTel's
@@ -137,6 +137,7 @@ counters the adaptive controller reads to pick an engine.
 | `AcceptCount` | `uint64` | Cumulative connections accepted. |
 | `CloseCount` | `uint64` | Cumulative connections closed. |
 | `BytesRead` / `BytesWritten` | `uint64` | Cumulative payload bytes in / out. |
+| `AdaptiveSwitches` | `uint64` | Cumulative completed epoll⇄io_uring switches; `0` on non-adaptive engines. |
 
 ### EngineInfo
 
@@ -702,8 +703,9 @@ s.Use(debug.New(debug.Config{
 ## Recommended ordering
 
 Place observability middleware early so the rest of the chain is instrumented,
-and assign request IDs first so every downstream log carries them. This mirrors
-the ordering in `celeris/middleware/doc.go`:
+and assign request IDs first so every downstream log carries them. The
+`middleware` package itself notes that ordering matters — each layer should see
+the context the layers before it established — and a sensible order is:
 
 ```go
 s.Use(requestid.New())               // 1. assign ID first

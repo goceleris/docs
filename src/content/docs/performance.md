@@ -34,8 +34,7 @@ pooled and recycled between requests. Copy any value you need before returning;
 never stash a `*celeris.Context` in a struct, a closure, or a goroutine. From
 `celeris/doc.go`:
 
-> Context objects are pooled and recycled between requests. Do not retain
-> references to a `*Context` after the handler returns.
+> Do not retain a `*Context` after the handler returns; use `Context.BodyCopy` to keep body bytes alive.
 
 **`Body()` is a view; `BodyCopy()` is yours.** `c.Body()` returns the raw request
 body as a slice over the engine's buffer — fast, zero-copy, but invalid the instant
@@ -94,7 +93,7 @@ avoids a normalization step that `c.SetHeader("Content-Type", …)` would incur.
   once the handler returns. Copy the values you need (and `BodyCopy()` the body)
   *before* spawning. The one sanctioned long-lived flow is `Context.Detach`, whose
   returned `done` function **must** be called or the `Context` leaks from the pool
-  permanently (`celeris/doc.go`, "Context Lifecycle").
+  permanently (`celeris/context_response.go`, the `Detach` method doc).
 - **Modifying `Body()` in place.** It aliases an engine buffer; mutating it
   corrupts the read state. Copy first if you need a mutable buffer.
 - **Using the raw path for labels.** `c.Path()` is the concrete path and is correct
@@ -113,7 +112,7 @@ so the worker returns to `epoll_wait` / `io_uring_enter` while the handler waits
 ### The three levers
 
 The dispatch mode is resolved **route > group > server default**, where the server
-default is `Config.AsyncHandlers` (`celeris/config.go:138`, `celeris/router.go:205-302`):
+default is `Config.AsyncHandlers` (`celeris/config.go:159-198`, `celeris/router.go:205-302`):
 
 | Lever | Where | Effect |
 | --- | --- | --- |
@@ -146,7 +145,7 @@ a no-op — net/http already runs a goroutine per request.
 
 Async dispatch costs a goroutine spawn per request (~100 ns) plus scheduler
 overhead. On a pure-CPU static-response benchmark that measures as a **~3–5%
-regression** (`celeris/config.go:152-155`). So the rule is simple:
+regression** (`celeris/config.go:174`). So the rule is simple:
 
 - **CPU-only, latency-critical routes** → keep them inline (`Sync`, the default).
 - **Anything that touches a DB, cache, or upstream service** → mark it async, so
@@ -154,14 +153,14 @@ regression** (`celeris/config.go:152-155`). So the rule is simple:
 
 When `AsyncHandlers` is `true`, the per-worker serialization ceiling
 (`NumWorkers × 1/RTT`) is replaced by goroutine-per-connection parallelism that
-matches net/http's concurrency model (`celeris/config.go:138-145`).
+matches net/http's concurrency model (`celeris/config.go:159-166`).
 
 ### Adaptive auto-promotion (and why fast driver calls need `UsesDriver`)
 
 Setting `Config.AsyncHandlers = true` also turns on an **adaptive safety net**: any
 *unmarked* handler that runs slower than **~300 µs** is auto-promoted to the
 goroutine path, while routes that stay fast settle back to a zero-cost inline path
-after a short learning phase (`celeris/config.go:170-174`,
+after a short learning phase (`celeris/config.go:193-196`,
 `celeris/router.go:253-255`).
 
 This is why a **fast localhost driver call needs an explicit `.UsesDriver()` /
@@ -176,7 +175,7 @@ dispatched off the worker regardless of how fast the backend answers
 > `AsyncHandlers` is set **or** any route is `.Async()`. If you keep
 > `AsyncHandlers` false and rely on per-route marks, **open the driver after those
 > routes are registered** (the effective state is read at driver construction);
-> otherwise set `AsyncHandlers = true` (`celeris/config.go:166-174`). See
+> otherwise set `AsyncHandlers = true` (`celeris/config.go:167-178`). See
 > [Stores and database drivers](/docs/data-stores).
 
 ### Watching the handoff: `AsyncPromotedConns`
@@ -238,8 +237,7 @@ io_uring when the kernel and `RLIMIT_MEMLOCK` permit.
 
 ### Worker and buffer knobs
 
-These are all in `Config` (`celeris/config.go`, summarized in `celeris/doc.go`
-"Config Surface Area"):
+These are all in `Config` (`celeris/config.go`):
 
 | Field | Default | What it does |
 | --- | --- | --- |
@@ -274,6 +272,30 @@ A few tuning notes grounded in the engine signals:
   you to set, but it explains why a large-response service may stay on epoll under
   load. For such services, the lever that matters is `SocketSendBuf`, not the
   engine.
+
+### Clipping the connection-ramp RSS balloon: `MemoryLimitBytes`
+
+Under the default `GOGC=100`, the dominant contributor to peak RSS is the burst
+of allocations while a fresh server ramps from zero to its steady connection
+count — the heap balloons before the GC catches up, and the process never gives
+that high-water mark back to the OS. `Config.MemoryLimitBytes` is an **optional
+soft heap ceiling** (applied via `runtime/debug.SetMemoryLimit` at `Start`) that
+makes the GC collect before the heap balloons during that ramp, trading a few
+extra ramp-phase GC cycles for a lower peak. Steady RSS sits far below the limit,
+so steady-state throughput is unaffected (`celeris/config.go:142-152`):
+
+```go
+cfg := celeris.Config{Addr: ":8080", Workers: 8}
+cfg.MemoryLimitBytes = celeris.DeriveMemoryLimit(cfg.Workers) // sized soft ceiling
+s := celeris.New(cfg)
+```
+
+`celeris.DeriveMemoryLimit(workers)` returns `max(256 MiB, workers × 32 MiB)`
+(`celeris/config.go:62-69`) — sized **high** on purpose: the goal is to clip the
+ramp spike, not run the heap tight. Two caveats: `0` (the default) means celeris
+**does not touch** the process GC, so embedders keep full control; and
+`SetMemoryLimit` is **process-global**, so only set this when celeris owns the
+process (a dedicated server binary). A negative value is rejected at construction.
 
 See [Configuration reference](/docs/configuration) for the full field list and
 [Engines and the I/O model](/docs/engines) for the architecture.
@@ -491,7 +513,7 @@ Use **per-group breakers** so a failing payments upstream doesn't open the break
 for unrelated routes. Recommended ordering from the docs: rate limiting → circuit
 breaker → timeout, so rate-limited requests never reach the breaker and timed-out
 requests are correctly classified as failures
-(`celeris/middleware/circuitbreaker/doc.go:54-62`). `NewWithBreaker` returns a
+(see [middleware-traffic](/docs/middleware-traffic)). `NewWithBreaker` returns a
 `*Breaker` for `State()` inspection in health checks.
 
 #### `timeout` — bound per-request latency
