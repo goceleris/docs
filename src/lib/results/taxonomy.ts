@@ -34,10 +34,9 @@ export const LANGUAGES: Record<string, LanguageMeta> = {
 export const CATEGORY_META: Record<ScenarioCategory, CategoryMeta> = {
   static: { display: "Static", order: 1 },
   concurrency: { display: "Concurrency", order: 2 },
-  chain: { display: "Chain / Middleware", order: 3 },
-  driver: { display: "Driver", order: 4 },
-  streaming: { display: "Streaming", order: 5 },
-  tls: { display: "TLS", order: 6 },
+  driver: { display: "Driver", order: 3 },
+  streaming: { display: "Streaming", order: 4 },
+  tls: { display: "TLS", order: 5 },
 };
 
 interface AdapterOverlay {
@@ -179,11 +178,8 @@ export function buildAdapterMeta(sr: RawServerResult): AdapterMeta {
   };
 }
 
-const CHAIN_PROFILES = ["api", "auth", "security", "fullstack"];
-
 /** Scenario category from id (anchored to probatorium scenario naming). */
 export function scenarioCategory(id: string): ScenarioCategory {
-  if (id.startsWith("chain-")) return "chain";
   if (id.startsWith("driver-")) return "driver";
   if (id.startsWith("ws-") || id.startsWith("sse-")) return "streaming";
   if (id.startsWith("tls-")) return "tls";
@@ -231,24 +227,46 @@ function concurrencyHint(id: string): string | undefined {
   return m ? m[1] : undefined;
 }
 
+// Driver scenarios encode "<backend>-<op>"; render them as "Backend · op".
+const DRIVER_BACKENDS: Record<string, string> = {
+  mc: "Memcached",
+  pg: "Postgres",
+  redis: "Redis",
+  session: "Session",
+};
+const DRIVER_OPS: Record<string, string> = {
+  get: "GET",
+  set: "SET",
+  multiget: "multi-GET",
+  read: "read",
+  "read-range": "read range",
+  "update-tx": "update (tx)",
+  write: "write",
+  pipeline: "pipeline",
+  rw: "read/write",
+};
+
+/** Human-friendly scenario label. Driver scenarios get a "<Backend> · <op>" form. */
+function scenarioDisplayName(id: string): string {
+  if (id.startsWith("driver-")) {
+    const [, backend, ...rest] = id.split("-");
+    const name = DRIVER_BACKENDS[backend];
+    if (name) {
+      const op = rest.join("-");
+      return `${name} · ${DRIVER_OPS[op] ?? prettify(op)}`;
+    }
+  }
+  return prettify(id).replace(/\s+/g, " ").trim();
+}
+
 export function buildScenarioMeta(id: string): ScenarioMeta {
   const category = scenarioCategory(id);
-  const meta: ScenarioMeta = {
+  return {
     id,
-    display_name: prettify(id).replace(/\s+/g, " ").trim(),
+    display_name: scenarioDisplayName(id),
     category,
     protocol: scenarioProtocol(id),
     payload_hint: payloadHint(id),
     concurrency_hint: concurrencyHint(id),
   };
-  if (category === "chain") {
-    const parts = id.split("-"); // chain-<profile>-<workload...>
-    const profile = parts[1];
-    if (CHAIN_PROFILES.includes(profile)) {
-      meta.chain_profile = profile;
-      meta.workload = parts.slice(2).join("-");
-      meta.display_name = `Chain · ${profile} · ${prettify(meta.workload)}`;
-    }
-  }
-  return meta;
 }

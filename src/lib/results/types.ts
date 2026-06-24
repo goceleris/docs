@@ -298,7 +298,6 @@ export interface Manifest {
 export type ScenarioCategory =
   | "static"
   | "concurrency"
-  | "chain"
   | "driver"
   | "streaming"
   | "tls";
@@ -337,8 +336,6 @@ export interface ScenarioMeta {
   id: string;
   display_name: string;
   category: ScenarioCategory;
-  chain_profile?: string;
-  workload?: string;
   protocol: string;
   payload_hint?: string;
   concurrency_hint?: string;
