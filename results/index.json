@@ -1,15 +1,361 @@
 {
   "schema_version": "index/1",
-  "updated_at": "2026-06-23T23:42:29.664Z",
+  "updated_at": "2026-06-27T11:17:15.770Z",
   "latest": {
-    "version": "v1.5.4",
-    "date": "20260623",
+    "version": "v1.5.5",
+    "date": "20260624",
     "run_id": "run-1"
   },
   "arches": [
     "x86_64"
   ],
   "versions": [
+    {
+      "version": "v1.5.5",
+      "released_at": "2026-06-27T11:16:51.984836Z",
+      "latest_date": "20260624",
+      "dates": [
+        {
+          "date": "20260624",
+          "generated_at": "2026-06-27T11:16:51.984836Z",
+          "git_sha": "dev",
+          "loadgen_version": "v1.4.11",
+          "fabric": "3-host LACP 20G",
+          "default_run": "run-1",
+          "arches": [
+            {
+              "arch": "x86_64",
+              "runs": [
+                {
+                  "run_id": "run-1",
+                  "schema_version": "5.5",
+                  "started_at": "0001-01-01T00:00:00Z",
+                  "finished_at": "2026-06-27T11:05:00.238487046Z",
+                  "runs_count": 1,
+                  "files": {
+                    "summary": "results/v1.5.5/20260624/x86_64/summary.json",
+                    "timeseries": "results/v1.5.5/20260624/x86_64/timeseries.json.gz",
+                    "histograms": "results/v1.5.5/20260624/x86_64/histograms.json.gz",
+                    "env": "results/v1.5.5/20260624/x86_64/env.json"
+                  },
+                  "bytes": {
+                    "summary": 8569196,
+                    "timeseries": 2267922,
+                    "histograms": 134,
+                    "env": 750
+                  },
+                  "headline": {
+                    "adapters": 52,
+                    "scenarios": [
+                      "churn-close",
+                      "driver-mc-get",
+                      "driver-mc-multiget",
+                      "driver-mc-set",
+                      "driver-pg-read",
+                      "driver-pg-read-range",
+                      "driver-pg-update-tx",
+                      "driver-pg-write",
+                      "driver-redis-get",
+                      "driver-redis-pipeline",
+                      "driver-redis-set",
+                      "driver-session-rw",
+                      "get-json",
+                      "get-json-1k",
+                      "get-json-h2",
+                      "get-simple",
+                      "get-simple-1024c",
+                      "get-simple-128c",
+                      "get-simple-1c",
+                      "get-simple-256c",
+                      "get-simple-512c",
+                      "post-4k",
+                      "post-4k-h2",
+                      "sse-fanout-1024",
+                      "sse-fanout-128",
+                      "ws-echo",
+                      "ws-hub-broadcast-1024",
+                      "ws-hub-broadcast-128",
+                      "ws-large-echo"
+                    ],
+                    "top_by_scenario": {
+                      "churn-close": {
+                        "server": "lithium",
+                        "saturation_rps": 458510.0368782441
+                      },
+                      "driver-mc-get": {
+                        "server": "celeris-epoll-h1-async",
+                        "saturation_rps": 109909.81992256857
+                      },
+                      "driver-mc-multiget": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 106686.69664845282
+                      },
+                      "driver-mc-set": {
+                        "server": "celeris-adaptive-auto+upg-async",
+                        "saturation_rps": 130928.99270186883
+                      },
+                      "driver-pg-read": {
+                        "server": "celeris-adaptive-auto+upg-async",
+                        "saturation_rps": 82783.51401135663
+                      },
+                      "driver-pg-read-range": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 55051.58015755758
+                      },
+                      "driver-pg-update-tx": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 10275.702706113594
+                      },
+                      "driver-pg-write": {
+                        "server": "celeris-epoll-h1-async",
+                        "saturation_rps": 92456.28593332472
+                      },
+                      "driver-redis-get": {
+                        "server": "fasthttp-h1",
+                        "saturation_rps": 72787.20384500145
+                      },
+                      "driver-redis-pipeline": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 55558.90212344421
+                      },
+                      "driver-redis-set": {
+                        "server": "hertz-h2",
+                        "saturation_rps": 101219.2280774822
+                      },
+                      "driver-session-rw": {
+                        "server": "celeris-adaptive-h1-async",
+                        "saturation_rps": 51736.78935168119
+                      },
+                      "get-json": {
+                        "server": "lithium",
+                        "saturation_rps": 1023539.0398349203
+                      },
+                      "get-json-1k": {
+                        "server": "celeris-epoll-h1-sync",
+                        "saturation_rps": 958214.6807955957
+                      },
+                      "get-json-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 579266.6363644662
+                      },
+                      "get-simple": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1017619.1977849249
+                      },
+                      "get-simple-1024c": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 1374872.1498114713
+                      },
+                      "get-simple-128c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1010386.3560210358
+                      },
+                      "get-simple-1c": {
+                        "server": "aspnet",
+                        "saturation_rps": 19255.24404426081
+                      },
+                      "get-simple-256c": {
+                        "server": "gnet-h1",
+                        "saturation_rps": 1208135.4496829887
+                      },
+                      "get-simple-512c": {
+                        "server": "celeris-iouring-h1-sync",
+                        "saturation_rps": 1318937.1004459711
+                      },
+                      "post-4k": {
+                        "server": "celeris-adaptive-h1-async",
+                        "saturation_rps": 559328.908377649
+                      },
+                      "post-4k-h2": {
+                        "server": "celeris-iouring-auto+upg-async",
+                        "saturation_rps": 523566.53559026174
+                      },
+                      "sse-fanout-1024": {
+                        "server": "axum",
+                        "saturation_rps": 1023154.1693118523
+                      },
+                      "sse-fanout-128": {
+                        "server": "axum",
+                        "saturation_rps": 127987.26483813686
+                      },
+                      "ws-echo": {
+                        "server": "celeris-std-h1",
+                        "saturation_rps": 831059.6502558957
+                      },
+                      "ws-hub-broadcast-1024": {
+                        "server": "axum",
+                        "saturation_rps": 1023057.1651415621
+                      },
+                      "ws-hub-broadcast-128": {
+                        "server": "axum",
+                        "saturation_rps": 127988.340358012
+                      },
+                      "ws-large-echo": {
+                        "server": "gorilla_ws",
+                        "saturation_rps": 33896.08726992232
+                      }
+                    },
+                    "celeris": {
+                      "saturation_rps": {
+                        "churn-close": 113377.2862274635,
+                        "driver-mc-get": 109909.81992256857,
+                        "driver-mc-multiget": 96338.70017237094,
+                        "driver-mc-set": 130928.99270186883,
+                        "driver-pg-read": 82783.51401135663,
+                        "driver-pg-read-range": 55051.58015755758,
+                        "driver-pg-update-tx": 10258.33040335497,
+                        "driver-pg-write": 92456.28593332472,
+                        "driver-redis-get": 71429.22928997969,
+                        "driver-redis-pipeline": 55558.90212344421,
+                        "driver-redis-set": 101049.96439916256,
+                        "driver-session-rw": 51736.78935168119,
+                        "get-json": 1010443.2717908833,
+                        "get-json-1k": 958214.6807955957,
+                        "get-json-h2": 579266.6363644662,
+                        "get-simple": 1003784.7796109931,
+                        "get-simple-1024c": 1374872.1498114713,
+                        "get-simple-128c": 1000594.4009958514,
+                        "get-simple-1c": 18379.38576042433,
+                        "get-simple-256c": 1199012.650419863,
+                        "get-simple-512c": 1318937.1004459711,
+                        "post-4k": 559328.908377649,
+                        "post-4k-h2": 523566.53559026174,
+                        "sse-fanout-1024": 999144.4806260141,
+                        "sse-fanout-128": 122577.2314740394,
+                        "ws-echo": 831059.6502558957,
+                        "ws-hub-broadcast-1024": 960399.2777617325,
+                        "ws-hub-broadcast-128": 127280.3457723016,
+                        "ws-large-echo": 33129.14197748924
+                      },
+                      "latency_at_slo": {
+                        "driver-mc-get": {
+                          "1000": 98919
+                        },
+                        "driver-mc-multiget": {
+                          "1000": 86705
+                        },
+                        "driver-mc-set": {
+                          "1000": 117836
+                        },
+                        "driver-pg-read": {
+                          "500": 20696,
+                          "1000": 74505
+                        },
+                        "driver-pg-read-range": {
+                          "1000": 49546
+                        },
+                        "driver-pg-update-tx": {
+                          "10": 7694,
+                          "50": 7694,
+                          "100": 7694,
+                          "500": 9232,
+                          "1000": 9232
+                        },
+                        "driver-pg-write": {
+                          "1000": 46228
+                        },
+                        "driver-redis-get": {
+                          "10": 53572,
+                          "50": 53572,
+                          "100": 53572,
+                          "500": 53572,
+                          "1000": 53572
+                        },
+                        "driver-redis-pipeline": {
+                          "1000": 50003
+                        },
+                        "driver-redis-set": {
+                          "1000": 90945
+                        },
+                        "driver-session-rw": {
+                          "1000": 46563
+                        },
+                        "get-json": {
+                          "1000": 909399
+                        },
+                        "get-json-1k": {
+                          "500": 718661,
+                          "1000": 862393
+                        },
+                        "get-json-h2": {
+                          "1000": 144817
+                        },
+                        "get-simple": {
+                          "500": 903406,
+                          "1000": 903406
+                        },
+                        "get-simple-128c": {
+                          "1000": 900535
+                        },
+                        "get-simple-1c": {
+                          "10": 16541,
+                          "50": 16541,
+                          "100": 16541,
+                          "500": 16541,
+                          "1000": 16541
+                        },
+                        "post-4k": {
+                          "1000": 503396
+                        },
+                        "sse-fanout-1024": {
+                          "1000": 499572
+                        },
+                        "sse-fanout-128": {
+                          "1000": 110320
+                        },
+                        "ws-echo": {
+                          "10": 747954,
+                          "50": 747954,
+                          "100": 747954,
+                          "500": 747954,
+                          "1000": 747954
+                        },
+                        "ws-hub-broadcast-128": {
+                          "50": 63640,
+                          "100": 63640,
+                          "500": 63640,
+                          "1000": 95460
+                        }
+                      },
+                      "p99_ns_at_target": {
+                        "driver-mc-get": 892338175,
+                        "driver-mc-multiget": 862453759,
+                        "driver-mc-set": 933232639,
+                        "driver-pg-read": 893386751,
+                        "driver-pg-read-range": 759169023,
+                        "driver-pg-update-tx": 162922495,
+                        "driver-pg-write": 1647312895,
+                        "driver-redis-get": 3001024511,
+                        "driver-redis-pipeline": 935329791,
+                        "driver-redis-set": 825229311,
+                        "driver-session-rw": 914882559,
+                        "get-json": 513015807,
+                        "get-json-1k": 757596159,
+                        "get-json-h2": 7730102271,
+                        "get-simple": 308019199,
+                        "get-simple-1024c": 11492392959,
+                        "get-simple-128c": 824180735,
+                        "get-simple-1c": 1108991,
+                        "get-simple-256c": 8296333311,
+                        "get-simple-512c": 13421772799,
+                        "post-4k": 840433663,
+                        "post-4k-h2": 2317352959,
+                        "sse-fanout-1024": 17263755263,
+                        "sse-fanout-128": 882376703,
+                        "ws-echo": 3418111,
+                        "ws-hub-broadcast-1024": 3883925503,
+                        "ws-hub-broadcast-128": 1131413503,
+                        "ws-large-echo": 1307574271
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     {
       "version": "v1.5.4",
       "released_at": "2026-06-23T23:42:12.529581Z",
