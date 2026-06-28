@@ -155,6 +155,16 @@ pre {
   height: 100dvh;
   overflow: hidden;
 }
+/* On phones the scrollless instrument can't fit — unlock the body so the
+   stacked dashboard (rail → views) scrolls normally. Matches the dashboard's
+   own 900px breakpoint where .dash switches to height:auto. */
+@media (max-width: 900px) {
+  .dash-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
 
 /* Layout helper: centered content column. */
 .container {
@@ -231,4 +241,10 @@ pre.astro-code {
   color: var(--accent-bright);
   border-color: var(--border-accent);
   opacity: 1;
+}
+/* Touch devices have no hover — keep the copy affordance visible. */
+@media (hover: none) {
+  .code-copy {
+    opacity: 1;
+  }
 }

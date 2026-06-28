@@ -35,6 +35,9 @@
   /* ---- Brand accent (celeris = swift) ---- */
   --accent: oklch(0.86 0.21 142);
   --accent-bright: oklch(0.91 0.22 140);
+  /* Accent tuned for NORMAL-size text (links, data labels). In dark mode the
+     bright accent already passes; light mode overrides this to a darker green. */
+  --accent-text: var(--accent-bright);
   --accent-dim: oklch(0.7 0.16 145);
   --accent-glow: oklch(0.86 0.21 142 / 0.28);
   --accent-wash: oklch(0.86 0.21 142 / 0.1);
@@ -183,6 +186,8 @@
   --text-faint: oklch(0.5 0.012 256);
   --accent: oklch(0.62 0.18 142);
   --accent-bright: oklch(0.56 0.19 142);
+  /* darker green for normal-size text → ~5.6:1 on white (WCAG AA) */
+  --accent-text: oklch(0.5 0.17 142);
   --accent-glow: oklch(0.62 0.18 142 / 0.16);
   --accent-soft: oklch(0.62 0.18 142 / 0.12);
   --text-on-accent: oklch(0.99 0.02 150);

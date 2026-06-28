@@ -592,6 +592,8 @@ const jsonLd = [
     padding: 0.4rem 0.85rem; border: 1px solid var(--border-strong); border-radius: var(--r-full);
     font-size: var(--fs-2xs); color: var(--text-muted); transition: border-color var(--dur-1), color var(--dur-1), background var(--dur-1);
   }
+  .pill:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright); }
+  @media (pointer: coarse) { .pill { min-height: 44px; padding-block: 0.6rem; } }
   .pill:hover { border-color: var(--border-accent); color: var(--text); background: var(--accent-soft); }
   .pill b { color: var(--accent-bright); }
   .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
@@ -642,9 +644,11 @@ const jsonLd = [
     background: color-mix(in oklch, var(--surface-2) 85%, transparent); color: var(--text-muted);
     transition: color var(--dur-1), border-color var(--dur-1);
   }
+  /* Extend the tap target to ~44px without growing the 30px chip visual. */
+  .bench-flip::before { content: ""; position: absolute; inset: -7px; border-radius: inherit; }
   .bench-flip svg { transition: transform 0.5s var(--ease); }
-  .bench-flip:hover { color: var(--accent-bright); border-color: var(--border-accent); }
-  .bench-flip:hover svg { transform: rotate(180deg); }
+  .bench-flip:hover, .bench-flip:active, .bench-flip:focus-visible { color: var(--accent-bright); border-color: var(--border-accent); }
+  .bench-flip:hover svg, .bench-flip:active svg { transform: rotate(180deg); }
   .bench-flip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright); }
   .bench-cap { display: flex; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-4); padding-bottom: var(--sp-3); padding-right: 2.2rem; border-bottom: 1px solid var(--border); }
   .bench-kicker { font-family: var(--font-mono); font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); color: var(--text-muted); }
@@ -707,6 +711,9 @@ const jsonLd = [
   .idx::before { content: ""; display: inline-block; width: 1.4rem; height: 1px; background: var(--border-strong); vertical-align: 0.3em; margin-right: 0.6rem; }
 
   .split { display: grid; grid-template-columns: 1fr 1.05fr; gap: clamp(1.5rem, 4vw, 3.5rem); align-items: start; }
+  /* Grid children must be allowed to shrink below content size, or the code
+     window's intrinsic width blows the track past the viewport on phones. */
+  .split > * { min-width: 0; }
   .split > div:first-child { padding-top: var(--sp-2); }
   .split .ticks { margin-top: var(--sp-5); }
   .split.reverse { grid-template-columns: 1.05fr 1fr; }
@@ -784,5 +791,15 @@ const jsonLd = [
     .split, .split.reverse, .validate { grid-template-columns: 1fr; }
     .cards.engines, .cards.features { grid-template-columns: 1fr; }
     .validate-stat { text-align: left; }
+    /* The reverse split puts the code first in the DOM; on a stacked phone
+       layout show the heading/copy before its code sample. */
+    .split.reverse > div { order: -1; }
+  }
+
+  @media (max-width: 480px) {
+    /* Step the headline below the desktop floor on narrow phones. (Keep the
+       hard break — the source has no space across it, so hiding it would glue
+       the two words together.) */
+    .hero h1 { font-size: clamp(2rem, 8.5vw, 2.6rem); }
   }
 </style>

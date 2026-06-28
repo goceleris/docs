@@ -24,7 +24,7 @@ const links = [
       <span class="brand-name">celeris</span>
     </a>
 
-    <nav class="nav" aria-label="Primary">
+    <nav class="nav" id="primary-nav" aria-label="Primary">
       {
         links.map((l) => (
           <a href={l.href} class:list={["nav-link", { active: isActive(l.href) }]}>
@@ -35,6 +35,15 @@ const links = [
     </nav>
 
     <div class="actions">
+      <button
+        class="nav-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="primary-nav"
+        aria-label="Menu"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+      </button>
       <a
         class="ghost-btn"
         href="https://github.com/goceleris/celeris"
@@ -175,6 +184,23 @@ const links = [
     color: var(--text);
     background: var(--surface-2);
   }
+  .nav-toggle {
+    display: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-sm);
+    color: var(--text-muted);
+    transition: color var(--dur-1), background var(--dur-1);
+  }
+  .nav-toggle:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+  .nav-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright);
+  }
   @media (prefers-reduced-motion: reduce) {
     .site-header,
     .nav-link,
@@ -183,8 +209,63 @@ const links = [
     }
   }
   @media (max-width: 640px) {
+    .nav-toggle {
+      display: inline-grid;
+    }
+    /* Nav becomes a glass dropdown sheet under the header, toggled by the button. */
     .nav {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      gap: 0;
+      margin: 0;
+      padding: var(--sp-2);
+      background: color-mix(in oklch, var(--canvas) 96%, transparent);
+      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      backdrop-filter: blur(14px) saturate(1.4);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-2);
+    }
+    .site-header.nav-open .nav {
+      display: flex;
+    }
+    .nav .nav-link {
+      padding: var(--sp-3);
+      font-size: var(--fs-md);
+    }
+    .nav .nav-link::after {
       display: none;
     }
   }
 </style>
+
+<script is:inline>
+  // Mobile nav: toggle the dropdown sheet; close on link tap, outside click, Escape.
+  (function () {
+    var t = document.querySelector(".nav-toggle");
+    var h = document.querySelector(".site-header");
+    if (!t || !h) return;
+    function setOpen(o) {
+      h.classList.toggle("nav-open", o);
+      t.setAttribute("aria-expanded", o ? "true" : "false");
+    }
+    t.addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOpen(!h.classList.contains("nav-open"));
+    });
+    document.addEventListener("click", function (e) {
+      if (h.classList.contains("nav-open") && !h.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") setOpen(false);
+    });
+    h.querySelectorAll("#primary-nav a").forEach(function (a) {
+      a.addEventListener("click", function () {
+        setOpen(false);
+      });
+    });
+  })();
+</script>

@@ -11,6 +11,14 @@
 }
 
 /* ---- Sidebar ---- */
+/* Nav groups are a disclosure: a plain always-open list on desktop (summary
+   hidden, content forced visible), a tap-to-open drawer on phones. */
+.docs-groups > summary {
+  display: none;
+}
+.docs-groups > nav.group {
+  display: block;
+}
 .docs-side {
   position: sticky;
   top: calc(var(--header-h) + var(--sp-4));
@@ -70,7 +78,7 @@
   background: var(--surface-2);
 }
 .docs-side a.active {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   font-weight: var(--fw-medium);
   border-left-color: var(--accent);
   background: var(--accent-wash);
@@ -131,7 +139,7 @@
   margin-bottom: var(--sp-2);
 }
 .prose a {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-color: var(--border-accent);
@@ -162,7 +170,13 @@
   margin-bottom: var(--sp-4);
 }
 .prose table {
-  width: 100%;
+  /* Block + scroll so wide reference tables scroll inside their column instead
+     of forcing the whole page to overflow horizontally on phones. */
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-collapse: collapse;
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
@@ -173,6 +187,7 @@
   border: 1px solid var(--border);
   padding: 7px 10px;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 .prose th {
   background: var(--surface-2);
@@ -314,8 +329,50 @@
   .docs-side {
     position: static;
     max-height: none;
+    overflow: visible;
     border-bottom: 1px solid var(--border);
     padding-bottom: var(--sp-4);
     margin-bottom: var(--sp-2);
+  }
+  /* Collapse the nav behind a tappable bar so the article is the first thing
+     a phone user sees, not the whole table of contents. */
+  .docs-groups > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    list-style: none;
+    cursor: pointer;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface-1);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+  }
+  .docs-groups > summary::-webkit-details-marker {
+    display: none;
+  }
+  .docs-groups > summary::after {
+    content: "▾";
+    color: var(--text-faint);
+    transition: transform var(--dur-1) var(--ease);
+  }
+  .docs-groups[open] > summary::after {
+    transform: rotate(180deg);
+  }
+  .docs-groups:not([open]) > nav.group {
+    display: none;
+  }
+  .docs-groups[open] > nav.group:first-of-type {
+    margin-top: var(--sp-4);
+  }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .docs-groups > summary::after {
+    transition: none;
   }
 }

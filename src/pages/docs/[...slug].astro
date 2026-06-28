@@ -85,18 +85,21 @@ const nextHref = next ? href(next.id) : null;
         <input id="docs-search-input" type="search" placeholder="Search docs…" aria-label="Search docs" />
         <div id="docs-search-results"></div>
       </div>
-      {
-        groups.map((g) => (
-          <nav class="group" aria-label={g.name}>
-            <h4><GroupIcon group={g.name} size={14} />{g.name}</h4>
-            {g.items.map((it) => (
-              <a href={href(it.id)} class:list={[{ active: it.id === currentId }]}>
-                {it.title}
-              </a>
-            ))}
-          </nav>
-        ))
-      }
+      <details class="docs-groups">
+        <summary><span>Browse docs</span></summary>
+        {
+          groups.map((g) => (
+            <nav class="group" aria-label={g.name}>
+              <h4><GroupIcon group={g.name} size={14} />{g.name}</h4>
+              {g.items.map((it) => (
+                <a href={href(it.id)} class:list={[{ active: it.id === currentId }]}>
+                  {it.title}
+                </a>
+              ))}
+            </nav>
+          ))
+        }
+      </details>
     </aside>
 
     <main class="docs-main">
