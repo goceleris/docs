@@ -13,6 +13,14 @@ export default defineConfig({
   site: SITE_URL,
   output: "static",
   trailingSlash: "ignore",
+  // Prefetch internal links on hover/focus (and on touchstart for tap devices)
+  // so the next page's HTML is already in cache by the time the user clicks.
+  // Combined with the immutable caching of shared /_astro/* assets, navigation
+  // only needs the new page's HTML — which is then already prefetched.
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: "hover",
+  },
   integrations: [
     mdx(),
     preact({ compat: false }),
