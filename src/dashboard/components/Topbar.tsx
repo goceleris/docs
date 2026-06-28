@@ -1,5 +1,6 @@
 import { version, arch, archesForVersion, loadPayload, showToast } from "../state";
 import { VersionSelect } from "./VersionSelect";
+import { paletteOpen, paletteKbd } from "./CommandPalette";
 
 export function Topbar() {
   const arches = archesForVersion.value;
@@ -37,6 +38,11 @@ export function Topbar() {
           })}
         </div>
       )}
+
+      <button class="cmdk-trigger" type="button" onClick={() => (paletteOpen.value = true)} aria-label="Open command palette">
+        <span class="cmdk-trigger-label">Search</span>
+        <kbd>{paletteKbd}</kbd>
+      </button>
     </div>
   );
 }

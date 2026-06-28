@@ -25,6 +25,7 @@ import { Resources } from "./views/Resources";
 import { Matrix } from "./views/Matrix";
 import { Versions } from "./views/Versions";
 import { HeadToHead } from "./views/HeadToHead";
+import { CommandPalette } from "./components/CommandPalette";
 
 export default function Dashboard() {
   useEffect(() => {
@@ -50,14 +51,15 @@ export default function Dashboard() {
       </div>
       <div class="dash-body">
         <ControlRail />
-        <main class="dash-main">
+        <div class="dash-main">
           <ViewTabs />
           <div class="view-area scroll-thin">
             <ViewArea />
           </div>
-        </main>
+        </div>
       </div>
       {toast.value && <div class="toast" role="status">{toast.value}</div>}
+      <CommandPalette />
     </div>
   );
 }
