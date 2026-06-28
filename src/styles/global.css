@@ -265,7 +265,7 @@ pre.astro-code {
   border-color: var(--border-accent);
 }
 .code-copy.done {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   border-color: var(--border-accent);
   opacity: 1;
 }

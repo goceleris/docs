@@ -91,7 +91,7 @@ export function HeadToHead() {
         .h2h-mid { text-align: center; }
         .h2h-scn { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .h2h-delta { font-weight: 600; font-variant-numeric: tabular-nums; }
-        .h2h-delta.up { color: var(--accent-bright); }
+        .h2h-delta.up { color: var(--accent-text); }
         .h2h-delta.down { color: var(--text-faint); }
       `}</style>
     </Panel>

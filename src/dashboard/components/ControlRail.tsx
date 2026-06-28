@@ -34,7 +34,7 @@ export function ControlRail() {
   return (
     <aside class="rail scroll-thin">
       <div>
-        <h3>Scenario</h3>
+        <h2>Scenario</h2>
         {orderedCats.map((cat) => {
           const items = groups.get(cat)!;
           const open = items.includes(scenario.value);
@@ -58,7 +58,7 @@ export function ControlRail() {
       </div>
 
       <div>
-        <h3>Adapters ({sel.size})</h3>
+        <h2>Adapters ({sel.size})</h2>
         <div class="rail-actions">
           <button class="mini-btn" onClick={() => setAdapters(present)}>All</button>
           <button class="mini-btn" onClick={() => setAdapters(celerisIds())}>Celeris</button>

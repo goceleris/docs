@@ -35,7 +35,7 @@ const cols = [
     {
       cols.map((c) => (
         <nav class="col" aria-label={c.title}>
-          <h4>{c.title}</h4>
+          <p class="col-t">{c.title}</p>
           {c.links.map((l) => (
             <a href={l.href} {...("ext" in l && l.ext ? { target: "_blank", rel: "noopener" } : {})}>
               {l.label}
@@ -89,20 +89,20 @@ const cols = [
   }
   .latin {
     font-style: italic;
-    color: var(--accent-dim);
+    color: var(--accent-text);
   }
   .col {
     display: flex;
     flex-direction: column;
     gap: var(--sp-2);
   }
-  .col h4 {
+  .col .col-t {
     font-family: var(--font-mono);
     font-size: var(--fs-3xs);
     text-transform: uppercase;
     letter-spacing: var(--tracking-eyebrow);
     color: var(--text-faint);
-    margin-bottom: var(--sp-2);
+    margin: 0 0 var(--sp-2);
   }
   .col a {
     color: var(--text-muted);
