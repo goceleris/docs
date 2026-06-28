@@ -1,0 +1,17 @@
+{
+  // Assets-only Worker: serves the prebuilt static Astro output in ./dist.
+  // The site is `output: "static"` (no SSR), so there is no Worker script —
+  // hence no `main` and no ASSETS binding. `bun run build` produces ./dist;
+  // `wrangler deploy` only uploads it (it does not run the build).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "goceleris-docs",
+  "compatibility_date": "2026-06-28",
+  "assets": {
+    "directory": "./dist",
+    // Serve our branded dist/404.html (with a 404 status) on unknown routes.
+    // The default ("none") would NOT serve it.
+    "not_found_handling": "404-page"
+    // html_handling is left at its default "auto-trailing-slash", which matches
+    // Astro's `trailingSlash: "ignore"` + default build format.
+  }
+}
