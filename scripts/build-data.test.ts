@@ -157,10 +157,9 @@ describe("taxonomy", () => {
     expect(scenarioCategory("get-json-1c")).toBe("concurrency");
     expect(scenarioCategory("get-simple-1024c")).toBe("concurrency");
     expect(scenarioCategory("auto-mix-111")).toBe("concurrency");
-    expect(scenarioCategory("chain-api-get-json")).toBe("chain");
     expect(scenarioCategory("driver-pg-read")).toBe("driver");
-    expect(scenarioCategory("ws-echo")).toBe("ws");
-    expect(scenarioCategory("sse-fanout-128")).toBe("sse");
+    expect(scenarioCategory("ws-echo")).toBe("streaming");
+    expect(scenarioCategory("sse-fanout-128")).toBe("streaming");
     expect(scenarioCategory("tls-get-json")).toBe("tls");
   });
 
@@ -171,11 +170,10 @@ describe("taxonomy", () => {
     expect(scenarioProtocol("tls-get-json")).toBe("tls");
   });
 
-  test("chain scenario meta parses profile + workload", () => {
-    const m = buildScenarioMeta("chain-fullstack-post-4k");
-    expect(m.category).toBe("chain");
-    expect(m.chain_profile).toBe("fullstack");
-    expect(m.workload).toBe("post-4k");
+  test("driver scenario meta gets a readable display name", () => {
+    const m = buildScenarioMeta("driver-pg-update-tx");
+    expect(m.category).toBe("driver");
+    expect(m.display_name).toBe("Postgres · update (tx)");
   });
 
   test("adapter meta flags celeris + assigns a color", () => {

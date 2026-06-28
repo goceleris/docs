@@ -9,7 +9,6 @@ import { MANIFEST, celerisIds, CURATED_RIVALS } from "./registry";
 export type ViewId =
   | "leaderboard"
   | "overtime"
-  | "latency"
   | "resources"
   | "matrix"
   | "versions"
@@ -17,7 +16,6 @@ export type ViewId =
 
 export const VIEWS: { id: ViewId; label: string }[] = [
   { id: "leaderboard", label: "Leaderboard" },
-  { id: "latency", label: "Latency" },
   { id: "overtime", label: "Over Time" },
   { id: "resources", label: "Resources" },
   { id: "matrix", label: "Matrix" },
@@ -26,7 +24,7 @@ export const VIEWS: { id: ViewId; label: string }[] = [
 ];
 
 /** Views driven by the selected scenario (the scenario picker applies). */
-export const SCENARIO_VIEWS: ViewId[] = ["leaderboard", "latency", "overtime", "resources"];
+export const SCENARIO_VIEWS: ViewId[] = ["leaderboard", "overtime", "resources"];
 /** Cross-cutting views that span scenarios/versions (scenario picker is secondary). */
 export const OVERVIEW_VIEWS: ViewId[] = ["matrix", "versions", "headtohead"];
 
@@ -61,7 +59,7 @@ const initialAdapters = params.get("adapters");
 export const adapters = signal<string[]>(
   initialAdapters
     ? initialAdapters.split(",").filter(Boolean)
-    : [...celerisIds(), ...CURATED_RIVALS],
+    : [...celerisIds().filter((id) => id !== "celeris-std-h1"), ...CURATED_RIVALS],
 );
 
 export const payload = signal<VersionPayload | null>(null);
@@ -170,7 +168,7 @@ export function startUrlSync() {
     p.set("view", view.value);
     if (scenario.value) p.set("scenario", scenario.value);
     p.set("metric", metric.value);
-    if (metric.value === "slo" || view.value === "latency") p.set("slo", slo.value);
+    if (metric.value === "slo") p.set("slo", slo.value);
     if (view.value === "headtohead") p.set("vs", opponent.value);
     if (!showBand.value) p.set("band", "0");
     p.set("adapters", adapters.value.join(","));

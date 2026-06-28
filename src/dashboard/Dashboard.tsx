@@ -20,7 +20,6 @@ import { HeadlineStrip } from "./components/HeadlineStrip";
 import { ControlRail } from "./components/ControlRail";
 import { ViewTabs } from "./components/ViewTabs";
 import { Leaderboard } from "./views/Leaderboard";
-import { Latency } from "./views/Latency";
 import { OverTime } from "./views/OverTime";
 import { Resources } from "./views/Resources";
 import { Matrix } from "./views/Matrix";
@@ -71,8 +70,6 @@ function ViewArea() {
   switch (view.value) {
     case "leaderboard":
       return <Leaderboard />;
-    case "latency":
-      return <Latency />;
     case "overtime":
       return <OverTime />;
     case "resources":

@@ -114,8 +114,11 @@ const ADAPTER_OVERLAY: Record<string, AdapterOverlay> = {
   fastify: { display_name: "Fastify", short_name: "Fastify", color: "#a3e635" },
   uws: { display_name: "uWebSockets.js", short_name: "uWS", color: "#4d7c0f" },
 
+  // Zig.
+  httpzig: { display_name: "http.zig (Zig)", short_name: "http.zig", color: "#f7a41d" },
+
   // Retired.
-  zig_zap: { display_name: "Zap (Zig)", short_name: "Zap", color: "#f7a41d", retired: true },
+  zig_zap: { display_name: "Zap (Zig)", short_name: "Zap", color: "#fbbf24", retired: true },
 };
 
 export function serverName(sr: RawServerResult): string {

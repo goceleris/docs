@@ -57,12 +57,10 @@ export function celerisIds(): string[] {
 
 /** Curated default rival set (used as the initial adapter selection). */
 export const CURATED_RIVALS = [
-  "fasthttp-h1",
-  "axum",
-  "ntex",
   "actix",
+  "ntex",
   "drogon",
+  "lithium",
   "h2o",
   "uws",
-  "stdhttp-h1",
 ];

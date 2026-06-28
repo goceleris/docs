@@ -70,7 +70,12 @@ export function ControlRail() {
           </button>
           <button
             class="mini-btn"
-            onClick={() => setAdapters([...celerisIds(), ...CURATED_RIVALS.filter((r) => present.includes(r))])}
+            onClick={() =>
+              setAdapters([
+                ...celerisIds().filter((id) => id !== "celeris-std-h1"),
+                ...CURATED_RIVALS.filter((r) => present.includes(r)),
+              ])
+            }
           >
             Curated
           </button>
