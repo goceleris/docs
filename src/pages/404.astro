@@ -1,0 +1,97 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Page not found · Celeris"
+  description="The page you’re looking for doesn’t exist or has moved."
+  noindex={true}
+>
+  <main id="main" tabindex="-1" class="nf">
+    <p class="nf-code">404</p>
+    <h1 class="nf-title">This request took a wrong turn.</h1>
+    <p class="nf-lede">
+      The page you’re looking for doesn’t exist or has moved. Let’s get you back on a fast path.
+    </p>
+    <div class="nf-cta">
+      <a class="btn primary" href="/">Back home</a>
+      <a class="btn ghost" href="/docs">Read the docs</a>
+      <a class="btn ghost" href="/benchmarks">Benchmarks</a>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .nf {
+    max-width: 44rem;
+    margin-inline: auto;
+    text-align: center;
+    padding: clamp(4rem, 14vh, 9rem) var(--sp-5) var(--sp-9);
+  }
+  .nf-code {
+    font-family: var(--font-mono);
+    font-size: clamp(3.5rem, 12vw, 6rem);
+    font-weight: var(--fw-bold);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--accent-bright);
+    margin: 0;
+  }
+  .nf-title {
+    font-size: var(--h1);
+    letter-spacing: var(--tracking-head);
+    line-height: var(--lh-display);
+    font-weight: var(--fw-semibold);
+    margin: var(--sp-4) 0 var(--sp-3);
+  }
+  .nf-lede {
+    color: var(--text-muted);
+    font-size: var(--fs-md);
+    line-height: var(--lh-snug);
+    margin: 0 auto var(--sp-6);
+    max-width: 46ch;
+    text-wrap: pretty;
+  }
+  .nf-cta {
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.8rem 1.4rem;
+    border-radius: var(--r-md);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-base);
+    border: 1px solid transparent;
+    transition: transform var(--dur-2) var(--ease), filter var(--dur-1) var(--ease);
+  }
+  .btn.primary {
+    color: var(--text-on-accent);
+    background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+    box-shadow: var(--edge-highlight), 0 4px 16px var(--accent-glow);
+  }
+  .btn.ghost {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--surface-1);
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.05);
+  }
+  .btn:focus-visible {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn {
+      transition: none;
+    }
+    .btn:hover {
+      transform: none;
+    }
+  }
+</style>

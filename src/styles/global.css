@@ -1,0 +1,278 @@
+/* Global resets + base element styles. Imported once by BaseLayout. */
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  font-feature-settings: "cv02", "cv11", "ss01";
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: var(--lh-tight);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* Tabular figures for any data-bearing number. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Skip-to-content link — visually hidden until keyboard-focused. */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: var(--sp-3);
+  z-index: 100;
+  transform: translateY(-120%);
+  padding: 0.55rem 0.9rem;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-accent);
+  border-top: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  transition: transform var(--dur-2) var(--ease);
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+}
+
+/* Focus visibility — accessible, on-brand. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::selection {
+  background: var(--accent-glow);
+  color: var(--text);
+}
+
+/* Thin, on-theme scrollbars inside panels. */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-full);
+}
+
+/* Cross-document view transitions — pure CSS, zero JS, graceful no-op where
+   unsupported. A quick crossfade between pages reads as "one app". */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.18s;
+}
+
+/* Scroll-reveal: fade + rise as an element enters the viewport. Compositor-only
+   (opacity/transform), progressive-enhancement only — when animation-timeline is
+   unsupported (Firefox 2026) or motion is reduced, content shows in its final
+   state immediately (the un-animated state IS the finished state). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 55%;
+    }
+    .reveal-stagger > * {
+      animation: reveal-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 18%;
+    }
+  }
+}
+@keyframes reveal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Benchmarks page: global header on top + a viewport-locked dashboard below it. */
+.dash-page {
+  height: 100dvh;
+  overflow: hidden;
+}
+/* On phones the scrollless instrument can't fit — unlock the body so the
+   stacked dashboard (rail → views) scrolls normally. Matches the dashboard's
+   own 900px breakpoint where .dash switches to height:auto. */
+@media (max-width: 900px) {
+  .dash-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
+
+/* Layout helper: centered content column. */
+.container {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding-inline: var(--sp-5);
+}
+
+/* Visually-hidden but screen-reader available. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Shiki code blocks (from markdown) — framed to match surfaces.
+   Dual-theme: github-dark by default (matches the dark shell), github-light
+   under [data-theme="light"] so code is cohesive with the page in both modes. */
+.astro-code,
+pre.astro-code {
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background-color: var(--code-bg);
+  overflow-x: auto;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+[data-theme="light"] .astro-code,
+[data-theme="light"] pre.astro-code {
+  background-color: var(--shiki-light-bg) !important;
+}
+[data-theme="light"] .astro-code,
+[data-theme="light"] .astro-code span {
+  color: var(--shiki-light) !important;
+}
+
+/* Code copy button (injected by BaseLayout). */
+.code-wrap {
+  position: relative;
+}
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in oklch, var(--surface-2) 80%, transparent);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--dur-1), color var(--dur-1), border-color var(--dur-1);
+  backdrop-filter: blur(4px);
+}
+.code-wrap:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+.code-copy:hover {
+  color: var(--text);
+  border-color: var(--border-accent);
+}
+.code-copy.done {
+  color: var(--accent-bright);
+  border-color: var(--border-accent);
+  opacity: 1;
+}
+/* Touch devices have no hover, and narrow screens can't rely on it — keep the
+   copy affordance visible there. */
+@media (hover: none), (max-width: 640px) {
+  .code-copy {
+    opacity: 1;
+  }
+}

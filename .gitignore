@@ -30,3 +30,23 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Node / Astro / site build
+node_modules/
+dist/
+.astro/
+.pagefind/
+*.tsbuildinfo
+
+# Generated dashboard assets (rebuilt from results/ at build time)
+src/data/generated/
+public/data/
+
+# Bun
+.bun/
+
+# Local demo benchmark tree (generated from fixtures for dashboard preview)
+.dev-results/
+
+# Claude Code local tooling/state
+.claude/

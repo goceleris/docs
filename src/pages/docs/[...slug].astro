@@ -1,0 +1,200 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import type { MarkdownHeading } from "astro";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import GroupIcon from "../../components/docs/GroupIcon.astro";
+import "../../styles/docs.css";
+
+type Doc = CollectionEntry<"docs">;
+
+export async function getStaticPaths() {
+  // Defined inside getStaticPaths: Astro hoists this function above the module body.
+  const GROUP_ORDER = [
+    "Getting Started",
+    "Routing & Handlers",
+    "Middleware",
+    "Real-Time",
+    "Data & Integration",
+    "Reference",
+    "Operations",
+  ];
+  const all = (await getCollection("docs")).filter((e: Doc) => !e.data.draft);
+  const groupRank = (g: string) => {
+    const i = GROUP_ORDER.indexOf(g);
+    return i === -1 ? 99 : i;
+  };
+  const sorted = [...all].sort(
+    (a, b) =>
+      groupRank(a.data.group) - groupRank(b.data.group) ||
+      a.data.order - b.data.order ||
+      a.data.title.localeCompare(b.data.title),
+  );
+  const nav = sorted.map((e: Doc) => ({ id: e.id, title: e.data.title, group: e.data.group }));
+  return all.map((entry: Doc) => {
+    const idx = sorted.findIndex((e: Doc) => e.id === entry.id);
+    return {
+      params: { slug: entry.id === "index" ? undefined : entry.id },
+      props: {
+        entry,
+        nav,
+        prev: idx > 0 ? sorted[idx - 1] : null,
+        next: idx < sorted.length - 1 ? sorted[idx + 1] : null,
+      },
+    };
+  });
+}
+
+const { entry, nav, prev, next } = Astro.props as {
+  entry: Doc;
+  nav: { id: string; title: string; group: string }[];
+  prev: Doc | null;
+  next: Doc | null;
+};
+const { Content, headings } = await render(entry);
+
+const href = (id: string) => (id === "index" ? "/docs" : `/docs/${id}`);
+const currentId = entry.id;
+
+// Group the nav for the sidebar.
+type NavItem = { id: string; title: string; group: string };
+const groups: { name: string; items: NavItem[] }[] = [];
+for (const item of nav as NavItem[]) {
+  let g = groups.find((x) => x.name === item.group);
+  if (!g) {
+    g = { name: item.group, items: [] };
+    groups.push(g);
+  }
+  g.items.push(item);
+}
+
+const toc: MarkdownHeading[] = (headings as MarkdownHeading[]).filter(
+  (h) => h.depth === 2 || h.depth === 3,
+);
+const prevHref = prev ? href(prev.id) : null;
+const nextHref = next ? href(next.id) : null;
+---
+
+<BaseLayout
+  title={`${entry.data.title} · Celeris docs`}
+  description={entry.data.description ?? `${entry.data.title} — Celeris documentation.`}
+  type="article"
+>
+  <div class="docs">
+    <aside class="docs-side scroll-thin" aria-label="Docs navigation">
+      <div class="docs-search">
+        <input id="docs-search-input" type="search" placeholder="Search docs…" aria-label="Search docs" />
+        <div id="docs-search-results"></div>
+      </div>
+      <details class="docs-groups">
+        <summary><span>Browse docs</span></summary>
+        {
+          groups.map((g) => (
+            <nav class="group" aria-label={g.name}>
+              <h4><GroupIcon group={g.name} size={14} />{g.name}</h4>
+              {g.items.map((it) => (
+                <a href={href(it.id)} class:list={[{ active: it.id === currentId }]}>
+                  {it.title}
+                </a>
+              ))}
+            </nav>
+          ))
+        }
+      </details>
+    </aside>
+
+    <main id="main" tabindex="-1" class="docs-main">
+      <article class="prose" data-pagefind-body>
+        <h1>{entry.data.title}</h1>
+        {entry.data.description && <p class="lead">{entry.data.description}</p>}
+        <Content />
+      </article>
+
+      <nav class="docs-nav" aria-label="Pagination">
+        {
+          prevHref ? (
+            <a href={prevHref} class="prev">
+              <span class="dir">← Previous</span>
+              <span class="t">{prev.data.title}</span>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        {
+          nextHref ? (
+            <a href={nextHref} class="next">
+              <span class="dir">Next →</span>
+              <span class="t">{next.data.title}</span>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+      </nav>
+    </main>
+
+    <aside class="docs-toc" aria-label="On this page">
+      {
+        toc.length > 0 && (
+          <>
+            <h4>On this page</h4>
+            {toc.map((h) => (
+              <a href={`#${h.slug}`} class:list={[h.depth === 3 ? "d3" : ""]}>
+                {h.text}
+              </a>
+            ))}
+          </>
+        )
+      }
+    </aside>
+  </div>
+
+  {/* Pagefind static search — resolves after a production build; degrades silently in dev. */}
+  <script is:inline>
+    (function () {
+      var input = document.getElementById("docs-search-input");
+      var out = document.getElementById("docs-search-results");
+      if (!input || !out) return;
+      var pf = null;
+      async function ensure() {
+        if (pf) return pf;
+        try {
+          var path = "/pagefind/pagefind.js";
+          pf = await import(path);
+          await pf.init();
+        } catch (e) {
+          pf = null;
+        }
+        return pf;
+      }
+      var t;
+      input.addEventListener("input", function () {
+        clearTimeout(t);
+        t = setTimeout(async function () {
+          var q = input.value.trim();
+          out.innerHTML = "";
+          if (!q) return;
+          var lib = await ensure();
+          if (!lib) {
+            out.innerHTML =
+              '<div style="padding:6px 2px;color:var(--text-faint);font-size:11px">Search is available on the built site.</div>';
+            return;
+          }
+          var search = await lib.search(q);
+          var items = await Promise.all(search.results.slice(0, 6).map(function (r) { return r.data(); }));
+          if (!items.length) {
+            var safe = q.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            out.innerHTML =
+              '<div style="padding:6px 8px;color:var(--text-faint);font-size:12px">No results for &ldquo;' + safe + "&rdquo;</div>";
+            return;
+          }
+          out.innerHTML = items
+            .map(function (d) {
+              return '<a href="' + d.url + '" style="display:block;padding:6px 8px;border-radius:6px;color:var(--text-muted);font-size:12px">' + ((d.meta && d.meta.title) || d.url) + "</a>";
+            })
+            .join("");
+        }, 160);
+      });
+    })();
+  </script>
+</BaseLayout>

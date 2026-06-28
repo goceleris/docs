@@ -1,0 +1,136 @@
+---
+import Logo from "./Logo.astro";
+const year = new Date().getFullYear();
+const cols = [
+  {
+    title: "Project",
+    links: [
+      { href: "/docs", label: "Documentation" },
+      { href: "/benchmarks", label: "Benchmarks" },
+      { href: "/methodology", label: "Methodology" },
+    ],
+  },
+  {
+    title: "Source",
+    links: [
+      { href: "https://github.com/goceleris/celeris", label: "celeris", ext: true },
+      { href: "https://github.com/goceleris/probatorium", label: "probatorium", ext: true },
+      { href: "https://pkg.go.dev/github.com/goceleris/celeris", label: "Go reference", ext: true },
+    ],
+  },
+];
+---
+
+<footer class="site-footer">
+  <div class="container grid">
+    <div class="about">
+      <a href="/" class="f-brand" aria-label="Celeris home">
+        <Logo />
+        <span>celeris</span>
+      </a>
+      <p class="muted">
+        High-performance Go HTTP engine. <span class="latin">celeris</span> — Latin, <em>swift</em>.
+      </p>
+    </div>
+    {
+      cols.map((c) => (
+        <nav class="col" aria-label={c.title}>
+          <h4>{c.title}</h4>
+          {c.links.map((l) => (
+            <a href={l.href} {...("ext" in l && l.ext ? { target: "_blank", rel: "noopener" } : {})}>
+              {l.label}
+            </a>
+          ))}
+        </nav>
+      ))
+    }
+  </div>
+  <div class="container baseline">
+    <span class="muted">© {year} the Celeris authors · Apache-2.0</span>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    position: relative;
+    margin-top: var(--sp-9);
+    border-top: 1px solid var(--border);
+    padding-block: var(--sp-8) var(--sp-5);
+    background: linear-gradient(180deg, var(--surface-1), var(--canvas));
+  }
+  /* fading hairline accent riding the top edge */
+  .site-footer::before {
+    content: "";
+    position: absolute;
+    inset: -1px 0 auto 0;
+    height: 1px;
+    background: var(--hairline-fade);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: var(--sp-6);
+  }
+  .f-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-weight: var(--fw-bold);
+    font-size: var(--fs-md);
+    letter-spacing: -0.03em;
+    margin-bottom: var(--sp-3);
+  }
+  .about .muted {
+    max-width: 34ch;
+    line-height: var(--lh-snug);
+  }
+  .muted {
+    color: var(--text-muted);
+  }
+  .latin {
+    font-style: italic;
+    color: var(--accent-dim);
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+  .col h4 {
+    font-family: var(--font-mono);
+    font-size: var(--fs-3xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+    color: var(--text-faint);
+    margin-bottom: var(--sp-2);
+  }
+  .col a {
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    width: max-content;
+    transition: color var(--dur-1);
+  }
+  .col a:hover {
+    color: var(--accent-text);
+  }
+  .baseline {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--border);
+    font-size: var(--fs-2xs);
+  }
+  @media (max-width: 640px) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .about {
+      grid-column: 1 / -1;
+    }
+    .baseline {
+      flex-direction: column;
+      gap: var(--sp-1);
+    }
+  }
+</style>

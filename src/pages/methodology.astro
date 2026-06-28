@@ -1,0 +1,307 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { heroStat } from "../lib/site";
+import manifest from "../data/generated/manifest.json";
+import type { Manifest } from "../lib/results/types";
+
+const m = manifest as Manifest;
+const stat = heroStat();
+const adapters = stat?.totalAdapters ?? 25;
+const arches = m.arches.length ? m.arches.join(" · ") : "x86_64 · arm64";
+
+const metrics = [
+  { n: "Saturation RPS", d: "Peak requests/sec — higher is better." },
+  { n: "RPS @ SLO", d: "Max RPS sustained while p99 stays under 10 / 50 / 100 / 500 / 1000 ms." },
+  { n: "Rated p99", d: "Tail latency at the rated rate — lower is better." },
+  { n: "Peak / steady RSS", d: "Resident memory under load." },
+  { n: "Mean CPU", d: "Server CPU utilisation across the window." },
+  { n: "GC pause p99", d: "Garbage-collector pause — Go runtimes only." },
+  { n: "Goroutine / FD HWM", d: "Concurrency and file-descriptor high-water marks." },
+  { n: "Error %", d: "Sent-vs-handled delta; connect errors tracked separately." },
+];
+
+const statuses = [
+  { k: "ok", c: "ok", d: "served cleanly" },
+  { k: "n/a", c: "na", d: "can't serve that route/protocol" },
+  { k: "dnf", c: "dnf", d: "crash, timeout or dial failure" },
+  { k: "suspect", c: "suspect", d: "completed but over error budget" },
+];
+
+const families = [
+  { n: "Static", d: "GET and POST across small-to-1 MB bodies, JSON encoding, connection churn and h2c.", icon: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/>' },
+  { n: "Concurrency", d: "1 → 1024 concurrent connections on the hottest GET paths.", icon: '<path d="M3 12h4l3 8 4-16 3 8h4"/>' },
+  { n: "Driver", d: "Postgres (read · range · write · tx), Redis (get · set · pipeline), memcached and session read/write — all on the event loop.", icon: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"/><path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/>' },
+  { n: "Streaming", d: "WebSocket echo, large-frame echo and hub broadcast (128 / 1024), plus SSE fan-out.", icon: '<path d="M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/>' },
+];
+
+const checks = [
+  "Every framework is built with <strong>its own release flags</strong> and runs on identical hardware.",
+  "A warm-up precedes each measurement so JITs, pools and caches are settled.",
+  "The load generator's own CPU (p95) is recorded — if it's the bottleneck, the cell is flagged, not reported as a server ceiling.",
+  "<strong>Not-applicable</strong> and <strong>DNF</strong> cells are never rendered as a fake zero; <strong>suspect</strong> cells are never crowned a winner.",
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  headline: "Celeris benchmark methodology",
+  description: "How Celeris benchmarks are run, measured and averaged.",
+};
+---
+
+<BaseLayout
+  title="Methodology · Celeris benchmarks"
+  description="How Celeris benchmarks are run and averaged: the cluster, run shape, metrics, scenario families, aggregation, and how fairness and honesty are enforced."
+  type="article"
+  jsonLd={jsonLd}
+>
+  <main id="main" tabindex="-1" class="container method">
+    <header class="m-hero">
+      <span class="eyebrow">methodology</span>
+      <h1>How the numbers are made.</h1>
+      <p class="m-lede">
+        Every number on the <a href="/benchmarks">dashboard</a> is produced by
+        <a href="https://github.com/goceleris/probatorium" target="_blank" rel="noopener">probatorium</a>
+        and shown as the average of <strong>all runs</strong> for a release. Here's exactly how it
+        works — so you can reproduce it.
+      </p>
+      <div class="m-stats">
+        <div class="m-stat"><div class="n">3</div><div class="l">host cluster</div></div>
+        <div class="m-stat"><div class="n">{arches}</div><div class="l">architectures</div></div>
+        <div class="m-stat"><div class="n">{adapters}</div><div class="l">servers compared</div></div>
+      </div>
+    </header>
+
+    <aside class="callout reveal">
+      <span class="callout-k">benchmarking vs validation</span>
+      <p>
+        This page is about <em>benchmarking</em> — the performance runs behind the dashboard, executed
+        weekly and on demand. Probatorium also runs a separate <em>validation</em> suite (nightly, plus a
+        24-hour weekend soak) that hammers Celeris with realistic Markov-chain traffic, fuzzers and
+        connection/WebSocket torture to prove correctness and stability. That's robustness, not the
+        numbers here.
+      </p>
+    </aside>
+
+    <section class="m-sec reveal">
+      <div class="sec-head">
+        <span class="idx">01 · the cluster</span>
+        <h2>One generator, two servers, a fat pipe.</h2>
+        <p class="lede-sm">
+          A dedicated three-host cluster on Ubuntu 26.04: a load generator plus two servers under
+          test — one <strong>x86_64</strong>, one <strong>arm64</strong>. The x86 server is an
+          <strong>AMD Ryzen 7 7745HX</strong> with <strong>64 GB of DDR5 in dual channel (2×32 GB)</strong>;
+          the arm64 server an <strong>Arm Cortex-A520</strong> with <strong>64 GB</strong>; the load
+          generator an <strong>AMD Ryzen 9 9955HX</strong> with a brand-new <strong>32 GB Crucial
+          DDR5-5600 SODIMM kit (2×16 GB), dual-channel</strong>. Each is a separate machine on a
+          high-bandwidth fabric, so the network is never the bottleneck; kernel tunables are recorded
+          with each run.
+        </p>
+      </div>
+      <div class="cluster" aria-hidden="true">
+        <div class="node">
+          <span class="node-k">load generator</span>
+          <span class="node-d">Ryzen 9 9955HX · 2×16 GB</span>
+        </div>
+        <div class="wire"><span>20G LACP fabric</span></div>
+        <div class="node-stack">
+          <div class="node srv"><span class="node-k">server · x86_64</span><span class="node-d">Ryzen 7 7745HX · 2×32 GB</span></div>
+          <div class="node srv"><span class="node-k">server · arm64</span><span class="node-d">Cortex-A520 · 64 GB</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="m-sec reveal">
+      <div class="sec-head">
+        <span class="idx">02 · run shape</span>
+        <h2>Two modes per cell.</h2>
+        <p class="lede-sm">A <em>cell</em> is one (server, scenario) pair, run for a fixed window after warm-up.</p>
+      </div>
+      <div class="duo">
+        <article class="card">
+          <h3>Saturation</h3>
+          <p>Blast as hard as possible to find peak throughput — the capability ceiling.</p>
+        </article>
+        <article class="card">
+          <h3>Rated</h3>
+          <p>A closed-loop, paced sweep that records tail latency at a target rate — the SLO story.</p>
+        </article>
+      </div>
+      <p class="m-note">A release seeds several back-to-back runs over many dates, so a version accumulates many runs. The dashboard averages across all of them.</p>
+    </section>
+
+    <section class="m-sec reveal">
+      <div class="sec-head">
+        <span class="idx">03 · what we measure</span>
+        <h2>Eight signals per cell.</h2>
+      </div>
+      <div class="metrics">
+        {metrics.map((x) => (
+          <div class="metric">
+            <span class="metric-n">{x.n}</span>
+            <span class="metric-d">{x.d}</span>
+          </div>
+        ))}
+      </div>
+      <div class="statuses">
+        <span class="st-label">cell status</span>
+        {statuses.map((s) => (
+          <span class="st"><i class={`st-dot ${s.c}`}></i><b>{s.k}</b> — {s.d}</span>
+        ))}
+      </div>
+    </section>
+
+    <section class="m-sec reveal">
+      <div class="sec-head">
+        <span class="idx">04 · scenario families</span>
+        <h2>No single workload tells the whole story.</h2>
+      </div>
+      <div class="fam-grid reveal-stagger">
+        {families.map((f) => (
+          <article class="card fam">
+            <span class="fam-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={f.icon} /></span>
+            <h3>{f.n}</h3>
+            <p>{f.d}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section class="m-sec reveal">
+      <div class="sec-head">
+        <span class="idx">05 · how averaging works</span>
+        <h2>Mean, with confidence attached.</h2>
+      </div>
+      <p class="m-body">
+        For each (server, scenario) we take the <strong>arithmetic mean</strong> across every included
+        run, and carry the <strong>min, max, standard deviation and run count</strong> so the dashboard
+        can show a “±X% over N runs” chip. Latency-at-SLO is averaged per bound independently; missing
+        measurements are <strong>never imputed to zero</strong>.
+      </p>
+      <p class="m-body">
+        Short pre-flight <em>smoke</em> runs (under 30&nbsp;seconds) are excluded by default — they're
+        warm-up-dominated and would bias the mean. The provenance of every run (included or excluded,
+        and why) is retained.
+      </p>
+    </section>
+
+    <section class="m-sec reveal">
+      <div class="sec-head">
+        <span class="idx">06 · fairness &amp; honesty</span>
+        <h2>No thumb on the scale.</h2>
+      </div>
+      <ul class="checks">
+        {checks.map((c) => (
+          <li>
+            <svg class="ck" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+            <span set:html={c} />
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="m-cta reveal">
+      <h2>See it for yourself.</h2>
+      <p class="muted">{adapters} servers across Go, Rust, C/C++, Java, C#, Python, Node and Bun — every result, averaged across runs.</p>
+      <a class="btn primary" href="/benchmarks">Open the dashboard →</a>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .method { padding-block: clamp(3rem, 7vw, 5.5rem) var(--sp-9); }
+  .muted { color: var(--text-muted); }
+  a { color: var(--accent-text); }
+  em { font-style: italic; color: var(--text); }
+
+  .eyebrow { display: inline-block; font-family: var(--font-mono); font-size: var(--eyebrow); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); color: var(--text-faint); margin-bottom: var(--sp-3); }
+
+  /* hero */
+  .m-hero { max-width: 62ch; margin-bottom: var(--sp-8); }
+  .m-hero h1 { font-size: var(--fs-hero); letter-spacing: var(--tracking-hero); line-height: var(--lh-display); font-weight: var(--fw-semibold); margin-bottom: var(--sp-4); font-optical-sizing: auto; }
+  .m-lede { font-size: var(--fs-md); color: var(--text-muted); line-height: var(--lh-snug); text-wrap: pretty; }
+  .m-lede a { text-decoration: underline; text-underline-offset: 2px; }
+  .m-stats { display: flex; flex-wrap: wrap; gap: clamp(1.5rem, 5vw, 3.5rem); margin-top: var(--sp-6); }
+  .m-stat .n { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .m-stat .l { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-top: 2px; }
+
+  /* callout */
+  .callout { display: grid; gap: var(--sp-2); border: 1px solid var(--border-accent); border-left-width: 3px; border-radius: var(--r-md); background: linear-gradient(120deg, var(--accent-wash), transparent 60%); padding: var(--sp-5); margin-bottom: var(--sp-8); }
+  .callout-k { font-family: var(--font-mono); font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); color: var(--accent-bright); }
+  .callout p { color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-snug); }
+
+  /* sections */
+  .m-sec { padding-block: var(--section-y); border-top: 1px solid var(--border); }
+  .sec-head { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2) var(--sp-4); align-items: baseline; margin-bottom: var(--sp-6); }
+  .sec-head h2 { grid-column: 2; margin: 0; font-size: var(--h2); letter-spacing: var(--tracking-head); line-height: 1.1; font-weight: var(--fw-semibold); font-optical-sizing: auto; }
+  .sec-head .lede-sm { grid-column: 2; max-width: 60ch; color: var(--text-muted); font-size: var(--fs-md); line-height: 1.5; margin-top: var(--sp-2); }
+  .idx { font-family: var(--font-mono); font-size: var(--fs-2xs); letter-spacing: 0.08em; color: var(--text-faint); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+  .idx::before { content: ""; display: inline-block; width: 1.4rem; height: 1px; background: var(--border-strong); vertical-align: 0.3em; margin-right: 0.6rem; }
+  .m-body { max-width: 68ch; color: var(--text-muted); margin-bottom: var(--sp-4); line-height: var(--lh-normal); }
+  .m-body strong { color: var(--text); }
+  .m-note { max-width: 68ch; color: var(--text-faint); font-size: var(--fs-sm); margin-top: var(--sp-4); }
+
+  /* shared card recipe */
+  .card { position: relative; isolation: isolate; border-radius: var(--r-lg); border: 1px solid var(--border); padding: var(--sp-5); background: linear-gradient(180deg, var(--surface-2), var(--surface-1) 64%); box-shadow: var(--edge-highlight), var(--shadow-3); }
+  @supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+    .card { border-color: transparent; }
+    .card::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; padding: 1px; pointer-events: none; background: var(--card-edge); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  }
+  .card h3 { position: relative; z-index: 2; font-size: var(--h-card); font-weight: var(--fw-semibold); margin-bottom: var(--sp-2); }
+  .card p { position: relative; z-index: 2; color: var(--text-muted); font-size: var(--fs-sm); line-height: var(--lh-snug); }
+
+  /* cluster diagram */
+  .cluster { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: clamp(0.5rem, 3vw, 2rem); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-1); box-shadow: var(--edge-highlight), var(--shadow-1); padding: clamp(1.25rem, 4vw, 2.5rem); }
+  .node { border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface-2); padding: var(--sp-4); text-align: center; box-shadow: var(--edge-highlight); }
+  .node.srv { border-color: var(--border-accent); }
+  .node-k { display: block; font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text); }
+  .node.srv .node-k { color: var(--accent-bright); }
+  .node-d { display: block; font-size: var(--fs-2xs); color: var(--text-faint); margin-top: 2px; }
+  .node-stack { display: grid; gap: var(--sp-3); }
+  .wire { position: relative; min-width: 90px; text-align: center; }
+  .wire::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: repeating-linear-gradient(90deg, var(--accent-dim) 0 6px, transparent 6px 12px); opacity: 0.5; }
+  .wire span { position: relative; display: inline-block; background: var(--surface-1); padding: 2px 8px; font-family: var(--font-mono); font-size: var(--fs-3xs); color: var(--text-muted); }
+  @media (max-width: 680px) { .cluster { grid-template-columns: 1fr; } .wire { min-height: 36px; } .wire::before { top: 0; bottom: 0; left: 50%; right: auto; width: 2px; height: auto; } }
+
+  /* run-shape duo */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+  @media (max-width: 680px) { .duo { grid-template-columns: 1fr; } }
+
+  /* metrics */
+  .metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--edge-highlight), var(--shadow-1); }
+  .metric { background: var(--surface-1); padding: var(--sp-4) var(--sp-5); display: grid; gap: 2px; transition: background var(--dur-1); }
+  .metric:hover { background: var(--surface-2); }
+  .metric-n { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--accent-text); }
+  .metric-d { font-size: var(--fs-sm); color: var(--text-muted); }
+  @media (max-width: 680px) { .metrics { grid-template-columns: 1fr; } }
+
+  .statuses { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); margin-top: var(--sp-5); }
+  .st-label { font-family: var(--font-mono); font-size: var(--fs-3xs); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); color: var(--text-faint); }
+  .st { display: inline-flex; align-items: center; gap: 0.45rem; font-size: var(--fs-2xs); color: var(--text-muted); }
+  .st b { color: var(--text); font-weight: var(--fw-semibold); }
+  .st-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .st-dot.ok { background: var(--ok); }
+  .st-dot.na { background: var(--na); }
+  .st-dot.dnf { background: var(--danger); }
+  .st-dot.suspect { background: var(--warn); }
+
+  /* families */
+  .fam-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); }
+  @media (max-width: 520px) { .fam-grid { grid-template-columns: 1fr; } }
+  .fam-ico { position: relative; z-index: 2; display: inline-grid; place-items: center; width: 38px; height: 38px; margin-bottom: var(--sp-3); border-radius: var(--r-md); background: var(--accent-wash); border: 1px solid var(--border-accent); color: var(--accent-bright); }
+
+  /* checks */
+  .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-3); max-width: 72ch; }
+  .checks li { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-3); align-items: start; color: var(--text-muted); line-height: var(--lh-snug); }
+  .checks .ck { color: var(--accent-bright); margin-top: 2px; flex: none; }
+  .checks strong { color: var(--text); }
+
+  /* cta */
+  .m-cta { text-align: center; padding-block: calc(var(--section-y) * 1.1); border-top: 1px solid var(--border); }
+  .m-cta h2 { font-size: var(--fs-3xl); letter-spacing: var(--tracking-head); font-weight: var(--fw-semibold); margin-bottom: var(--sp-3); }
+  .m-cta p { margin-bottom: var(--sp-5); }
+  .btn { display: inline-flex; align-items: center; padding: 0.8rem 1.4rem; border-radius: var(--r-md); font-weight: var(--fw-semibold); font-size: var(--fs-base); border: 0; color: var(--text-on-accent); background: linear-gradient(180deg, var(--accent-bright), var(--accent)); box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.45), inset 0 -1px 0 oklch(0 0 0 / 0.18), 0 1px 2px oklch(0 0 0 / 0.35), 0 4px 16px var(--accent-glow); transition: transform var(--dur-2) var(--ease), filter var(--dur-1) var(--ease); }
+  .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+  .btn:focus-visible { outline: 2px solid transparent; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--accent-bright); }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+</style>

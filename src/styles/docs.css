@@ -1,0 +1,378 @@
+/* Docs layout + prose. */
+
+.docs {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 200px;
+  gap: var(--sp-6);
+  max-width: var(--maxw);
+  margin-inline: auto;
+  padding: var(--sp-6) var(--sp-5) var(--sp-9);
+  align-items: start;
+}
+
+/* ---- Sidebar ---- */
+/* Nav groups are a disclosure: a plain always-open list on desktop (summary
+   hidden, content forced visible), a tap-to-open drawer on phones. */
+.docs-groups > summary {
+  display: none;
+}
+.docs-groups > nav.group {
+  display: block;
+}
+.docs-side {
+  position: sticky;
+  top: calc(var(--header-h) + var(--sp-4));
+  max-height: calc(100dvh - var(--header-h) - var(--sp-6));
+  overflow-y: auto;
+  padding-right: var(--sp-2);
+}
+.docs-search {
+  margin-bottom: var(--sp-4);
+}
+.docs-search input {
+  width: 100%;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+.docs-search input:focus-visible {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.docs-side .group {
+  margin-bottom: var(--sp-4);
+}
+.docs-side .group > h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--text-faint);
+  margin-bottom: var(--sp-2);
+}
+.docs-side .group > h4 svg {
+  color: var(--text-faint);
+  flex: none;
+}
+.docs-side a {
+  display: block;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  border-left: 2px solid transparent;
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.docs-side a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.docs-side a.active {
+  color: var(--accent-text);
+  font-weight: var(--fw-medium);
+  border-left-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/* ---- Article / prose ---- */
+.docs-main {
+  min-width: 0;
+}
+.prose {
+  max-width: var(--maxw-prose);
+}
+.prose h1 {
+  font-size: var(--h1);
+  font-weight: var(--fw-semibold);
+  font-optical-sizing: auto;
+  letter-spacing: var(--tracking-head);
+  line-height: var(--lh-tight);
+  margin-bottom: var(--sp-3);
+}
+.prose .lead {
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  margin-bottom: var(--sp-6);
+}
+.prose h2 {
+  font-size: clamp(1.4rem, 1.1rem + 1.3vw, var(--h2));
+  font-weight: var(--fw-semibold);
+  font-optical-sizing: auto;
+  line-height: 1.12;
+  margin-top: var(--sp-7);
+  margin-bottom: var(--sp-3);
+  padding-top: var(--sp-2);
+  letter-spacing: var(--tracking-head);
+  scroll-margin-top: calc(var(--header-h) + var(--sp-4));
+}
+.prose h3 {
+  font-size: var(--h3);
+  font-weight: var(--fw-semibold);
+  font-optical-sizing: auto;
+  line-height: 1.18;
+  letter-spacing: var(--tracking-head);
+  margin-top: var(--sp-5);
+  margin-bottom: var(--sp-2);
+  scroll-margin-top: calc(var(--header-h) + var(--sp-4));
+}
+.prose p,
+.prose ul,
+.prose ol {
+  margin-bottom: var(--sp-4);
+  color: var(--text);
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.4rem;
+}
+.prose li {
+  margin-bottom: var(--sp-2);
+}
+.prose a {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-accent);
+}
+.prose a:hover {
+  text-decoration-color: var(--accent);
+}
+.prose :not(pre) > code {
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 0.12em 0.4em;
+  border-radius: var(--r-xs);
+  font-size: 0.9em;
+}
+.prose pre {
+  margin-bottom: var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--edge-highlight), var(--shadow-1);
+}
+.prose blockquote {
+  border-left: 3px solid var(--border-accent);
+  padding: var(--sp-1) var(--sp-4);
+  color: var(--text-muted);
+  background: var(--surface-1);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom: var(--sp-4);
+}
+.prose table {
+  /* Block + scroll so wide reference tables scroll inside their column instead
+     of forcing the whole page to overflow horizontally on phones. */
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--sp-5);
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.prose th {
+  background: var(--surface-2);
+  font-weight: var(--fw-semibold);
+}
+.prose td:has(> code),
+.prose td code {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- TOC ---- */
+.docs-toc {
+  position: sticky;
+  top: calc(var(--header-h) + var(--sp-4));
+  font-size: var(--fs-2xs);
+}
+.docs-toc h4 {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--text-faint);
+  margin-bottom: var(--sp-2);
+}
+.docs-toc a {
+  display: block;
+  color: var(--text-muted);
+  padding: 3px 0;
+  transition: color var(--dur-1) var(--ease);
+}
+.docs-toc a.d3 {
+  padding-left: var(--sp-3);
+}
+.docs-toc a:hover {
+  color: var(--text);
+}
+
+/* ---- prev/next ---- */
+.docs-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--border);
+}
+.docs-nav a {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  flex: 1;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface-1) 64%);
+  box-shadow: var(--edge-highlight), var(--shadow-3);
+  transition: transform var(--dur-2) var(--ease);
+}
+@supports ((-webkit-mask-composite: xor) or (mask-composite: exclude)) {
+  .docs-nav a {
+    border-color: transparent;
+  }
+  .docs-nav a::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: var(--card-edge);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    transition: background var(--dur-2) var(--ease);
+  }
+  .docs-nav a:hover::before {
+    background: var(--card-edge-hover);
+  }
+}
+.docs-nav a::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  box-shadow: 0 12px 50px var(--accent-glow);
+  opacity: 0;
+  transition: opacity var(--dur-3) var(--ease);
+}
+.docs-nav a:hover {
+  transform: translateY(-2px);
+}
+.docs-nav a:hover::after {
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-nav a,
+  .docs-nav a::after,
+  .docs-nav a::before {
+    transition: none;
+  }
+  .docs-nav a:hover {
+    transform: none;
+  }
+}
+.docs-nav .dir {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+}
+.docs-nav .t {
+  color: var(--text);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-head);
+}
+.docs-nav a:hover .t {
+  color: var(--accent-bright);
+}
+.docs-nav .next {
+  text-align: right;
+}
+
+@media (max-width: 1024px) {
+  .docs {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .docs-toc {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .docs {
+    grid-template-columns: 1fr;
+  }
+  .docs-side {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: var(--sp-4);
+    margin-bottom: var(--sp-2);
+  }
+  /* Collapse the nav behind a tappable bar so the article is the first thing
+     a phone user sees, not the whole table of contents. */
+  .docs-groups > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    list-style: none;
+    cursor: pointer;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface-1);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-eyebrow);
+  }
+  .docs-groups > summary::-webkit-details-marker {
+    display: none;
+  }
+  .docs-groups > summary::after {
+    content: "▾";
+    color: var(--text-faint);
+    transition: transform var(--dur-1) var(--ease);
+  }
+  .docs-groups[open] > summary::after {
+    transform: rotate(180deg);
+  }
+  .docs-groups:not([open]) > nav.group {
+    display: none;
+  }
+  .docs-groups[open] > nav.group:first-of-type {
+    margin-top: var(--sp-4);
+  }
+}
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .docs-groups > summary::after {
+    transition: none;
+  }
+}
