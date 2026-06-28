@@ -47,7 +47,7 @@
   font-size: var(--fs-2xs);
 }
 .dbar .meta-link:hover {
-  color: var(--accent-bright);
+  color: var(--accent-text);
 }
 .dbar-label {
   font-family: var(--font-mono);
@@ -117,7 +117,7 @@
   line-height: 1;
 }
 .hstat.key .hn {
-  color: var(--accent-bright);
+  color: var(--accent-text);
 }
 .hstat .hl {
   font-family: var(--font-mono);
@@ -148,13 +148,14 @@
   flex-direction: column;
   gap: var(--sp-5);
 }
-.rail h3 {
+.rail h2 {
   font-family: var(--font-mono);
   font-size: var(--fs-3xs);
+  font-weight: var(--fw-medium);
   text-transform: uppercase;
   letter-spacing: var(--tracking-eyebrow);
   color: var(--text-faint);
-  margin-bottom: var(--sp-2);
+  margin: 0 0 var(--sp-2);
 }
 
 .dash-main {
@@ -204,7 +205,7 @@
   background: var(--surface-2);
 }
 .tab.active {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   background: var(--surface-2);
   border-color: var(--border);
   box-shadow: inset 0 -2px 0 var(--accent);
@@ -347,11 +348,11 @@
   font-weight: var(--fw-medium);
 }
 .bar-row.win .bar-val {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   font-weight: var(--fw-bold);
 }
 .bar-row.celeris .bar-label {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   font-weight: var(--fw-semibold);
 }
 
@@ -565,13 +566,13 @@ select.control {
   color: var(--text);
 }
 .vsel-opt.sel {
-  color: var(--accent-bright);
+  color: var(--accent-text);
 }
 .vsel-check {
   width: 14px;
   display: inline-flex;
   justify-content: center;
-  color: var(--accent);
+  color: var(--accent-text);
   flex: none;
 }
 
@@ -621,7 +622,7 @@ select.control {
 }
 .scn-item.active {
   background: var(--accent-wash);
-  color: var(--accent-bright);
+  color: var(--accent-text);
   font-weight: var(--fw-medium);
   box-shadow: inset 2px 0 0 var(--accent);
 }
@@ -668,7 +669,7 @@ select.control {
   opacity: 1;
 }
 .adapter-item.celeris {
-  color: var(--accent-bright);
+  color: var(--accent-text);
 }
 .rail-actions {
   display: flex;
@@ -686,7 +687,7 @@ select.control {
   transition: color var(--dur-1), border-color var(--dur-1), background var(--dur-1);
 }
 .mini-btn:hover {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   border-color: var(--border-accent);
   background: var(--accent-soft);
 }
@@ -764,7 +765,7 @@ select.control {
   opacity: 0.38;
 }
 .legend .lg-clear {
-  color: var(--accent-bright);
+  color: var(--accent-text);
   border: 1px solid var(--border-accent);
   font-weight: var(--fw-semibold);
 }

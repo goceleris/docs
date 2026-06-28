@@ -93,9 +93,9 @@ export function Matrix() {
         .matrix .corner { position: sticky; left: 0; top: 0; z-index: 3; background: var(--surface-2); padding: 4px 8px; text-align: left; color: var(--text-faint); }
         .matrix thead th.col-h { height: 116px; vertical-align: bottom; background: var(--surface-1); position: sticky; top: 0; z-index: 2; cursor: pointer; padding: 4px; }
         .matrix .rot { display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; color: var(--text-muted); max-height: 108px; overflow: hidden; }
-        .matrix th.col-h:hover .rot { color: var(--accent-bright); }
+        .matrix th.col-h:hover .rot { color: var(--accent-text); }
         .matrix tbody th.row-h { position: sticky; left: 0; z-index: 1; background: var(--surface-1); text-align: left; padding: 3px 8px; white-space: nowrap; color: var(--text-muted); }
-        .matrix tbody th.row-h.celeris { color: var(--accent-bright); }
+        .matrix tbody th.row-h.celeris { color: var(--accent-text); }
         .matrix tr.hl td, .matrix tr.hl th.row-h { outline: 1px solid var(--border-strong); }
         .matrix td.cell { width: 30px; height: 26px; text-align: center; position: relative; }
         .matrix td.cell.cel { box-shadow: inset 0 0 0 1px var(--border-accent); }

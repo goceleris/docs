@@ -90,7 +90,7 @@ const nextHref = next ? href(next.id) : null;
         {
           groups.map((g) => (
             <nav class="group" aria-label={g.name}>
-              <h4><GroupIcon group={g.name} size={14} />{g.name}</h4>
+              <p class="group-t"><GroupIcon group={g.name} size={14} />{g.name}</p>
               {g.items.map((it) => (
                 <a href={href(it.id)} class:list={[{ active: it.id === currentId }]}>
                   {it.title}
@@ -137,7 +137,7 @@ const nextHref = next ? href(next.id) : null;
       {
         toc.length > 0 && (
           <>
-            <h4>On this page</h4>
+            <p class="toc-t">On this page</p>
             {toc.map((h) => (
               <a href={`#${h.slug}`} class:list={[h.depth === 3 ? "d3" : ""]}>
                 {h.text}
