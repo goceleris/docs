@@ -182,6 +182,12 @@ const nextHref = next ? href(next.id) : null;
           }
           var search = await lib.search(q);
           var items = await Promise.all(search.results.slice(0, 6).map(function (r) { return r.data(); }));
+          if (!items.length) {
+            var safe = q.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+            out.innerHTML =
+              '<div style="padding:6px 8px;color:var(--text-faint);font-size:12px">No results for &ldquo;' + safe + "&rdquo;</div>";
+            return;
+          }
           out.innerHTML = items
             .map(function (d) {
               return '<a href="' + d.url + '" style="display:block;padding:6px 8px;border-radius:6px;color:var(--text-muted);font-size:12px">' + ((d.meta && d.meta.title) || d.url) + "</a>";

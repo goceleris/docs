@@ -28,6 +28,8 @@ export function Topbar() {
                 class={`${arch.value === a ? "active " : ""}${avail ? "" : "unavail"}`.trim()}
                 onClick={() => onArch(a)}
                 title={avail ? a : `${a} benchmarks coming soon`}
+                aria-pressed={arch.value === a}
+                aria-disabled={!avail}
               >
                 {a}
               </button>

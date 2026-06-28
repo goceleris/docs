@@ -269,8 +269,9 @@ pre.astro-code {
   border-color: var(--border-accent);
   opacity: 1;
 }
-/* Touch devices have no hover — keep the copy affordance visible. */
-@media (hover: none) {
+/* Touch devices have no hover, and narrow screens can't rely on it — keep the
+   copy affordance visible there. */
+@media (hover: none), (max-width: 640px) {
   .code-copy {
     opacity: 1;
   }
