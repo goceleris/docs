@@ -166,9 +166,9 @@ export function heroBars(): { scenario: string; bars: HeroBar[] } | null {
 
     // Celeris (best engine) vs a recognizable cross-language field: the fastest
     // C/C++ servers (lithium, h2o), the fast exotics (actix/drogon), the best
-    // Java framework (netty), popular Go (fiber/gin), and the mainstream Python/
-    // Node names everyone knows (FastAPI/Express). Celeris still tops them all —
-    // beating even the hand-tuned C/C++ libraries is the point of the chart.
+    // Java (netty) and C# (ASP.NET) frameworks, popular Go (fiber), and the
+    // mainstream Python/Node names everyone knows (FastAPI/Express). Celeris
+    // still tops them all — beating the hand-tuned C/C++ libs is the point.
     const celRps = best.cel;
     // The specific Celeris engine that achieved the peak — used for its timeseries.
     let celId = "";
@@ -184,7 +184,7 @@ export function heroBars(): { scenario: string; bars: HeroBar[] } | null {
       { id: "drogon", name: "drogon", lang: "C++" },
       { id: "netty", name: "netty", lang: "Java" },
       { id: "fiber-h1", name: "fiber", lang: "Go" },
-      { id: "gin-h1", name: "gin", lang: "Go" },
+      { id: "aspnet", name: "ASP.NET", lang: "C#" },
       { id: "fastapi", name: "FastAPI", lang: "Python" },
       { id: "express", name: "Express", lang: "Node" },
     ];
