@@ -123,8 +123,9 @@ export async function loadPayload(v: string, a: string): Promise<void> {
   }
 }
 
-// Prefer a broadly-supported scenario so the default view shows a full field.
-const PREFERRED_SCENARIOS = ["get-json", "get-simple", "get-json-1k", "driver-pg-read"];
+// Default scenario on first load (deep-linked ?scenario= still wins); the rest are
+// fallbacks if it's absent from a given dataset.
+const PREFERRED_SCENARIOS = ["get-simple-1024c", "get-json", "get-simple", "get-json-1k", "driver-pg-read"];
 
 function ensureScenario() {
   const list = payload.value?.headline.scenarios ?? [];
