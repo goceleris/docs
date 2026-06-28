@@ -86,13 +86,13 @@ function buildCommands(): Cmd[] {
   });
 
   for (const v of versionsList.value) {
-    if (v.version === version.value) continue;
+    if (v === version.value) continue;
     cmds.push({
-      id: `ver:${v.version}`,
+      id: `ver:${v}`,
       group: "Version",
-      label: v.version,
+      label: v,
       run: () => {
-        version.value = v.version;
+        version.value = v;
         if (!archesForVersion.value.includes(arch.value)) arch.value = archesForVersion.value[0] ?? arch.value;
         void loadPayload(version.value, arch.value);
       },

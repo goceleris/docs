@@ -1,9 +1,10 @@
 ---
 import { Code } from "astro:components";
+import type { BundledLanguage } from "shiki";
 
 interface Props {
   code: string;
-  lang?: string;
+  lang?: BundledLanguage;
   /** Filename shown on the editor tab. */
   file?: string;
 }

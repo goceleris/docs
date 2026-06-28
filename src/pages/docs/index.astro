@@ -25,7 +25,7 @@ const BLURB: Record<string, string> = {
   Operations: "Deploy behind TLS, shut down cleanly, observe, tune for load, and test.",
 };
 
-const all = (await getCollection("docs")).filter((d: Doc) => !d.data.draft);
+const all: Doc[] = (await getCollection("docs")).filter((d: Doc) => !d.data.draft);
 const groups = GROUP_ORDER.map((name) => ({
   name,
   pages: all
