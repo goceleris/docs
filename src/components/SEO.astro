@@ -25,7 +25,10 @@ const {
 } = Astro.props;
 
 const site = Astro.site ?? new URL("https://goceleris.dev");
-const canonical = new URL(Astro.url.pathname, site).href.replace(/\/$/, "") || site.href;
+// Match the served + sitemap form (directory output → trailing slash) so the
+// canonical / og:url never disagree with the sitemap.
+const path = Astro.url.pathname.endsWith("/") ? Astro.url.pathname : `${Astro.url.pathname}/`;
+const canonical = new URL(path, site).href;
 const ogImage = new URL(image, site).href;
 const blocks = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 ---

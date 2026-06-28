@@ -102,7 +102,7 @@ const nextHref = next ? href(next.id) : null;
       </details>
     </aside>
 
-    <main class="docs-main">
+    <main id="main" tabindex="-1" class="docs-main">
       <article class="prose" data-pagefind-body>
         <h1>{entry.data.title}</h1>
         {entry.data.description && <p class="lead">{entry.data.description}</p>}

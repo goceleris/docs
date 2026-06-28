@@ -22,5 +22,7 @@ const jsonLd = {
   jsonLd={jsonLd}
 >
   <Header solid />
-  <Dashboard client:only="preact" />
+  <main id="main" tabindex="-1" style="display: contents">
+    <Dashboard client:only="preact" />
+  </main>
 </BaseLayout>

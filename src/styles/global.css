@@ -85,6 +85,33 @@ pre {
   font-feature-settings: "tnum";
 }
 
+/* Skip-to-content link — visually hidden until keyboard-focused. */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: var(--sp-3);
+  z-index: 100;
+  transform: translateY(-120%);
+  padding: 0.55rem 0.9rem;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border-accent);
+  border-top: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  transition: transform var(--dur-2) var(--ease);
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+}
+
 /* Focus visibility — accessible, on-brand. */
 :focus-visible {
   outline: 2px solid var(--accent);
