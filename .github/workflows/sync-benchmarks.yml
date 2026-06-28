@@ -1,25 +1,22 @@
 name: Sync Benchmarks
 
-# Trigger a Cloudflare Pages rebuild when probatorium publishes a benchmark run.
+# Acknowledge a benchmark publish from probatorium.
 #
 # The publisher (probatorium `mage Publish`) commits the four split files of a
 # benchmark cell directly to this repo under results/<version>/<date>/<arch>/,
 # then fires a tiny pointer repository_dispatch. The static site reads the
 # results/ tree directly at BUILD time (it derives all dashboard assets itself),
-# so this workflow no longer maintains any derived index/latest mirror — its only
-# job is to kick the Pages build so a publish shows up on the dashboard promptly.
+# so this workflow maintains no derived index/latest mirror.
 #
-# Cloudflare Pages' GitHub integration already rebuilds on every push to main,
-# so this dispatch path mainly covers the case where the publish commit lands via
-# the API without triggering the integration, and gives an explicit manual lever.
+# Deployment is handled by Cloudflare Workers Builds, which rebuilds and deploys
+# the site on every push to `main` (the publish commit IS such a push, including
+# commits created via the GitHub API). There is therefore nothing to trigger
+# here — this workflow only leaves a log trail so a publish is visible in Actions.
 #
 # Canonical event type (must match probatorium mage_publish.go's
 # repository_dispatch event_type):
 #   benchmark-published
 # client_payload pointer shape (<=1 KB): { version, arch, date, run_id, path, commit }
-#
-# Required repo secret:
-#   CF_PAGES_DEPLOY_HOOK_URL — a Cloudflare Pages "Deploy hook" URL for this project.
 
 on:
   repository_dispatch:
@@ -34,21 +31,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  trigger-build:
-    name: Trigger Cloudflare Pages build
+  acknowledge:
+    name: Acknowledge benchmark publish
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Cloudflare Pages deploy hook
+      - name: Note publish
         env:
-          HOOK: ${{ secrets.CF_PAGES_DEPLOY_HOOK_URL }}
           P_VERSION: ${{ github.event.client_payload.version }}
           P_DATE: ${{ github.event.client_payload.date }}
           P_ARCH: ${{ github.event.client_payload.arch }}
         run: |
-          set -euo pipefail
-          if [ -z "${HOOK:-}" ]; then
-            echo "CF_PAGES_DEPLOY_HOOK_URL is not set; nothing to trigger." >&2
-            exit 0
-          fi
-          echo "Triggering Pages rebuild for ${P_VERSION:-manual}/${P_DATE:-} ${P_ARCH:-}"
-          curl -fsS -X POST "$HOOK" -o /dev/null -w "deploy hook HTTP %{http_code}\n"
+          echo "Benchmark published: ${P_VERSION:-manual}/${P_DATE:-} ${P_ARCH:-}"
+          echo "Cloudflare Workers Builds deploys automatically on the push to main; no action needed."
