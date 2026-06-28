@@ -195,7 +195,7 @@ const jsonLd = [
       <div class="stats">
         {stat ? (
           <>
-            <div class="stat" title={`Celeris is the fastest Go framework in ${stat.goWinRate} benchmarked scenarios.`}><div class="n"><span class="upto">fastest in</span>{stat.goWinRate}</div><div class="l">Go scenarios</div></div>
+            <div class="stat" title={`Celeris is the fastest Go framework in ${stat.goWinRate} benchmarked scenarios.`}><div class="n">{stat.goWinRate}</div><div class="l">Go scenarios won</div></div>
             {stat.goMaxMarginPct != null && (
               <div
                 class="stat"
