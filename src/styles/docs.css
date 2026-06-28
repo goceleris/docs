@@ -19,6 +19,14 @@
 .docs-groups > nav.group {
   display: block;
 }
+/* Modern engines (Chrome 131+, Safari 18.4+, Firefox 139+) wrap a closed
+   <details>'s content in a ::details-content pseudo with content-visibility:hidden,
+   which `display: block` on the children cannot override. Force it visible so the
+   desktop sidebar is an always-open list regardless of the [open] state. The
+   `display` rule above still covers older engines that hide via display:none. */
+.docs-groups::details-content {
+  content-visibility: visible;
+}
 .docs-side {
   position: sticky;
   top: calc(var(--header-h) + var(--sp-4));
@@ -366,6 +374,12 @@
   }
   .docs-groups:not([open]) > nav.group {
     display: none;
+  }
+  /* Restore the disclosure on phones: undo the desktop force-visible so a closed
+     drawer actually hides its content (modern engines), matching the display
+     rule above (older engines). */
+  .docs-groups:not([open])::details-content {
+    content-visibility: hidden;
   }
   .docs-groups[open] > nav.group:first-of-type {
     margin-top: var(--sp-4);

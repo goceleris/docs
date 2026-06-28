@@ -254,9 +254,12 @@ const jsonLd = {
       transform: none;
     }
   }
+  /* NB: do NOT position this — the whole-card stretched link (.hub-card-go::after)
+     anchors to the nearest positioned ancestor. If the head is positioned, the
+     clickable overlay shrinks to just the header row, so clicks on the blurb or
+     the gaps between elements do nothing. Keeping it static lets the overlay
+     cover the entire card. */
   .hub-card-head {
-    position: relative;
-    z-index: 2;
     display: flex;
     align-items: center;
     gap: var(--sp-3);
