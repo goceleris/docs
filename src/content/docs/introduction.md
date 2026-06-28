@@ -15,7 +15,7 @@ name is Latin for *swift*.
 import "github.com/goceleris/celeris"
 ```
 
-The current release is **[`v1.5.4`](https://github.com/goceleris/celeris/releases/latest)** —
+The current release is **[`v1.5.5`](https://github.com/goceleris/celeris/releases/latest)** —
 always pull the [latest release](https://github.com/goceleris/celeris/releases/latest)
 from GitHub.
 
@@ -143,7 +143,7 @@ Operations. If you just want to ship, jump straight to
 
 - **Module:** `github.com/goceleris/celeris` · **package:** `celeris`.
 - **Version:** the running version is the exported `celeris.Version` constant
-  (currently `1.5.4`). Pin a version in your `go.mod` and upgrade deliberately.
+  (currently `1.5.5`). Pin a version in your `go.mod` and upgrade deliberately.
 - **Go toolchain:** Go 1.26.4+ (the module targets `go 1.26.4`).
 - **Platforms:** Linux for io_uring/epoll/adaptive; any OS Go supports for the
   std engine. The engine choice is automatic unless you set
