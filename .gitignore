@@ -38,6 +38,9 @@ dist/
 .pagefind/
 *.tsbuildinfo
 
+# Cloudflare Wrangler local dev state / Miniflare cache (never commit)
+.wrangler/
+
 # Generated dashboard assets (rebuilt from results/ at build time)
 src/data/generated/
 public/data/
