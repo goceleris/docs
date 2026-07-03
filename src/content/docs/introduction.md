@@ -31,8 +31,9 @@ stdlib server. Underneath your routes sits a custom event loop:
 
 - **On Linux** it runs a tiered **io_uring** engine (kernel 5.10+, richer
   features on 5.19+) or an edge-triggered **epoll** engine with per-core CPU
-  pinning. The default **adaptive** engine starts on epoll and promotes
-  connections to io_uring under sustained load.
+  pinning. The default **adaptive** engine starts on epoll and switches to
+  io_uring under sustained load, transplanting live keep-alive connections
+  between the two in both directions.
 - **On every other platform** (macOS, Windows, BSD) it transparently uses the
   **std** engine — Go's `net/http` server — so the same code builds and runs
   unchanged. You opt into a native engine via [`Config.Engine`](/docs/configuration);
@@ -61,7 +62,7 @@ fight.
 |--------|---------------|
 | **Zero-allocation hot path** | `Context` objects are pooled and recycled between requests; H1/H2 fast paths reuse inline buffers and pre-encoded HPACK responses, so typical request/response cycles allocate nothing. |
 | **Protocol × engine model** | Protocol (HTTP/1.1, h2c, Auto) and I/O engine (io_uring, epoll, adaptive, std) are chosen independently via two `Config` fields. Most code never touches either — the defaults are correct. |
-| **Adaptive engine** | The default Linux engine starts on epoll (best for ramp-from-zero and low concurrency) and promotes connections to io_uring under sustained high load, driven by live telemetry. A `WorkloadHint` lets you bias the start choice. |
+| **Adaptive engine** | The default Linux engine starts on epoll (best for ramp-from-zero and low concurrency) and switches to io_uring under sustained high load, driven by live telemetry. Established keep-alive connections **transplant** between the engines in both directions (v1.5.6), so a switch captures the throughput rather than stranding live connections. A `WorkloadHint` lets you bias the start choice. |
 | **Async handler dispatch** | Handlers run inline on the I/O worker by default (lowest latency). Routes that block on I/O opt into a per-connection goroutine with `.Async()`, so the worker stays free to drive other connections. |
 | **Batteries-included middleware** | An in-tree catalog of 30+ middleware packages — auth (JWT, basic, key), CORS, CSRF, compression, caching, rate limiting, sessions, WebSocket, SSE, OpenTelemetry, Prometheus, and more. See [Middleware](/docs/middleware). |
 

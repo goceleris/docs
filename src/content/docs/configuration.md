@@ -144,11 +144,13 @@ the `Std`/`Epoll`/`IOUring` engines.
 | `celeris.WorkloadHighConcurrency`  | Many H1 keep-alive conns/worker — start on io_uring (when kernel + `RLIMIT_MEMLOCK` allow) |
 
 Defined in `celeris/config.go:43-60` and `celeris/resource/resource.go:1-25`.
-Because established connections cannot migrate between epoll and io_uring, the
-*start* engine fixes keep-alive throughput, and concurrency is unknowable when the
-server binds (no connections exist yet). `WorkloadHighConcurrency` is the only way
-to make `Adaptive` *start* on io_uring; otherwise it ramps from epoll and promotes
-new connections under sustained load.
+Since v1.5.6 established connections **transplant** between epoll and io_uring when
+Adaptive switches (both directions), so the *start* engine no longer fixes
+keep-alive throughput — but concurrency is unknowable when the server binds (no
+connections exist yet), so a good start still avoids an unnecessary early switch.
+`WorkloadHighConcurrency` makes `Adaptive` *start* on io_uring; otherwise it ramps
+from epoll and switches to io_uring under sustained load, carrying its established
+keep-alives across.
 
 ```go
 celeris.Config{
