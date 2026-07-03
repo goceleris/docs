@@ -49,12 +49,20 @@ engine when the workload crosses a load threshold. You get the best engine for t
 box and the moment without choosing. See [The adaptive
 controller](#the-adaptive-controller) below for the signals it uses.
 
-Because connections cannot migrate between epoll and io_uring once accepted, the
-*start* engine matters for long-lived keep-alive throughput. By default Adaptive
-**starts on epoll** (best for the ramp-from-zero, low-concurrency, latency case)
-and promotes *new* connections to io_uring under sustained high load. The two ways
-to influence the start engine are the `WorkloadHint` config field (see below) and
-the `CELERIS_ADAPTIVE_START` env override (`epoll` | `iouring` | `auto`), an
+By default Adaptive **starts on epoll** (best for the ramp-from-zero,
+low-concurrency, latency case) and switches to io_uring under sustained high load.
+As of **v1.5.6**, a switch isn't only for *new* connections: established HTTP/1
+keep-alive connections are **transplanted** between the engines at clean request
+boundaries, in **both** directions — epoll→io_uring on promote and io_uring→epoll
+on revert — so a busy connection is never stranded on the slower engine. (Detached
+connections — WebSocket and SSE — are excluded by construction, since a connection
+only migrates at a fully-flushed request boundary.) This is what lets Adaptive
+actually reach io_uring's high-concurrency throughput — around io_uring parity,
+roughly **+15% over epoll at 1024 connections** — instead of forfeiting the win to
+keep-alives pinned on the standby.
+
+Two knobs influence the *start* engine: the `WorkloadHint` config field (see below)
+and the `CELERIS_ADAPTIVE_START` env override (`epoll` | `iouring` | `auto`), an
 operator escape hatch that pins the start engine and disables runtime switching.
 
 ### Epoll
@@ -151,23 +159,27 @@ actually drive the decision are:
 | **Bytes per request**   | `(BytesRead + BytesWritten) / RequestCount`   | Large-payload (>8 KB avg) traffic is link-bound — the engines tie — so an io_uring switch is *suppressed*. |
 | **Error rate**          | `ErrorCount` over time                         | If io_uring starts erroring on this host, a safety revert to epoll fires regardless of load. |
 
-Switching is **measured-vs-measured** and intentionally asymmetric. While epoll is
-active, a sustained high conns-per-worker reading promotes *new* connections to
-io_uring (an immediate snap past a heavy-load high-watermark, otherwise after a
-short sustain). Once on io_uring it stays there: because established connections
-are pinned and cannot migrate, the controller does **not** load-revert to epoll on
-a load dip (that would only strand io_uring keep-alives) — the only thing that
-reverts it is the io_uring error-rate safety net. Switching is gated by kernel,
+Switching is **measured-vs-measured** and **bidirectional**. While epoll is active,
+a sustained high conns-per-worker reading switches up to io_uring — an immediate
+snap past a heavy-load high-watermark, otherwise after a short sustain. While
+io_uring is active, conns-per-worker sustaining below a lower *down* threshold
+reverts to epoll; the gap between the up and down thresholds is a hysteresis band
+that prevents flapping. Either way the active engine's established keep-alive
+connections are **transplanted** to the new engine (see [Adaptive](#adaptive--the-default-on-linux)
+above), so a switch captures the throughput instead of stranding live connections.
+A separate, always-on error-rate safety revert fires if io_uring starts erroring,
+regardless of load. Switching is gated by kernel,
 `RLIMIT_MEMLOCK`, and protocol viability, and is damped against oscillation: after
 three switches in five minutes the controller locks the active engine for five
 minutes, plus a post-switch cooldown, so a borderline workload does not thrash.
 
 ### `WorkloadHint` — picking the start engine
 
-Because a connection cannot migrate between epoll and io_uring, the **start**
-engine fixes the keep-alive throughput ceiling for connections opened early — and
-the steady-state concurrency is unknowable when the server binds. `WorkloadHint`
-(`celeris/config.go:43-60`) is the *only* way to influence that start decision. It
+Established connections now transplant between engines on a switch (see above), so
+the **start** engine no longer fixes the keep-alive throughput ceiling — but the
+steady-state concurrency is still unknowable when the server binds, and a good
+start avoids an unnecessary early switch. `WorkloadHint`
+(`celeris/config.go:43-60`) is the config-level way to bias that start decision. It
 affects **nothing but the Adaptive engine's start choice**; on Epoll, IOUring, and
 Std it is ignored.
 

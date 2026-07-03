@@ -213,15 +213,16 @@ connections to io_uring under sustained high load (`celeris/config.go:43-60`).
 
 | `Config.Engine` | Use it when… |
 | --- | --- |
-| `Adaptive` (default) | You don't want to think about it. Starts epoll, promotes to io_uring under load. |
+| `Adaptive` (default) | You don't want to think about it. Starts epoll, switches to io_uring under load (connections transplant both ways). |
 | `Epoll` | You've measured that your workload is steadily low/medium concurrency and want to pin the behavior. |
 | `IOUring` | You've measured a sustained high-concurrency keep-alive workload and want io_uring from the first connection (Linux 5.10+; needs `RLIMIT_MEMLOCK`). |
 | `Std` | Non-Linux, or you want the plain net/http server for maximum portability. |
 
-Because connections **cannot migrate** between epoll and io_uring once accepted, the
-*starting* engine decides keep-alive throughput — and concurrency is unknowable at
-bind time. The `Config.WorkloadHint` is the one lever that biases Adaptive's start
-choice without hard-pinning the engine (`celeris/config.go:43-78`):
+As of v1.5.6 Adaptive **transplants** established keep-alive connections between
+epoll and io_uring on a switch (both directions), so the *starting* engine no
+longer fixes keep-alive throughput. Concurrency is still unknowable at bind time,
+though, so `Config.WorkloadHint` is the lever that biases Adaptive's start choice
+without hard-pinning the engine (`celeris/config.go:43-78`):
 
 ```go
 s := celeris.New(celeris.Config{
