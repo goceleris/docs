@@ -44,6 +44,14 @@
   /* hover tint, distinct from the flatter --accent-wash */
   --accent-soft: oklch(0.86 0.21 142 / 0.16);
 
+  /* Engine-family series colors for the Versions trend (dark: bright on canvas).
+     io_uring rides the brand accent; the others are distinct hues. Light-mode
+     overrides below keep them ≥3:1 on white. */
+  --vt-iouring: var(--accent-bright);
+  --vt-epoll: oklch(0.82 0.13 205);
+  --vt-adaptive: oklch(0.78 0.16 305);
+  --vt-std: oklch(0.82 0.07 80);
+
   /* secondary accent — a real second DATA color (cool cyan), not just gradients */
   --accent-2: oklch(0.82 0.13 220);
   --accent-2-bright: oklch(0.88 0.13 218);
@@ -191,6 +199,11 @@
   --accent-text: oklch(0.45 0.17 142);
   --accent-glow: oklch(0.62 0.18 142 / 0.16);
   --accent-soft: oklch(0.62 0.18 142 / 0.12);
+  /* Versions-trend series — darkened so each line clears ~3:1 on white. */
+  --vt-iouring: oklch(0.55 0.19 142);
+  --vt-epoll: oklch(0.52 0.13 235);
+  --vt-adaptive: oklch(0.5 0.19 305);
+  --vt-std: oklch(0.6 0.1 75);
   /* Dark ink on the bright-lime CTA: near-white failed WCAG AA on the medium
      light-mode lime (~3.3:1); near-black clears it (~4.8:1 at the gradient's
      darker end). */
