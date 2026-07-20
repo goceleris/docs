@@ -7,14 +7,14 @@ const stat = heroStat();
 const bench = heroBars();
 const maxRps = bench ? bench.bars[0].rps : 0;
 
-// Latency view (back of the flip card): same frameworks, p99 latency, lower is
-// better. Celeris is pinned first (it's at par with the fastest), then the rest
-// ascending. Bar length is proportional to latency (lower = shorter bar).
-const latRest = bench ? bench.bars.filter((b) => b.p99 != null && !b.isCeleris).sort((a, b) => (a.p99 as number) - (b.p99 as number)) : [];
-const celLat = bench?.bars.find((b) => b.isCeleris && b.p99 != null) ?? null;
-const latBars = celLat ? [celLat, ...latRest] : latRest;
+// Latency view (back of the flip card): p99 latency under full load, lower is
+// better. Sorted honestly by p99 so every framework sits in its true rank — the
+// actual fastest is highlighted, whoever it is (Celeris is never pinned above a
+// rival that beat it). Bar length is proportional to latency.
+const latBars = bench ? bench.bars.filter((b) => b.p99 != null).sort((a, b) => (a.p99 as number) - (b.p99 as number)) : [];
 const maxP99 = latBars.length ? Math.max(...latBars.map((b) => b.p99 as number)) : 0;
-const celP99 = celLat?.p99 ?? null;
+const latLeader = latBars[0] ?? null;
+const celP99 = latBars.find((b) => b.isCeleris)?.p99 ?? null;
 const hasLatency = latBars.length >= 3;
 
 // Real anchors for the "net/http ceiling" chart (same scenario, get-simple-1024c).
@@ -149,7 +149,7 @@ const jsonLd = [
               </figcaption>
               <div class="bench-bars">
                 {bench.bars.map((b) => (
-                  <div class:list={["bench-row", { win: b.isCeleris }]}>
+                  <div class:list={["bench-row", { win: b === bench.bars[0] }]}>
                     <span class="bench-name"><span class="bn">{b.name}</span>{b.lang && <span class="bl">{b.lang}</span>}</span>
                     <span class="bench-track"><span class="bench-fill" style={`--w:${Math.max(2, Math.round((b.rps / maxRps) * 100))}%`}></span></span>
                     <span class="bench-val">{fmtRpsShort(b.rps)}</span>
@@ -171,7 +171,7 @@ const jsonLd = [
                 </figcaption>
                 <div class="bench-bars">
                   {latBars.map((b) => (
-                    <div class:list={["bench-row", { win: b.isCeleris }]}>
+                    <div class:list={["bench-row", { win: b === latLeader }]}>
                       <span class="bench-name"><span class="bn">{b.name}</span>{b.lang && <span class="bl">{b.lang}</span>}</span>
                       <span class="bench-track"><span class="bench-fill" style={`--w:${Math.max(2, Math.round(((b.p99 as number) / maxP99) * 100))}%`}></span></span>
                       <span class="bench-val">{fmtMs(b.p99 as number)}</span>

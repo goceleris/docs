@@ -40,6 +40,19 @@ import type {
   ScenarioRegistry,
 } from "../src/lib/results/types";
 
+/**
+ * Deactivated versions: kept in results/ for history but NOT built into the site
+ * (no manifest entry, no payload) — so they never appear in the dashboard, the
+ * landing numbers, or the Versions trend.
+ *
+ * v1.5.5–v1.5.7 ran on the pre-upgrade rig (single-channel RAM). v1.5.8 is the
+ * first run on the upgraded dual-channel memory, so earlier runs aren't
+ * comparable and are hidden. Anything NOT listed here is shown, so future
+ * versions on the same hardware appear automatically. To re-activate a version,
+ * remove it from this set.
+ */
+const DEACTIVATED_VERSIONS = new Set<string>(["v1.5.5", "v1.5.6", "v1.5.7"]);
+
 const CONFIG = {
   /** Runs shorter than this (ns) are smoke tests, excluded from averaging by default. */
   minDurationNs: 30_000_000_000,
@@ -79,7 +92,9 @@ function build() {
     rmSync(join(PUB_DATA, "v"), { recursive: true, force: true });
   }
 
-  const versions = listVersions(root).sort(versionCmpDesc);
+  const versions = listVersions(root)
+    .filter((v) => !DEACTIVATED_VERSIONS.has(v))
+    .sort(versionCmpDesc);
 
   const adapters = new Map<string, AdapterMeta>();
   const scenarios = new Map<string, ScenarioMeta>();
