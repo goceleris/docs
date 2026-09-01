@@ -19050,7 +19050,7 @@
       "engine": "adaptive-auto+upg-async",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -30090,7 +30090,7 @@
       "engine": "adaptive-h1-async",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -40370,7 +40370,7 @@
       "engine": "epoll-auto+upg-async",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -51410,7 +51410,7 @@
       "engine": "epoll-h1-async",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -61690,7 +61690,7 @@
       "engine": "epoll-h1-sync",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -71978,7 +71978,7 @@
       "engine": "iouring-auto+upg-async",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -83026,7 +83026,7 @@
       "engine": "iouring-h1-async",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -93311,7 +93311,7 @@
       "engine": "iouring-h1-sync",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -103599,7 +103599,7 @@
       "engine": "std-h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -113893,7 +113893,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -121902,7 +121902,7 @@
       "engine": "h2c",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -134495,7 +134495,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -142504,7 +142504,7 @@
       "engine": "h2c",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -164073,7 +164073,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -175846,7 +175846,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -183852,7 +183852,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -191861,7 +191861,7 @@
       "engine": "h2c",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -200631,7 +200631,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -204460,7 +204460,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -214396,7 +214396,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -222406,7 +222406,7 @@
       "engine": "h2c",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -246430,7 +246430,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -254436,7 +254436,7 @@
       "engine": "h2c",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -267027,7 +267027,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -284618,7 +284618,7 @@
       "engine": "h1",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -292627,7 +292627,7 @@
       "engine": "h2c-noupg",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
@@ -293378,7 +293378,7 @@
       "engine": "hybrid",
       "compile_options": [
         "CGO_ENABLED=0",
-        "GOARM64=v8.0",
+        "GOAMD64=v3",
         "trimpath",
         "ldflags=-s -w"
       ],
