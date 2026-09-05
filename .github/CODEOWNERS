@@ -1,0 +1,15 @@
+# Code owners for goceleris/docs.
+#
+# GitHub requests a review from the matching owner(s) on every pull request
+# and, when the branch protection / ruleset for `main` requires code-owner
+# review, blocks the merge until one of them approves. Later rules override
+# earlier ones, so the catch-all comes first and area delegations go below it.
+#
+# Syntax: https://docs.github.com/articles/about-code-owners
+
+# Default: the repository owner reviews everything.
+* @FumingPower3925
+
+# Area delegation example (uncomment and adjust when a co-maintainer takes an
+# area; the more specific path wins over the catch-all above):
+# /src/content/docs/ @FumingPower3925 @WdnLiu
