@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # ----- npm (Astro site, installed with Bun) -----
+  # The site is installed and run with Bun (`bun install --frozen-lockfile`,
+  # engines.bun >= 1.3), but Dependabot's `npm` ecosystem reads the same
+  # package.json + bun.lock, so bumps land as reviewable PRs that the `build`
+  # CI job then compiles. Weekly cadence: this is a static site with no
+  # runtime server, so a daily dependency PR stream buys nothing.
+  #
+  # `typescript` is pinned EXACTLY to 6.0.3 on purpose: @astrojs/check breaks
+  # on TypeScript 7, and drifting the pin would silently ship the site with
+  # no type-check gate. Only patch releases of the 6.0 line may be proposed;
+  # a major or minor bump must be a deliberate, hand-made change.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+    groups:
+      all-js-deps:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "deps"
+
+  # ----- GitHub Actions -----
+  # Every workflow pins its actions to a full commit SHA with a `# vX.Y.Z`
+  # trailer; this entry is what keeps those SHAs current. Group all action
+  # bumps into ONE PR per scheduled run.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      all-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
