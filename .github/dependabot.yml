@@ -1,17 +1,30 @@
 version: 2
 updates:
-  # ----- npm (Astro site, installed with Bun) -----
+  # ----- Bun (Astro site) -----
   # The site is installed and run with Bun (`bun install --frozen-lockfile`,
-  # engines.bun >= 1.3), but Dependabot's `npm` ecosystem reads the same
-  # package.json + bun.lock, so bumps land as reviewable PRs that the `build`
-  # CI job then compiles. Weekly cadence: this is a static site with no
-  # runtime server, so a daily dependency PR stream buys nothing.
+  # engines.bun >= 1.3) and its only lockfile is the text `bun.lock`; there
+  # is no package-lock.json. That rules out the `npm` ecosystem: it is
+  # dependabot-core's npm_and_yarn, which reads package-lock.json, yarn.lock
+  # and pnpm-lock.yaml but never bun.lock. Pointed at this repo it would see
+  # a manifest-only project, propose nothing for the ^-ranged deps until a
+  # new major shipped, and any PR it did open would edit package.json without
+  # refreshing bun.lock, so the frozen-lockfile install in the `build` CI job
+  # would fail. `bun` is its own ecosystem (Bun >= 1.1.39, text lockfile) that
+  # parses and rewrites bun.lock, so bumps land as reviewable PRs that the
+  # `build` job then installs, compiles, checks and tests.
+  #
+  # Caveat: `bun` supports version updates only, not security updates. A
+  # Dependabot alert on a JS dependency will not auto-generate a PR here; it
+  # is closed by the next weekly version PR or by a hand-made bump.
+  #
+  # Weekly cadence: this is a static site with no runtime server, so a daily
+  # dependency PR stream buys nothing.
   #
   # `typescript` is pinned EXACTLY to 6.0.3 on purpose: @astrojs/check breaks
   # on TypeScript 7, and drifting the pin would silently ship the site with
   # no type-check gate. Only patch releases of the 6.0 line may be proposed;
   # a major or minor bump must be a deliberate, hand-made change.
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
