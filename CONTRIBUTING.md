@@ -16,13 +16,18 @@ bun run demo     # same, against a synthesized demo dataset
 Before opening a pull request, run what CI runs:
 
 ```sh
+bun run validate # benchmark-cell gate: every committed results/ cell
 bun run build    # build:data -> astro build -> pagefind
 bun run check    # astro check (types + content schema); needs build:data first
 bun test         # data-layer tests
 ```
 
-`bun run validate` checks every committed `results/` cell without emitting
-anything — it is the gate the benchmark publisher relies on.
+`bun run validate` opens every committed `results/` cell without emitting
+anything and exits non-zero if one is malformed. It is the benchmark-data
+gate, and it is the one check the plain build cannot be: `bun run build` is
+deliberately lenient (a bad cell is warned about, excluded and the build still
+succeeds) so that one corrupt cell never takes the deploy down. It runs in the
+`build` CI job and again in `Sync Benchmarks` when the publisher pushes a run.
 
 Documentation pages live in `src/content/docs/**/*.{md,mdx}` and are validated
 against the frontmatter schema described in the [README](README.md#content-structure).

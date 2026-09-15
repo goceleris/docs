@@ -4,8 +4,9 @@ name: CI
 # actually deploys (`bun run build` on every push to `main`), but until this
 # workflow existed nothing checked a PR *before* it reached `main` — a broken
 # build only surfaced as a failed deploy. This job runs the same install and
-# build as the deploy, plus `astro check` (types + content schema) and the
-# data-layer tests, so a required status check named `build` can gate `main`.
+# build as the deploy, plus the benchmark-cell gate (`bun run validate`),
+# `astro check` (types + content schema) and the data-layer tests, so a
+# required status check named `build` can gate `main`.
 #
 # It is deliberately read-only: no deploy, no token use, no writes.
 
@@ -43,6 +44,17 @@ jobs:
 
       - name: Install (frozen lockfile)
         run: bun install --frozen-lockfile
+
+      # The benchmark-cell gate. `bun run build` is deliberately lenient — a
+      # malformed cell is warned about, marked "excluded:invalid" and dropped,
+      # and the build still exits 0 — because one corrupt cell must not take
+      # the whole deploy down. That leniency is exactly why a bad cell could
+      # vanish from the dashboard with every check green: `--validate-only`
+      # walks the same tree, emits nothing and exits non-zero instead. It runs
+      # before Build so the first thing to speak is the gate, and because it
+      # costs under a second.
+      - name: Validate benchmark cells
+        run: bun run validate
 
       # `build` = build:data -> astro build -> pagefind. It must run before
       # `check` because `astro check` type-checks imports of the gitignored

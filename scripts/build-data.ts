@@ -10,8 +10,13 @@
  *   public/data/v/<version>/<arch>.json   — per-version aggregated payload
  *
  * Never crashes on empty/partial/malformed data: bad cells are skipped (warned),
- * and an empty tree yields valid empty assets. Run with --validate-only to gate
- * a publish without emitting (exits non-zero if any cell fails validation).
+ * and an empty tree yields valid empty assets — a deploy must not be taken down
+ * by one corrupt cell. The red check is `--validate-only` instead: it walks the
+ * same tree, emits nothing, and exits non-zero if any cell fails validation (1)
+ * or if it somehow examined no cells at all (2). `.github/workflows/ci.yml`
+ * runs it on every pull request and push to main, and
+ * `.github/workflows/sync-benchmarks.yml` runs it on the publisher's
+ * benchmark-published dispatch.
  */
 import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
@@ -72,6 +77,8 @@ const PUB_DATA = join(repoRoot, "public", "data");
 
 let warnings = 0;
 let validationErrors = 0;
+/** Cells (version/date/arch/run) actually opened and validated this run. */
+let cellsExamined = 0;
 function warn(msg: string) {
   warnings++;
   process.stderr.write(`build-data: WARN ${msg}\n`);
@@ -92,8 +99,11 @@ function build() {
     rmSync(join(PUB_DATA, "v"), { recursive: true, force: true });
   }
 
+  // Deactivation is a presentation decision, not a data-integrity one: the
+  // build hides those versions from the site, but --validate-only still opens
+  // every committed cell so a hidden one cannot rot unnoticed.
   const versions = listVersions(root)
-    .filter((v) => !DEACTIVATED_VERSIONS.has(v))
+    .filter((v) => validateOnly || !DEACTIVATED_VERSIONS.has(v))
     .sort(versionCmpDesc);
 
   const adapters = new Map<string, AdapterMeta>();
@@ -114,6 +124,7 @@ function build() {
             { version, date, arch, runId },
             { minDurationNs: CONFIG.minDurationNs },
           );
+          cellsExamined++;
           for (const e of errors) {
             warn(`${version}/${date}/${arch}/${runId}: ${e}`);
             validationErrors++;
@@ -228,8 +239,17 @@ function build() {
 
   if (validateOnly) {
     process.stderr.write(
-      `build-data: validate-only — ${manifest.versions.length} version(s), ${validationErrors} validation error(s), ${warnings} warning(s)\n`,
+      `build-data: validate-only — ${cellsExamined} cell(s) examined in ${versions.length} version(s), ` +
+        `${validationErrors} validation error(s), ${warnings} warning(s)\n`,
     );
+    // A gate that inspected nothing must not report success. results/ is never
+    // legitimately empty in this repo, so zero cells means the tree is missing
+    // (bad checkout, wrong RESULTS_ROOT) or the walker broke — either way the
+    // green check would be a lie about coverage.
+    if (cellsExamined === 0) {
+      process.stderr.write(`build-data: FATAL validate-only examined 0 cells under ${root}\n`);
+      process.exit(2);
+    }
     process.exit(validationErrors > 0 ? 1 : 0);
   }
 
@@ -238,7 +258,8 @@ function build() {
   writeJSON(join(SRC_DATA, "scenarios.json"), scenarioRegistry);
 
   process.stderr.write(
-    `build-data: ${manifest.versions.length} version(s), ${adapters.size} adapter(s), ${scenarios.size} scenario(s), ` +
+    `build-data: ${manifest.versions.length} version(s), ${cellsExamined} cell(s), ${adapters.size} adapter(s), ` +
+      `${scenarios.size} scenario(s), ` +
       `default=${manifest.default ? `${manifest.default.version}/${manifest.default.arch}` : "none"}, ${warnings} warning(s)\n`,
   );
 }
