@@ -1,0 +1,6 @@
+{
+  "schema_version": "4.1",
+  "host_arch_pair": "linux-amd64",
+  "benchmarks": {},
+  "_note": "deliberately malformed cell, control for docs#67 -- never merge"
+}
