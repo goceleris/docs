@@ -2,13 +2,18 @@
  * Load + validate a single benchmark cell from disk. Never throws on bad input:
  * a malformed summary returns null (cell skipped); a corrupt/optional timeseries
  * degrades to null while the cell's scalars are still used.
+ *
+ * `errors` is the publish gate's channel: the lenient build only warns about
+ * them, while `build-data --validate-only` exits non-zero if any cell reported
+ * one. A cell can therefore be returned AND carry errors (mislabelled env) —
+ * the site keeps rendering what it always rendered, the gate goes red.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { join } from "node:path";
 import type { LoadedCell, RawEnv, RawSummary, RawTimeseries } from "./types";
 import { runDir } from "./walk";
-import { validateSummary, validateTimeseriesDoc, type CellExpect } from "./validate";
+import { validateEnv, validateSummary, validateTimeseriesDoc, type CellExpect } from "./validate";
 
 export interface LoadResult {
   cell: LoadedCell | null;
@@ -55,10 +60,18 @@ export function loadCell(
     return { cell: null, errors: summaryErrs, warnings };
   }
 
+  // env.json is optional: absent or unparseable is a warning and the cell still
+  // loads from the summary. But a *present and parseable* env.json that
+  // disagrees with its own path (env says arm64, path says x86_64) is a
+  // mislabelled cell — the exact corruption that had to be scrubbed by hand in
+  // d3424f4 — so validateEnv's findings are errors, which is what makes
+  // `--validate-only` reject them.
   let env: RawEnv = { schema_version: "env/1" };
   try {
-    if (existsSync(join(dir, "env.json"))) env = readJSON<RawEnv>(join(dir, "env.json"));
-    else warnings.push("env.json missing; using config from summary");
+    if (existsSync(join(dir, "env.json"))) {
+      env = readJSON<RawEnv>(join(dir, "env.json"));
+      errors.push(...validateEnv(env, expect));
+    } else warnings.push("env.json missing; using config from summary");
   } catch (e) {
     warnings.push(`env.json parse failed: ${(e as Error).message}`);
   }

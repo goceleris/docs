@@ -75,8 +75,18 @@ Every task is a Bun script (see [`package.json`](package.json)):
 | `bun run start` | Alias for `bun run dev` |
 
 `validate` runs `build-data --validate-only`: it walks and validates every cell but
-emits nothing, exiting non-zero if any cell fails validation. It is what gates a
-publish.
+emits nothing, exiting non-zero if any cell fails validation (and with status 2 if
+it somehow examined no cells at all, so a gate that inspected nothing can never
+report success). Unlike `build`, it also scans versions listed in
+`DEACTIVATED_VERSIONS` — hiding a version from the dashboard is a presentation
+decision, not a licence for its committed data to rot.
+
+It is the benchmark-data gate, and it runs in two places: the `build` job of
+[`ci.yml`](.github/workflows/ci.yml) on every pull request and push to `main`, and
+[`sync-benchmarks.yml`](.github/workflows/sync-benchmarks.yml) on every publish
+dispatch. `bun run build` deliberately does **not** fail on a bad cell — it warns,
+marks the cell `excluded:invalid` and carries on, so one corrupt cell cannot take
+the whole deploy down. That is precisely why the separate red check exists.
 
 ## Tech
 
@@ -171,11 +181,11 @@ by `bun test`.
    `{ version, arch, date, run_id, path, commit }`).
 2. That commit **is** a push to `main`, so **Cloudflare Workers Builds** rebuilds
    and redeploys the site — which reads the new `results/` tree at build time.
-
-The only GitHub Actions workflow,
-[`sync-benchmarks.yml`](.github/workflows/sync-benchmarks.yml), does **not** trigger
-a deploy. It only leaves a log trail (`contents: read`) so a publish is visible in
-Actions; the deploy is entirely handled by the push to `main`.
+3. [`sync-benchmarks.yml`](.github/workflows/sync-benchmarks.yml) listens for that
+   dispatch and **verifies** the publish (`contents: read`, no deploy): it asserts
+   that the cell the pointer describes is actually committed — a dispatch for a
+   cell that never landed fails the job — and then runs `bun run validate` over
+   the tree. It does **not** trigger the deploy; the push to `main` already did.
 
 ## Deploy & hosting
 

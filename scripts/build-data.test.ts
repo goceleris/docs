@@ -279,3 +279,123 @@ describe("loader (real preserved sample)", () => {
     }
   });
 });
+
+describe("publish gate (build-data --validate-only)", () => {
+  const fixture = join(import.meta.dir, "..", "test", "fixtures", "sample-cell");
+  const script = join(import.meta.dir, "build-data.ts");
+
+  /** Lay the sample cell down at results/<version>/<date>/<arch>/ in a temp tree. */
+  function tree(version: string, date: string, arch: string): { root: string; dir: string; tmp: string } {
+    const tmp = mkdtempSync(join(tmpdir(), "celeris-gate-"));
+    const root = join(tmp, "results");
+    const dir = join(root, version, date, arch);
+    mkdirSync(dir, { recursive: true });
+    for (const f of ["summary.json", "env.json", "timeseries.json.gz", "histograms.json.gz"]) {
+      copyFileSync(join(fixture, f), join(dir, f));
+    }
+    return { root, dir, tmp };
+  }
+
+  function validate(root: string): { code: number; stderr: string } {
+    const p = Bun.spawnSync({
+      cmd: ["bun", script, "--validate-only"],
+      cwd: join(import.meta.dir, ".."),
+      env: { ...process.env, RESULTS_ROOT: root },
+    });
+    return { code: p.exitCode, stderr: p.stderr.toString() };
+  }
+
+  test("accepts a well-formed cell and reports how many it examined", () => {
+    if (!existsSync(join(fixture, "summary.json"))) return;
+    const { root, tmp } = tree("v1.4.15", "20260610", "x86_64");
+    try {
+      const { code, stderr } = validate(root);
+      expect(stderr).toContain("1 cell(s) examined");
+      expect(stderr).toContain("0 validation error(s)");
+      expect(code).toBe(0);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects a summary with the wrong schema major", () => {
+    if (!existsSync(join(fixture, "summary.json"))) return;
+    const { root, dir, tmp } = tree("v1.4.15", "20260610", "x86_64");
+    try {
+      const summary = JSON.parse(readFileSync(join(dir, "summary.json"), "utf8"));
+      summary.schema_version = "4.1";
+      writeFileSync(join(dir, "summary.json"), JSON.stringify(summary));
+      // Assert the injection landed before trusting the verdict.
+      expect(JSON.parse(readFileSync(join(dir, "summary.json"), "utf8")).schema_version).toBe("4.1");
+      const { code, stderr } = validate(root);
+      expect(stderr).toContain("summary schema_version must be 5.x");
+      expect(code).toBe(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects unparseable JSON", () => {
+    if (!existsSync(join(fixture, "summary.json"))) return;
+    const { root, dir, tmp } = tree("v1.4.15", "20260610", "x86_64");
+    try {
+      writeFileSync(join(dir, "summary.json"), "{ truncated");
+      expect(readFileSync(join(dir, "summary.json"), "utf8")).toBe("{ truncated");
+      const { code, stderr } = validate(root);
+      expect(stderr).toContain("summary.json parse failed");
+      expect(code).toBe(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects a cell whose env.json disagrees with its own path", () => {
+    if (!existsSync(join(fixture, "summary.json"))) return;
+    const { root, dir, tmp } = tree("v1.4.15", "20260610", "x86_64");
+    try {
+      const env = JSON.parse(readFileSync(join(dir, "env.json"), "utf8"));
+      env.arch = "arm64"; // the mislabelled-cell corruption that had to be scrubbed by hand
+      writeFileSync(join(dir, "env.json"), JSON.stringify(env));
+      expect(JSON.parse(readFileSync(join(dir, "env.json"), "utf8")).arch).toBe("arm64");
+      const { code, stderr } = validate(root);
+      expect(stderr).toContain("env arch arm64 != path x86_64");
+      expect(code).toBe(1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("fails rather than passing when it examined no cells at all", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "celeris-gate-empty-"));
+    try {
+      const root = join(tmp, "results");
+      mkdirSync(root, { recursive: true });
+      const { code, stderr } = validate(root);
+      expect(stderr).toContain("0 cell(s) examined");
+      expect(stderr).toContain("FATAL validate-only examined 0 cells");
+      expect(code).toBe(2);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  test("a malformed cell is still only a warning on the lenient build path", () => {
+    if (!existsSync(join(fixture, "summary.json"))) return;
+    const { root, dir, tmp } = tree("v1.4.15", "20260610", "x86_64");
+    const out = mkdtempSync(join(tmpdir(), "celeris-gate-out-"));
+    try {
+      writeFileSync(join(dir, "summary.json"), "{ truncated");
+      const p = Bun.spawnSync({
+        cmd: ["bun", script],
+        cwd: out, // emit into a throwaway cwd, never the repo
+        env: { ...process.env, RESULTS_ROOT: root },
+      });
+      // This is the defect the gate exists for: the build tolerates it by design.
+      expect(p.exitCode).toBe(0);
+      expect(p.stderr.toString()).toContain("summary.json parse failed");
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+      rmSync(out, { recursive: true, force: true });
+    }
+  });
+});

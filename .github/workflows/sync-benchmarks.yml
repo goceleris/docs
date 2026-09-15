@@ -1,17 +1,26 @@
 name: Sync Benchmarks
 
-# Acknowledge a benchmark publish from probatorium.
+# Verify a benchmark publish from probatorium.
 #
 # The publisher (probatorium `mage Publish`) commits the four split files of a
 # benchmark cell directly to this repo under results/<version>/<date>/<arch>/,
 # then fires a tiny pointer repository_dispatch. The static site reads the
 # results/ tree directly at BUILD time (it derives all dashboard assets itself),
-# so this workflow maintains no derived index/latest mirror.
+# so this workflow maintains no derived index/latest mirror, and deployment is
+# Cloudflare Workers Builds' job (it rebuilds on every push to `main`, including
+# commits created via the GitHub API).
 #
-# Deployment is handled by Cloudflare Workers Builds, which rebuilds and deploys
-# the site on every push to `main` (the publish commit IS such a push, including
-# commits created via the GitHub API). There is therefore nothing to trigger
-# here — this workflow only leaves a log trail so a publish is visible in Actions.
+# What is left for this workflow is the part nothing else does: check that the
+# cell the pointer describes actually LANDED, and that the tree it landed in
+# still validates. Between 2026-06-28 and this change the job was two `echo`
+# statements — no checkout, no network call, unconditionally green on all 7 runs
+# — while v1.5.9, v1.5.10 and v1.5.11 shipped without ever reaching results/.
+# A dispatch for a cell that is not on disk now fails loudly instead.
+#
+# This is a post-hoc check, not a merge gate: the publisher pushes straight to
+# main, so by the time the dispatch arrives the data is already committed. The
+# pre-merge gate for anything that arrives by pull request is the same
+# `bun run validate` in ci.yml.
 #
 # Canonical event type (must match probatorium mage_publish.go's
 # repository_dispatch event_type):
@@ -22,6 +31,23 @@ on:
   repository_dispatch:
     types: [benchmark-published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Cell version to assert is present (e.g. v1.6.0). Empty = validate the whole tree only."
+        required: false
+        default: ""
+      date:
+        description: "Cell date yyyymmdd (required when version is given)."
+        required: false
+        default: ""
+      arch:
+        description: "Cell arch (x86_64 | arm64)."
+        required: false
+        default: x86_64
+      run_id:
+        description: "Run id (run-1 is canonical; the flat layout is accepted too)."
+        required: false
+        default: run-1
 
 permissions:
   contents: read
@@ -31,15 +57,77 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  acknowledge:
-    name: Acknowledge benchmark publish
+  verify:
+    name: Verify published benchmark tree
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Note publish
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # Read-only: this job never pushes and never calls the API.
+          persist-credentials: false
+
+      # The publisher pushes, then dispatches. The two are not atomic, and the
+      # dispatch can be served before the push is visible to a fresh checkout,
+      # so re-fetch results/ a few times before declaring a cell missing —
+      # otherwise this gate would invent failures of its own.
+      - name: Wait for the published cell to be visible
+        if: github.event.client_payload.version != '' || github.event.inputs.version != ''
         env:
-          P_VERSION: ${{ github.event.client_payload.version }}
-          P_DATE: ${{ github.event.client_payload.date }}
-          P_ARCH: ${{ github.event.client_payload.arch }}
+          P_VERSION: ${{ github.event.client_payload.version || github.event.inputs.version }}
+          P_DATE: ${{ github.event.client_payload.date || github.event.inputs.date }}
+          P_ARCH: ${{ github.event.client_payload.arch || github.event.inputs.arch }}
+          P_RUN: ${{ github.event.client_payload.run_id || github.event.inputs.run_id }}
         run: |
-          echo "Benchmark published: ${P_VERSION:-manual}/${P_DATE:-} ${P_ARCH:-}"
-          echo "Cloudflare Workers Builds deploys automatically on the push to main; no action needed."
+          set -euo pipefail
+          if [ -z "${P_DATE:-}" ] || [ -z "${P_ARCH:-}" ]; then
+            echo "::error::pointer gave version=${P_VERSION} but date=${P_DATE:-<empty>} arch=${P_ARCH:-<empty>}; cannot locate the cell"
+            exit 1
+          fi
+          base="results/${P_VERSION}/${P_DATE}/${P_ARCH}"
+          run="${P_RUN:-run-1}"
+          for attempt in 1 2 3 4 5; do
+            # run-N/ subdir layout, or the flat run-1 layout (files directly
+            # under <arch>/) that walk.ts also accepts.
+            if [ -f "${base}/${run}/summary.json" ]; then
+              echo "found ${base}/${run}/summary.json (attempt ${attempt})"
+              exit 0
+            fi
+            if [ "$run" = "run-1" ] && [ -f "${base}/summary.json" ]; then
+              echo "found ${base}/summary.json — flat run-1 layout (attempt ${attempt})"
+              exit 0
+            fi
+            echo "attempt ${attempt}: ${base}/${run}/summary.json not on disk yet; re-fetching main"
+            sleep 15
+            git fetch --quiet origin main
+            git checkout --quiet origin/main -- results/
+          done
+          echo "::error::publish dispatched for ${P_VERSION}/${P_DATE}/${P_ARCH}/${run} but no summary.json is committed under ${base}"
+          echo "Tree actually present for that version:"
+          ls -R "results/${P_VERSION}" 2>/dev/null || echo "  (results/${P_VERSION} does not exist)"
+          exit 1
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
+
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      # Same gate ci.yml runs, over the tree as it stands after the publish:
+      # every committed cell is opened and validated, and the job fails if any
+      # of them is malformed or if it somehow examined no cells at all.
+      - name: Validate benchmark cells
+        run: bun run validate
+
+      # Deliberately NOT `if: always()`: this line may only appear when the two
+      # checks above actually passed.
+      - name: Summary
+        env:
+          P_VERSION: ${{ github.event.client_payload.version || github.event.inputs.version }}
+          P_DATE: ${{ github.event.client_payload.date || github.event.inputs.date }}
+          P_ARCH: ${{ github.event.client_payload.arch || github.event.inputs.arch }}
+        run: |
+          echo "Benchmark publish verified: ${P_VERSION:-<whole tree>}/${P_DATE:-} ${P_ARCH:-}"
+          echo "Cloudflare Workers Builds deploys automatically on the push to main; no deploy action needed here."

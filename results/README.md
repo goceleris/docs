@@ -27,6 +27,16 @@ directly at build time and derives every dashboard asset itself — there is no
 committed manifest or `latest/` mirror to maintain.
 
 Producers commit the four files of a cell directly, then fire a
-`benchmark-published` `repository_dispatch`; `.github/workflows/sync-benchmarks.yml`
-pings the Cloudflare Pages deploy hook so the published run appears on the
-dashboard. The site build validates every cell it reads and skips malformed ones.
+`benchmark-published` `repository_dispatch`. Cloudflare Workers Builds rebuilds
+and deploys the site on that push by itself, so nothing here has to trigger a
+deploy; `.github/workflows/sync-benchmarks.yml` instead **verifies** the
+publish — it asserts that the cell the dispatch points at is really on disk
+(a dispatch for a cell that never landed fails the job) and then runs
+`bun run validate` over the whole tree.
+
+The site build itself stays lenient: it validates every cell it reads and
+*skips* malformed ones, so one corrupt cell cannot take the deploy down. The
+red check is `bun run validate` (`scripts/build-data.ts --validate-only`),
+which walks the same tree, emits nothing and exits non-zero if any cell fails
+validation — it runs in `ci.yml` on every pull request and push to `main`, and
+in `sync-benchmarks.yml` on every publish.
