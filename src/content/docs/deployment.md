@@ -92,10 +92,35 @@ requests you want refused.
 
 ### "I really need in-process HTTPS"
 
-Celeris has no TLS stack on any engine. If you cannot put a terminator in front,
-run a thin TLS terminator process on the same host (Caddy in two lines, or
-`stunnel`) and forward to Celeris on `127.0.0.1`. The cleartext hop never leaves
-the loopback interface.
+Celeris has no TLS stack of its own, and the io_uring and epoll engines serve
+cleartext only. There are two ways to get HTTPS without a terminator in front:
+
+- **The std engine with a TLS listener.** Std wraps Go's `net/http`, which serves
+  TLS on whatever listener it is handed. This serves HTTPS over HTTP/1.1 at the std
+  engine's performance: no io_uring or epoll, no CPU pinning.
+
+  ```go
+  ln, err := net.Listen("tcp", ":8443")
+  if err != nil {
+      log.Fatal(err)
+  }
+  cert, err := tls.LoadX509KeyPair("server.crt", "server.key")
+  if err != nil {
+      log.Fatal(err)
+  }
+  s := celeris.New(celeris.Config{Engine: celeris.Std})
+  // ... routes ...
+  log.Fatal(s.StartWithListener(tls.NewListener(ln, &tls.Config{
+      Certificates: []tls.Certificate{cert},
+  })))
+  ```
+
+  Handlers then see `c.Scheme() == "https"` and `c.IsTLS() == true`.
+- **A terminator on the same host.** Run a thin TLS terminator process (Caddy in
+  two lines, or `stunnel`) and forward to Celeris on `127.0.0.1`. This keeps the
+  native engines. The cleartext hop never leaves the loopback interface.
+
+First-class TLS is tracked in [celeris#446](https://github.com/goceleris/celeris/issues/446).
 
 ## Trusting the proxy
 

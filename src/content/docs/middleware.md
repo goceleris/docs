@@ -378,6 +378,14 @@ options and worked examples — follow the **Details** link under each table.
 
 Details: [URL rewriting and request preprocessing](/docs/middleware-routing-helpers).
 
+### Error handling
+
+| Package    | Purpose                                                              |
+| ---------- | ------------------------------------------------------------------- |
+| `recovery` | Catch handler panics, log the stack, and answer with a configurable error response (JSON 500 by default); broken-pipe panics get their own handler. |
+
+Details: [Error handling](/docs/error-handling).
+
 ### Observability
 
 | Package       | Purpose                                                             |

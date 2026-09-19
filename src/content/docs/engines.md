@@ -62,8 +62,10 @@ roughly **+15% over epoll at 1024 connections** — instead of forfeiting the wi
 keep-alives pinned on the standby.
 
 Two knobs influence the *start* engine: the `WorkloadHint` config field (see below)
-and the `CELERIS_ADAPTIVE_START` env override (`epoll` | `iouring` | `auto`), an
-operator escape hatch that pins the start engine and disables runtime switching.
+and the `CELERIS_ADAPTIVE_START` env override (`epoll` | `iouring` | `auto`). The
+override chooses only the engine Adaptive starts on; the controller can still
+switch afterwards. For a single engine with no runtime switching, set
+`Config.Engine` to `celeris.Epoll` or `celeris.IOUring` instead.
 
 ### Epoll
 
@@ -84,13 +86,30 @@ feature *tier* at startup and enables only what the running kernel supports
 | Tier         | Kernel    | Features enabled                                                                |
 | ------------ | --------- | ------------------------------------------------------------------------------- |
 | `Base`       | 5.10+     | LTS-stable baseline: linked SQE chains, single-shot accept/recv                  |
-| `High`       | 5.19+     | Multishot accept/recv, provided buffer rings, fixed files, COOP_TASKRUN          |
+| `High`       | 5.19+     | Multishot accept, COOP_TASKRUN; multishot recv with provided buffer rings is opt-in (see below) |
 | `Optional`   | 6.0+      | Adds SQPOLL and zero-copy send (`SEND_ZC`); 6.1+ swaps in DEFER_TASKRUN          |
 
 You do not configure the tier — it is probed and applied automatically. A 5.12
-kernel transparently uses the `Base` feature set; a 6.1 kernel lights up the full
+kernel transparently uses the `Base` feature set; a 6.1 kernel lights up the
 `Optional` set. io_uring requires `RLIMIT_MEMLOCK` headroom for its rings and
 provided buffers — see [Engine selection in practice](#engine-selection-in-practice).
+
+#### Tuning environment variables
+
+The engines read these at startup. None is needed for normal operation.
+
+| Variable | Engine | Values (default in bold) | Effect |
+| -------- | ------ | ------------------------ | ------ |
+| `CELERIS_ADAPTIVE_START` | Adaptive | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
+| `CELERIS_MAX_IOURING_TIER` | io_uring | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable. |
+| `CELERIS_IOURING_SEND_ZC` | io_uring | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto` and log a warning. |
+| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier). Any value other than `1` leaves it off. |
+| `CELERIS_IOURING_PBUF_COUNT` | io_uring | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0` or an invalid value keeps the default. |
+| `CELERIS_IOURING_FIXED_FILES` | io_uring | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
+
+Variables named `CELERIS_DEBUG_*` and `CELERIS_ADAPTIVE_DEBUG` turn on diagnostic
+logging and measurement probes. They are for investigating a specific problem and
+are not a stable interface.
 
 ### Std — the portable fallback
 
@@ -135,8 +154,8 @@ and let Adaptive/Std resolve automatically.
 | h2c (HTTP/2 cleartext)        | Yes          | Yes   | Yes |
 | h2c upgrade (`Upgrade: h2c`)  | Yes          | Yes   | Yes |
 | CPU pinning                   | Yes          | Yes   | —   |
-| Multishot accept/recv         | Yes (5.19+)  | —     | —   |
-| Provided buffer rings         | Yes (5.19+)  | —     | —   |
+| Multishot accept              | Yes (5.19+)  | —     | —   |
+| Multishot recv + provided buffer rings | Opt-in (5.19+) | — | — |
 | Zero-copy `sendfile`          | —            | Yes   | —   |
 | Async dispatch (`.Async()`)   | Yes          | Yes   | Yes |
 | Async-detach (SSE / WS)       | Yes          | Yes   | —   |
