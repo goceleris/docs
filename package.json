@@ -24,7 +24,7 @@
     "@astrojs/preact": "^6.0.5",
     "@astrojs/sitemap": "^3.7.4",
     "@preact/signals": "^2.11.2",
-    "astro": "^7.3.2",
+    "astro": "^7.3.3",
     "preact": "^10.29.8",
     "uplot": "^1.6.32"
   },
@@ -34,6 +34,6 @@
     "pagefind": "^1.5.2",
     "sharp": "^0.35.4",
     "typescript": "6.0.3",
-    "wrangler": "^4.131.0"
+    "wrangler": "^4.134.0"
   }
 }
