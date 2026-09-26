@@ -101,8 +101,8 @@ The engines read these at startup. None is needed for normal operation.
 | Variable | Engine | Values (default in bold) | Effect |
 | -------- | ------ | ------------------------ | ------ |
 | `CELERIS_ADAPTIVE_START` | Adaptive | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
-| `CELERIS_MAX_IOURING_TIER` | io_uring | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable. |
-| `CELERIS_IOURING_SEND_ZC` | io_uring | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto` and log a warning. |
+| `CELERIS_MAX_IOURING_TIER` | io_uring | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable and Adaptive neither starts on io_uring nor switches to it. |
+| `CELERIS_IOURING_SEND_ZC` | io_uring | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). |
 | `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier). Any value other than `1` leaves it off. |
 | `CELERIS_IOURING_PBUF_COUNT` | io_uring | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0` or an invalid value keeps the default. |
 | `CELERIS_IOURING_FIXED_FILES` | io_uring | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
@@ -438,7 +438,7 @@ own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 | `RequestCount`       | `uint64`  | Cumulative requests handled by this engine.                                    |
 | `ActiveConnections`  | `int64`   | Currently open connections.                                                    |
 | `ErrorCount`         | `uint64`  | Cumulative connection-level or protocol errors.                                |
-| `Throughput`         | `float64` | Recent requests-per-second rate.                                               |
+| `Throughput`         | `float64` | **Always 0**: no engine has ever set it. Deprecated in v1.6.0, removed in v2.0.0 ([celeris#653](https://github.com/goceleris/celeris/issues/653)). Derive a rate from `RequestCount` (example below). |
 | `Workers`            | `int`     | I/O workers (io_uring) or event loops (epoll). Static after `Start`.            |
 | `AsyncRoutes`        | `int`     | Count of routes registered `.Async(true)`. Static after `Start`; diagnostics.  |
 | `AsyncPromotedConns` | `uint64`  | Cumulative inline→goroutine promotions via per-handler async.                   |
@@ -455,12 +455,19 @@ re-exported on the metrics `Snapshot` as `EngineMetrics`, alongside `RequestsTot
 `ErrorsTotal`, `ActiveConns`, `EngineSwitches`, latency buckets, and CPU
 utilisation (`celeris/observe/collector.go:40-57`).
 
+A request rate is not one of the counters: take two snapshots and divide the
+`RequestCount` difference by the time between them.
+
 ```go
+const every = 10 * time.Second
+prev := s.EngineInfo().Metrics
+time.Sleep(every)
 m := s.EngineInfo().Metrics
 if m.RequestCount > 0 {
+    rps := float64(m.RequestCount-prev.RequestCount) / every.Seconds()
     avgBytes := float64(m.BytesRead+m.BytesWritten) / float64(m.RequestCount)
     log.Printf("rps=%.0f conns=%d avg-bytes/req=%.0f promotions=%d",
-        m.Throughput, m.ActiveConnections, avgBytes, m.AsyncPromotedConns)
+        rps, m.ActiveConnections, avgBytes, m.AsyncPromotedConns)
 }
 ```
 
