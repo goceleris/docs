@@ -173,11 +173,13 @@ The typed data layer that walks, validates and aggregates cells lives in
 
 ### How a benchmark gets published
 
-1. On the cluster, probatorium's `mage Publish` commits the four files of a cell into
-   `results/<version>/<yyyymmdd>/<arch>/` and fires a `repository_dispatch` event of type
-   `benchmark-published` (a small pointer payload: `{ version, arch, date, run_id, path, commit }`).
-2. That commit **is** a push to `main`, so **Cloudflare Workers Builds** rebuilds and redeploys the
-   site, which reads the new `results/` tree at build time.
+1. On the cluster, probatorium's `mage Publish` writes the four files of a cell into
+   `results/<version>/<yyyymmdd>/<arch>/` of this repository and pushes them to `main` (one commit by
+   default; with `PUBLISH_VIA=contents` it writes each file through the GitHub contents API instead).
+   It then fires a `repository_dispatch` event of type `benchmark-published` (a small pointer payload:
+   `{ version, arch, date, run_id, path, commit }`).
+2. That push to `main` is what triggers **Cloudflare Workers Builds**, which rebuilds and redeploys the
+   site; the build reads the new `results/` tree.
 3. [`sync-benchmarks.yml`](.github/workflows/sync-benchmarks.yml) listens for that dispatch (it can also
    be run by hand) and **verifies** the publish with `contents: read` and no deploy: it checks that the
    cell the pointer describes is committed, retrying a few times while `main` catches up, fails the job
