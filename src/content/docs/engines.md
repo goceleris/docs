@@ -438,7 +438,7 @@ own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 | `RequestCount`       | `uint64`  | Cumulative requests handled by this engine.                                    |
 | `ActiveConnections`  | `int64`   | Currently open connections.                                                    |
 | `ErrorCount`         | `uint64`  | Cumulative connection-level or protocol errors.                                |
-| `Throughput`         | `float64` | Recent requests-per-second rate.                                               |
+| `Throughput`         | `float64` | **Always 0**: no engine has ever set it. Deprecated in v1.6.0, removed in v2.0.0 ([celeris#653](https://github.com/goceleris/celeris/issues/653)). Derive a rate from `RequestCount` (example below). |
 | `Workers`            | `int`     | I/O workers (io_uring) or event loops (epoll). Static after `Start`.            |
 | `AsyncRoutes`        | `int`     | Count of routes registered `.Async(true)`. Static after `Start`; diagnostics.  |
 | `AsyncPromotedConns` | `uint64`  | Cumulative inline→goroutine promotions via per-handler async.                   |
@@ -455,12 +455,19 @@ re-exported on the metrics `Snapshot` as `EngineMetrics`, alongside `RequestsTot
 `ErrorsTotal`, `ActiveConns`, `EngineSwitches`, latency buckets, and CPU
 utilisation (`celeris/observe/collector.go:40-57`).
 
+A request rate is not one of the counters: take two snapshots and divide the
+`RequestCount` difference by the time between them.
+
 ```go
+const every = 10 * time.Second
+prev := s.EngineInfo().Metrics
+time.Sleep(every)
 m := s.EngineInfo().Metrics
 if m.RequestCount > 0 {
+    rps := float64(m.RequestCount-prev.RequestCount) / every.Seconds()
     avgBytes := float64(m.BytesRead+m.BytesWritten) / float64(m.RequestCount)
     log.Printf("rps=%.0f conns=%d avg-bytes/req=%.0f promotions=%d",
-        m.Throughput, m.ActiveConnections, avgBytes, m.AsyncPromotedConns)
+        rps, m.ActiveConnections, avgBytes, m.AsyncPromotedConns)
 }
 ```
 
