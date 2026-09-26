@@ -1,0 +1,292 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit review configuration for goceleris/docs (goceleris.dev).
+#
+# CodeRabbit reads this file from the PR branch under review, and a committed
+# .coderabbit.yaml takes precedence over the settings in the CodeRabbit web UI:
+# https://docs.coderabbit.ai/getting-started/yaml-configuration
+# Every key below is validated against the schema on the first line. The URL
+# https://docs.coderabbit.ai/schema/coderabbit.json returns 404; schema.v2.json
+# is the one CodeRabbit's own configuration guide links.
+#
+# The review is advisory. It never requests changes or approves: `main` is
+# gated by the `build` CI job and a code-owner approval (CONTRIBUTING.md), and
+# nothing here changes that.
+#
+# A PR that edits this file does not preview it: CodeRabbit reviews such a PR
+# with the configuration already on `main` unless its author is a repository
+# collaborator, and it does not count org members as collaborators (it said
+# so on #74). Changes here take effect once they are merged.
+#
+# Public repositories with fewer than 10 stars are not reviewed automatically
+# on the open-source plan (https://docs.coderabbit.ai/management/plans), only
+# during the org's trial: after it, comment `@coderabbitai review` on a PR, or
+# tick "Trigger review" in CodeRabbit's status comment, until this repository
+# reaches 10 stars. `auto_review` below is what applies when reviews are
+# automatic.
+
+# The site's prose uses British spelling ("behaviour" 54 times against
+# "behavior" 12; "normalise", "licence"), so reviews and LanguageTool follow it.
+language: en-GB
+tone_instructions: >-
+  Be concise and specific. Name the file and line, and for any claim about
+  Celeris cite the celeris source file that confirms or contradicts it.
+early_access: false
+
+reviews:
+  # assertive, not chill: CodeRabbit enables the accessibility rules of Biome
+  # and React Doctor only in the assertive profile, and accessibility of the
+  # site's components is one of the things this review is for.
+  # https://docs.coderabbit.ai/tools/biome https://docs.coderabbit.ai/tools/react-doctor
+  profile: assertive
+  # Never request changes and never approve. Merge gating stays with CI and
+  # CODEOWNERS.
+  request_changes_workflow: false
+  # Put the summary in CodeRabbit's walkthrough comment instead of appending
+  # it to the PR description, so hand-written descriptions stay as written.
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  # Lists the files it skipped, the linked repositories it used and the tool
+  # output, which is how a reader can tell what the review did and did not see.
+  review_details: true
+  collapse_walkthrough: true
+  changed_files_summary: true
+  # Most PRs here are prose and page markup; call-flow diagrams add length
+  # without information.
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: false
+  # CODEOWNERS already requests the one owner on every PR.
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  poem: false
+  in_progress_fortune: false
+  abort_on_close: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    # Default branch (main) only.
+    base_branches: []
+    # Deliberate red-run control PRs are titled "DO NOT MERGE: ..." (for
+    # example #68); they exist to fail a gate and need no review.
+    ignore_title_keywords:
+      - "DO NOT MERGE"
+      - "WIP"
+
+  # Exclusions only (an include pattern would turn this into an allow list).
+  # Exclusions win regardless of order:
+  # https://docs.coderabbit.ai/configuration/path-instructions#how-path-filters-combine
+  # results/ holds benchmark cells that probatorium's publisher commits; they
+  # are generated datasets, never hand-edited (CONTRIBUTING.md), and
+  # `bun run validate` in CI is their gate. results/README.md stays in review.
+  # The .gz halves of each cell, bun.lock, dist/ and src/data/generated/ are
+  # already in CodeRabbit's default ignore list.
+  path_filters:
+    - "!results/**/*.json"
+
+  path_instructions:
+    - path: "src/content/docs/**/*.{md,mdx}"
+      instructions: |
+        These pages document the Celeris framework (goceleris/celeris, linked below). Accuracy is
+        the priority:
+        - Check every API name, type, Config field, default value, option, middleware name and
+          behaviour claim against goceleris/celeris on its default branch. Flag anything that does
+          not exist there, has a different signature or default, or behaves differently.
+        - Flag any technical claim a reviewer cannot verify from the celeris source, a linked issue,
+          or a committed benchmark cell. Say what evidence would settle it. Do not accept "fast",
+          "zero-copy", "lock-free", "SIMD", "no allocations" or similar without a source.
+        - Pages cite source locations such as `celeris/resource/config.go:13-19`. Check that the
+          file exists and that those lines still say what the page claims; line numbers drift as
+          celeris changes.
+        - Go code samples must compile against the current celeris API: correct imports, types,
+          method names and error handling. Flag samples that would not compile or that teach an
+          unsafe pattern.
+        - Any benchmark figure (RPS, latency percentile, memory, a ratio or percentage against
+          another framework) must name the version, date and arch of the
+          results/<version>/<yyyymmdd>/<arch>/ cell it comes from. Flag unsourced numbers.
+        - Check links: relative links must point at pages that exist under src/content/docs (the
+          site serves them at /docs/<slug>); anchors must match a heading; links into GitHub repos
+          must point at paths that exist.
+        - Frontmatter must satisfy src/content.config.ts: `title` is required; `description`,
+          `group`, `order` and `draft` are optional.
+        - Keep the existing British spelling (behaviour, normalise).
+    - path: "src/pages/**"
+      instructions: |
+        Astro pages of a fully static site (output: 'static', no SSR, no runtime server; deployed as
+        Cloudflare Workers static assets).
+        - Benchmark numbers on pages must be computed from the generated data (src/lib/site.ts,
+          src/data/generated/, public/data/) at build time, never typed in. Flag hard-coded figures
+          and fallbacks that would present an invented number as a measurement when data is missing.
+        - Hardware, cluster and methodology claims (methodology.astro) must agree with the env.json
+          of the committed cells in results/ and with how goceleris/probatorium runs the benchmarks.
+          Flag claims that cannot be traced to either.
+        - Accessibility: one h1 per page, headings in order, landmark elements, alt text on images,
+          accessible names on links and buttons, visible focus, and no information conveyed by
+          colour alone.
+        - SEO/meta: title and description set through BaseLayout, canonical URLs derived from
+          SITE_URL.
+    - path: "src/components/**/*.astro"
+      instructions: |
+        Shared Astro components (header, footer, SEO, theme toggle, code window).
+        - Accessibility: keyboard operability, focus order and visible focus, aria attributes only
+          where native semantics are missing, sufficient contrast in both themes,
+          prefers-reduced-motion respected.
+        - Script in components ships to every page. Flag client-side JavaScript that could be static
+          HTML/CSS, and any third-party request (fonts and assets are self-hosted on purpose).
+    - path: "src/dashboard/**/*.{ts,tsx}"
+      instructions: |
+        The benchmark dashboard: one Preact island (@astrojs/preact with compat: false, so
+        react/react-dom imports do not resolve) using @preact/signals and uPlot.
+        - Correctness of what is displayed: statuses not_applicable and dnf must never render as a
+          zero or a number, and suspect cells must never be shown as a winner (see
+          methodology.astro). Units, percentile labels and "higher/lower is better" must match the
+          metric.
+        - Accessibility: charts need a text alternative or data table, controls need accessible
+          names and keyboard support, and colour must not be the only way to tell series apart.
+        - TypeScript strict mode (astro/tsconfigs/strict). Flag `any`, non-null assertions on data
+          that can be missing, and effects or subscriptions that are never cleaned up.
+    - path: "src/lib/results/**/*.ts"
+      instructions: |
+        The typed data layer that walks, validates and aggregates benchmark cells. It is the
+        provenance boundary: every number the site shows passes through here.
+        - Never invent, impute or carry forward a value that a cell does not contain. Missing data
+          must stay missing and be labelled as such.
+        - Schema handling must match the cells goceleris/probatorium publishes (summary.json
+          schema_version, env.json). Flag a version check that would silently accept an incompatible
+          major.
+        - Status gating (ok, not_applicable, dnf, suspect) and smoke-run exclusion must stay
+          consistent with scripts/build-data.ts and methodology.astro.
+        - Behaviour changes need a matching test in scripts/build-data.test.ts.
+    - path: "scripts/build-data.ts"
+      instructions: |
+        Builds the dashboard assets and, with --validate-only, is the benchmark-data gate that CI
+        and sync-benchmarks.yml run.
+        - The gate must stay strict: a malformed cell exits non-zero, and examining zero cells
+          exits with status 2. Flag any change that could make it pass without inspecting cells.
+        - The normal build path must stay lenient (warn, mark excluded:invalid, continue) so one bad
+          cell cannot take the deploy down.
+    - path: "scripts/**/*.test.ts"
+      instructions: |
+        bun:test tests for the data layer. Each test should fail if the behaviour it names
+        regressed; flag assertions that cannot fail and tests that only exercise the happy path of a
+        gate.
+    - path: ".github/workflows/**"
+      instructions: |
+        Every action pinned to a full commit SHA with a version comment; top-level permissions {} or
+        contents: read, with anything wider granted only on the job that needs it;
+        persist-credentials: false on checkout unless the job pushes; no ${{ }} expressions inside
+        run: (pass them through env:); never pull_request_target. Flag anything that deploys:
+        Cloudflare Workers Builds is the only deployer.
+
+  pre_merge_checks:
+    # This is a site, not a library; docstring coverage would only be noise.
+    docstrings:
+      mode: "off"
+    title:
+      mode: warning
+      requirements: >-
+        Conventional-commit prefix as CONTRIBUTING.md asks: docs, feat, fix,
+        chore, ci, deps, perf, refactor or test, with an optional (scope),
+        then a colon and an imperative summary.
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    custom_checks:
+      - name: "Benchmark provenance"
+        mode: warning
+        instructions: |
+          Fail if the pull request adds or changes a benchmark figure (requests per second, a
+          latency percentile, memory or CPU usage, or a ratio or percentage comparing Celeris with
+          another framework) in src/content/**, src/pages/** or README.md, and that figure is
+          neither computed at build time from the results/ data (for example through
+          src/lib/site.ts) nor accompanied by the results/<version>/<yyyymmdd>/<arch>/ cell it was
+          taken from. Also fail if the pull request edits an existing file under results/ by hand;
+          cells are committed only by goceleris/probatorium's publisher. Pass otherwise, including
+          when the pull request contains no benchmark figures.
+
+  tools:
+    # Tools run only on files they understand; the ones listed are the ones
+    # that apply to this repository. None of them runs in this repository's
+    # GitHub workflows, so CodeRabbit does not skip them for duplication.
+    markdownlint:
+      enabled: true
+    languagetool:
+      enabled: true
+      level: default
+    biome:
+      enabled: true
+    reactDoctor:
+      enabled: true
+    # Off: with no stylelint config in the repo, CodeRabbit lints CSS against
+    # stylelint-config-standard-scss, a style guide this site does not follow.
+    # Biome already checks the CSS in the assertive profile.
+    # https://docs.coderabbit.ai/tools/stylelint
+    stylelint:
+      enabled: false
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    trufflehog:
+      enabled: true
+    osvScanner:
+      enabled: true
+    github-checks:
+      enabled: true
+
+chat:
+  auto_reply: true
+  art: false
+  # Only organization members can drive CodeRabbit from comments. Chat
+  # commands can start finishing touches (autofix, generated tests, merge
+  # conflict resolution) that push commits or open PRs. Outside contributors
+  # still get the automatic review on their PRs.
+  allow_non_org_members: false
+
+knowledge_base:
+  # Learnings, issue and PR context stay scoped to this repository (what
+  # `auto` resolves to for a public repository).
+  learnings:
+    scope: auto
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CONTRIBUTING.md"
+  # The repositories whose behaviour these docs describe. Linked-repository
+  # context is part of the open-source plan (Team features, up to 5 links).
+  # https://docs.coderabbit.ai/knowledge-base/multi-repo-analysis
+  linked_repositories:
+    - repository: "goceleris/celeris"
+      instructions: >-
+        The Go HTTP framework these docs describe: its public API, Config
+        fields and defaults, the io_uring, epoll, adaptive and std engines,
+        and the in-tree middleware. Treat its default branch as the source of
+        truth for every API name, default and behaviour claim in
+        src/content/docs.
+    - repository: "goceleris/probatorium"
+      instructions: >-
+        The benchmark harness that produces and publishes the cells under
+        results/ (mage Publish), including the summary.json and env.json
+        schemas, the scenario set, the cluster hardware and how runs are
+        averaged. Source of truth for the methodology page and for data
+        provenance.
+    - repository: "goceleris/loadgen"
+      instructions: >-
+        The load generator the benchmarks use. Source of truth for how
+        requests, latency percentiles and errors are measured.
