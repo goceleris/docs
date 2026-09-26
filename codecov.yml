@@ -1,0 +1,67 @@
+# Codecov configuration for goceleris/docs.
+#
+# Reference: https://docs.codecov.com/docs/codecovyml-reference
+# Validate a change before pushing it:
+#   curl -sS --data-binary @codecov.yml https://api.codecov.io/validate
+#
+# Coverage comes from `bun test --coverage` in
+# .github/workflows/test-coverage.yml. Bun only reports files the tests load,
+# so the percentage covers the data layer (src/lib/results/) and says nothing
+# about pages or the dashboard, which have no tests. See that workflow's
+# header.
+#
+# Every status is informational for now: Codecov reports, and never fails a
+# PR. To make a status blocking later, remove `informational: true` from it
+# and add its check name (codecov/project or codecov/patch) to the required
+# status checks of the `main` ruleset.
+
+codecov:
+  # Wait for the commit's other CI checks to finish before posting (the
+  # defaults, stated so a reader does not have to look them up).
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "60..90"
+  status:
+    # Whole-project coverage against the base commit of the PR.
+    project:
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+    # Coverage of the lines this PR adds or changes.
+    patch:
+      default:
+        target: auto
+        informational: true
+
+comment:
+  layout: "condensed_header, condensed_files, condensed_footer"
+  behavior: default
+  # Most PRs here change prose or page markup that the tests never load.
+  # Comment only when coverage drops or the PR adds lines the tests miss;
+  # the statuses above report on every PR either way.
+  require_changes: "coverage_drop OR uncovered_patch"
+  require_base: false
+  require_head: true
+
+# Line annotations on the PR diff for added lines the tests do not cover. Only
+# files the tests load appear in the report, so these land on data-layer
+# changes, which is where they are useful.
+github_checks:
+  annotations: true
+
+# Nothing below is code the site ships. Bun already leaves test files and
+# node_modules out of the report; these entries keep generated data and
+# fixtures out if a future test loads them.
+ignore:
+  - "results/**"
+  - "test/**"
+  - "**/*.test.ts"
+  - "src/data/generated/**"
+  - "public/**"
+  - ".dev-results/**"

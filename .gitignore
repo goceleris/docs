@@ -48,6 +48,9 @@ public/data/
 # Bun
 .bun/
 
+# `bun test --coverage` output (coverage/lcov.info); CI uploads it to Codecov
+coverage/
+
 # Local demo benchmark tree (generated from fixtures for dashboard preview)
 .dev-results/
 
