@@ -16,10 +16,13 @@
 # status checks of the `main` ruleset.
 
 codecov:
-  # Wait for the commit's other CI checks to finish before posting (the
-  # defaults, stated so a reader does not have to look them up).
-  require_ci_to_pass: true
+  # Report even when another check fails. The upload only happens after the
+  # coverage job's own tests and profile check pass, so the report is
+  # complete; a failure elsewhere (astro check, CodeQL) should not hide it.
+  # https://docs.codecov.com/docs/common-recipe-list
+  require_ci_to_pass: false
   notify:
+    # Still wait for CI to finish, so a PR gets one status, not a sequence.
     wait_for_ci: true
 
 coverage:
