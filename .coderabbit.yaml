@@ -13,11 +13,17 @@
 # gated by the `build` CI job and a code-owner approval (CONTRIBUTING.md), and
 # nothing here changes that.
 #
+# A PR that edits this file does not preview it: CodeRabbit reviews such a PR
+# with the configuration already on `main` unless its author is a repository
+# collaborator, and it does not count org members as collaborators (it said
+# so on #74). Changes here take effect once they are merged.
+#
 # Public repositories with fewer than 10 stars are not reviewed automatically
-# on the open-source plan (https://docs.coderabbit.ai/management/plans): until
-# this repository reaches 10 stars, comment `@coderabbitai review` on a PR, or
-# tick "Trigger review" in CodeRabbit's status comment. `auto_review` below is
-# what applies once automatic reviews are available.
+# on the open-source plan (https://docs.coderabbit.ai/management/plans), only
+# during the org's trial: after it, comment `@coderabbitai review` on a PR, or
+# tick "Trigger review" in CodeRabbit's status comment, until this repository
+# reaches 10 stars. `auto_review` below is what applies when reviews are
+# automatic.
 
 # The site's prose uses British spelling ("behaviour" 54 times against
 # "behavior" 12; "normalise", "licence"), so reviews and LanguageTool follow it.
