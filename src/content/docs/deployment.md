@@ -564,7 +564,7 @@ ready.Store(true) // serving as soon as we're up
 
 s := celeris.New(celeris.Config{Addr: ":8080", ShutdownTimeout: 15 * time.Second})
 
-// Flip readiness to 503 the moment a drain begins, before in-flight requests finish.
+// Flip readiness to 503 when Shutdown runs its hooks (see below for when that is).
 s.OnShutdown(func(_ context.Context) {
     ready.Store(false)
 })
@@ -581,11 +581,14 @@ if err := s.StartWithContext(ctx); err != nil {
 }
 ```
 
-Flipping it in an `OnShutdown` hook (rather than your signal handler) keeps the
-readiness change ordered with the rest of the drain. If you prefer, set
-`ready.Store(false)` in your own `SIGTERM` handler *before* calling `Shutdown` —
-either way the flip is yours to make. (`atomic.Bool` is in the standard library's
-`sync/atomic`.)
+When that hook runs depends on the engine. On `epoll` and `io_uring` it runs as the
+drain begins, while requests are still in flight. On `std` and `adaptive` it runs
+only after in-flight requests have finished, which is too late to steer the load
+balancer during the drain (see
+[Shutdown sequence](/docs/graceful-shutdown#shutdown-sequence)). To flip readiness
+before the drain on every engine, set `ready.Store(false)` in your own `SIGTERM`
+handler *before* cancelling the context or calling `Shutdown`. Either way the flip is
+yours to make. (`atomic.Bool` is in the standard library's `sync/atomic`.)
 
 For true zero-downtime restarts on the same host, inherit the listening socket
 across the exec with `InheritListener` + `StartWithListener`
@@ -607,9 +610,10 @@ drain ordering, and the native engines' `SO_REUSEPORT` rebind — is covered in
 [Graceful shutdown and zero-downtime restarts](/docs/graceful-shutdown).
 
 In Kubernetes, the rolling-update pattern is: container receives `SIGTERM` →
-your readiness flip fires (the `OnShutdown` hook above) so `/readyz` returns 503 →
-LB stops new traffic → in-flight requests drain within `ShutdownTimeout` → process
-exits. Set `terminationGracePeriodSeconds` greater than `ShutdownTimeout`.
+your readiness flip fires (in your `SIGTERM` handler, or on `epoll` and `io_uring` in
+the `OnShutdown` hook above) so `/readyz` returns 503 → LB stops new traffic →
+in-flight requests drain within `ShutdownTimeout` → process exits. Set
+`terminationGracePeriodSeconds` greater than `ShutdownTimeout`.
 
 ## Capacity and timeout tuning
 
