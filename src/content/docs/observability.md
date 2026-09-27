@@ -130,7 +130,7 @@ counters the adaptive controller reads to pick an engine.
 | `RequestCount` | `uint64` | Cumulative requests handled by the engine. |
 | `ActiveConnections` | `int64` | Currently open connections. |
 | `ErrorCount` | `uint64` | Cumulative connection/protocol-level errors. |
-| `Throughput` | `float64` | Recent requests-per-second rate. |
+| `Throughput` | `float64` | **Always 0**: no engine has ever set it. Deprecated in v1.6.0, removed in v2.0.0 ([celeris#653](https://github.com/goceleris/celeris/issues/653)). Derive a rate from two `RequestCount` samples. |
 | `AsyncRoutes` | `int` | Routes registered with `.Async(true)`. |
 | `AsyncPromotedConns` | `uint64` | Connections promoted to the per-conn dispatch goroutine. |
 | `Workers` | `int` | Number of I/O workers / event loops. |

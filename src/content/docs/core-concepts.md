@@ -55,7 +55,7 @@ The actual work happens when you call one of the start methods:
 | Method | Blocks until | Use when |
 | --- | --- | --- |
 | `Start()` | `Shutdown` is called or the engine errors | Simplest case; you manage shutdown elsewhere |
-| `StartWithContext(ctx)` | `ctx` is cancelled (then graceful shutdown) or the engine errors | You want context-driven lifecycle (signals, parent ctx) |
+| `StartWithContext(ctx)` | `ctx` is cancelled and the graceful shutdown it triggers, `OnShutdown` hooks included, has finished; or the engine errors | You want context-driven lifecycle (signals, parent ctx) |
 | `StartWithListener(ln)` | as `Start` | Zero-downtime restart via an inherited socket |
 | `StartWithListenerAndContext(ctx, ln)` | as `StartWithContext` | Inherited socket + context lifecycle |
 
@@ -85,10 +85,17 @@ if err := s.Start(); err != nil {
 
 ### Graceful shutdown
 
-`Shutdown(ctx)` stops accepting new connections, drains in-flight requests, then
-fires any hooks you registered with `OnShutdown` — in registration order, with
-the shutdown context. `StartWithContext` wires this up for you: when the context
-is cancelled, the server shuts down using `Config.ShutdownTimeout` (default 30s).
+`Shutdown(ctx)` stops the engine, then fires any hooks you registered with
+`OnShutdown` — in registration order, with the shutdown context. On `std` and
+`adaptive` it waits for in-flight requests before the hooks; on `epoll` and
+`io_uring` the engine drains as its listen context is cancelled, and the hooks do
+not wait for that (see [Graceful shutdown](/docs/graceful-shutdown#shutdown-sequence)).
+
+`StartWithContext` wires this up for you: when the context is cancelled, the server
+shuts down using `Config.ShutdownTimeout` (default 30s), and `StartWithContext`
+returns only after that shutdown, hooks included, has finished. A hook must
+therefore not wait for `StartWithContext` to return (see
+[Graceful shutdown](/docs/graceful-shutdown#drain-hooks-onshutdown)).
 
 ```go
 ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -98,7 +105,7 @@ s.OnShutdown(func(ctx context.Context) {
     db.Close() // runs during graceful shutdown
 })
 
-// Blocks until SIGINT, then drains and runs OnShutdown hooks.
+// Blocks until SIGINT; returns after the drain and the OnShutdown hooks.
 log.Fatal(s.StartWithContext(ctx))
 ```
 

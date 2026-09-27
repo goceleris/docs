@@ -188,19 +188,19 @@ func main() {
         return c.String(200, "pong")
     })
 
-    // Blocks until ctx is canceled, then drains in-flight requests
-    // before returning.
+    // Blocks until ctx is canceled; returns after in-flight requests
+    // have drained and the OnShutdown hooks have run.
     if err := s.StartWithContext(ctx); err != nil {
         log.Fatal(err)
     }
 }
 ```
 
-When the context is canceled, Celeris stops accepting new connections and waits
-for in-flight requests to finish before returning. The drain window is bounded
-by `Config.ShutdownTimeout` (default **30s**). To run cleanup when the server
-stops — close a database pool, flush a buffer — register a hook with
-`s.OnShutdown`:
+When the context is canceled, Celeris stops accepting new connections, and
+`StartWithContext` returns only after in-flight requests have finished and your
+shutdown hooks have run. The drain window is bounded by `Config.ShutdownTimeout`
+(default **30s**). To run cleanup when the server stops — close a database pool,
+flush a buffer — register a hook with `s.OnShutdown`:
 
 ```go
 s.OnShutdown(func(ctx context.Context) {
@@ -208,8 +208,10 @@ s.OnShutdown(func(ctx context.Context) {
 })
 ```
 
-Shutdown hooks fire in registration order with the shutdown context, after the
-engine has drained.
+Shutdown hooks fire in registration order with the shutdown context. On `std` and
+`adaptive` they run after in-flight requests finish; on `epoll` and `io_uring` they
+can run while requests are still draining. Either way `StartWithContext` returns only
+after they have run, so a hook must not wait for it to return.
 
 > **Tip:** `Config.ShutdownTimeout` only applies to `StartWithContext`. If you
 > need a custom drain deadline, set it on the `Config` you pass to

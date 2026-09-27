@@ -624,16 +624,24 @@ The latency buckets use fixed bounds of 1 ms, 5 ms, 10 ms, 25 ms, 50 ms, 100 ms,
 of requests in the high buckets to watch your tail without a full histogram backend.
 
 `snap.EngineMetrics` carries the engine-level counters that drive tuning decisions
-(`celeris/engine/engine.go:85-132`): `Throughput` (recent RPS), `ActiveConnections`,
+(`celeris/engine/engine.go:85-132`): `RequestCount` (sample it twice for a rate), `ActiveConnections`,
 `AcceptCount` / `CloseCount` (a high close-to-accept ratio means short-lived churn
 connections), `BytesRead` / `BytesWritten` (the bytes-per-request signal), `Workers`,
 and the `AsyncRoutes` / `AsyncPromotedConns` dispatch counters from earlier.
 
 ```go
+const every = 10 * time.Second
+prev := s.Collector().Snapshot().EngineMetrics
+time.Sleep(every)
 m := s.Collector().Snapshot().EngineMetrics
+rps := float64(m.RequestCount-prev.RequestCount) / every.Seconds()
 log.Printf("rps=%.0f conns=%d accepts=%d closes=%d async_promotions=%d",
-    m.Throughput, m.ActiveConnections, m.AcceptCount, m.CloseCount, m.AsyncPromotedConns)
+    rps, m.ActiveConnections, m.AcceptCount, m.CloseCount, m.AsyncPromotedConns)
 ```
+
+`EngineMetrics.Throughput` is not a rate: no engine has ever set it, so it always reads 0.
+It is deprecated in v1.6.0 and removed in v2.0.0
+([celeris#653](https://github.com/goceleris/celeris/issues/653)).
 
 If you'd rather not poll, the built-in collector stays on by default
 (`DisableMetrics: false`) and you can pair it with the in-tree `middleware/metrics`
