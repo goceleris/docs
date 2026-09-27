@@ -87,8 +87,10 @@ if err := s.Start(); err != nil {
 
 `Shutdown(ctx)` stops the engine, waits for the in-flight requests to drain (bounded
 by `ctx`), then fires any hooks you registered with `OnShutdown` — in registration
-order, with the shutdown context. The order is the same on every engine (see
-[Graceful shutdown](/docs/graceful-shutdown#shutdown-sequence)).
+order, with the shutdown context. The order is the same on every engine, apart from
+two kinds of HTTP/2 stream the drain does not wait for (see
+[Graceful shutdown](/docs/graceful-shutdown#what-the-drain-waits-for)). A `Start` that
+`Shutdown` stops returns only after `Shutdown` has returned.
 
 `StartWithContext` wires this up for you: when the context is cancelled, the server
 shuts down using `Config.ShutdownTimeout` (default 30s), and `StartWithContext`

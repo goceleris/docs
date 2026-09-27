@@ -211,8 +211,10 @@ s.OnShutdown(func(ctx context.Context) {
 ```
 
 Shutdown hooks fire in registration order with the shutdown context, after the
-in-flight requests have drained, on every engine. `StartWithContext` returns only after
-they have run, so a hook must not wait for it to return.
+in-flight requests have drained, on every engine (HTTP/2 has two exceptions; see
+[What the drain waits for](/docs/graceful-shutdown#what-the-drain-waits-for)).
+`StartWithContext` returns only after they have run, so a hook must not wait for it to
+return.
 
 > **Tip:** `Config.ShutdownTimeout` only applies to `StartWithContext`. If you
 > need a custom drain deadline, set it on the `Config` you pass to

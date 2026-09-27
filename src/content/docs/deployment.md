@@ -556,8 +556,10 @@ Neither `Shutdown` nor `PauseAccept` touches the readiness probe — the
 traffic during a drain you have to flip readiness yourself, and before the drain
 begins: the `OnShutdown` hooks run only after the requests in flight have finished, on
 every engine since celeris v1.6.0
-([celeris#703](https://github.com/goceleris/celeris/issues/703)), which is too late to
-steer the load balancer (see
+([celeris#703](https://github.com/goceleris/celeris/issues/703); HTTP/2 has two
+exceptions, see
+[What the drain waits for](/docs/graceful-shutdown#what-the-drain-waits-for)), which is
+too late to steer the load balancer (see
 [Shutdown sequence](/docs/graceful-shutdown#shutdown-sequence)). The idiomatic wiring
 is an `atomic.Bool`, set `true` at startup, flipped to `false` by your `SIGTERM`
 handler *before* it cancels the context, and read by the `ReadyChecker`:
