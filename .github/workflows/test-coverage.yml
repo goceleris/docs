@@ -1,0 +1,86 @@
+name: Coverage
+
+# Line and function coverage of the data-layer tests (`bun test`), uploaded to
+# Codecov (codecov.yml holds the report settings).
+#
+# What the number means: Bun's coverage lists only the files the tests load,
+# so the percentage is over src/lib/results/ (the code that walks, validates
+# and aggregates benchmark cells). Pages, components and the dashboard have no
+# tests and do not appear in the report at all, so they neither lower nor
+# raise it. scripts/build-data.ts runs in a child process in its tests and is
+# not measured either.
+#
+# Upload auth is GitHub OIDC (`use_oidc`): the job mints a short-lived token
+# for Codecov, so no CODECOV_TOKEN secret exists anywhere. On a pull request
+# from a fork GitHub issues no OIDC token; codecov-action detects the fork and
+# falls back to Codecov's tokenless upload for public repositories.
+#
+# Not a merge gate. The `build` job in ci.yml stays the required check, and
+# every Codecov status is informational (codecov.yml). This job fails only if
+# the tests fail, the profile is empty, or the upload fails, so a coverage
+# pipeline that silently stopped reporting shows up as a red check instead of
+# a stale number.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: coverage-${{ github.event.pull_request.number || github.ref }}
+  # Supersede stale PR runs, but let every push to main finish: each one is
+  # the baseline the next PR is compared against.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # checkout
+      # Granted here only; the workflow default above is no permissions.
+      id-token: write # codecov-action requests an OIDC token for the upload
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Same Bun as ci.yml, which mirrors Cloudflare Workers Builds.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: latest
+
+      - name: Install (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      # The tests need neither build:data nor astro build: they read
+      # test/fixtures and synthesize their own trees.
+      - name: Test with coverage
+        run: bun test --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir=coverage
+
+      # An lcov file with no source records would upload "successfully" and
+      # report nothing. Refuse it here.
+      - name: Check the coverage profile is not empty
+        run: |
+          set -euo pipefail
+          test -s coverage/lcov.info
+          # grep -c prints 0 and exits 1 on no match; keep the 0.
+          files=$(grep -c '^SF:' coverage/lcov.info || true)
+          lines=$(grep -c '^DA:' coverage/lcov.info || true)
+          echo "lcov.info: ${files} source files, ${lines} line records"
+          if [ "$files" -eq 0 ] || [ "$lines" -eq 0 ]; then
+            echo "::error::coverage/lcov.info has no source files or no line records"
+            exit 1
+          fi
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          use_oidc: true
+          files: ./coverage/lcov.info
+          disable_search: true
+          name: bun-test
+          fail_ci_if_error: true
