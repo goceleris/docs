@@ -65,7 +65,10 @@ stops accepting and drains in flight requests) and, on a watcher goroutine, call
 for both: `StartWithContext` returns the engine's exit error only after the engine has
 stopped **and** that `Shutdown`, hooks included, has returned. If your code already
 called `Shutdown` itself during the run, the cancel does not run it, or your hooks, a
-second time. `StartWithListenerAndContext` behaves the same way. Source:
+second time; and a `Shutdown` your code calls after the cancel has started one waits
+for that one instead of running its own (see
+[Shutting down programmatically](#shutting-down-programmatically-shutdown)).
+`StartWithListenerAndContext` behaves the same way. Source:
 `celeris/server.go` (`StartWithContext`, `StartWithListenerAndContext`,
 `listenUntilCancelled`).
 
@@ -101,9 +104,23 @@ after `Config.ShutdownTimeout`; one that ignores `ctx` hangs the shutdown for go
 the engine, closes the internal CPU monitor, and runs your `OnShutdown` hooks. On `std`
 and `adaptive` it first waits for in flight requests, bounded by the `ctx` you pass; on
 `epoll` and `io_uring` it returns without waiting for them (see
-[Shutdown sequence](#shutdown-sequence)). `Config.ShutdownTimeout` is **not** consulted
-on this path — *you* own the deadline via the context you pass. Source:
-`celeris/server.go` (`Shutdown`).
+[Shutdown sequence](#shutdown-sequence)). When your call is what shuts the server down,
+`Config.ShutdownTimeout` is **not** consulted — *you* own the deadline via the context
+you pass. Source: `celeris/server.go` (`Shutdown`).
+
+The exception is a call made after cancelling the context of `StartWithContext` or
+`StartWithListenerAndContext` has already started a shutdown. Since celeris v1.6.0
+([celeris#673](https://github.com/goceleris/celeris/issues/673)), that call does not run
+a second shutdown, which would run your hooks again. The `Shutdown` godoc:
+
+> "When cancelling the context of [Server.StartWithContext] or
+> [Server.StartWithListenerAndContext] has already started a shutdown, Shutdown does
+> not run a second one: it waits for that one, hooks included, and returns its result,
+> or ctx's error if ctx is done first."
+
+That shutdown keeps its `Config.ShutdownTimeout` deadline. The `ctx` you pass bounds
+only how long your call waits for it; if `ctx` is done first, the shutdown carries on
+without your call.
 
 ```go
 // You own the drain deadline here.
@@ -137,7 +154,7 @@ if err := s.Shutdown(shutCtx); err != nil {
 | `StartWithListenerAndContext(ctx, ln)` | as `StartWithContext` | `Config.ShutdownTimeout` (default 30s), applied to the hook phase | Socket handoff + signal-driven shutdown. |
 | `Start()` | `Shutdown` is called (since v1.6.0) or engine error | n/a (drain via `StartWithContext`) | Rare; prefer the context entry points. |
 | `StartWithListener(ln)` | as `Start()` | n/a (drain via `StartWithListenerAndContext`) | Socket handoff with the context entry point below. |
-| `Shutdown(ctx)` | hooks complete; on `std` and `adaptive` also the drain, which `epoll` and `io_uring` do not wait for (see [Shutdown sequence](#shutdown-sequence)) | the `ctx` you pass | Programmatic shutdown from your own code. |
+| `Shutdown(ctx)` | hooks complete; on `std` and `adaptive` also the drain, which `epoll` and `io_uring` do not wait for (see [Shutdown sequence](#shutdown-sequence)) | the `ctx` you pass, unless a cancel has already started the shutdown (see [above](#shutting-down-programmatically-shutdown)) | Programmatic shutdown from your own code. |
 
 Source: `celeris/server.go:354`, `367`, `705`, `716`, `771`.
 
@@ -518,9 +535,11 @@ std via the shared inherited fd), so no client connection is refused.
 
 **What's the default drain timeout?**
 30 seconds — used by `StartWithContext` and `StartWithListenerAndContext` when
-`Config.ShutdownTimeout` is zero or negative. When you call `Shutdown(ctx)` yourself
-there is no default; you supply the context (`celeris/config.go:109-111`,
-`celeris/server.go:777-780`).
+`Config.ShutdownTimeout` is zero or negative. When your own `Shutdown(ctx)` call is
+what shuts the server down there is no default; you supply the context
+(`celeris/config.go:109-111`, `celeris/server.go:777-780`). A call made after a cancel
+has started the shutdown waits for that one, which keeps its `Config.ShutdownTimeout`
+deadline.
 
 **Is calling `Shutdown` on a server I never started safe?**
 Yes. It returns `nil` immediately (after a harmless CPU-monitor cleanup). Source:
