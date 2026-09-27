@@ -220,9 +220,10 @@ responses at the handler level.
 
 ### `ShutdownTimeout` only applies to context-based start
 
-`ShutdownTimeout` bounds the drain of in-flight requests during graceful shutdown.
-It is consumed by `StartWithContext` and `StartWithListenerAndContext`
-(`celeris/server.go:710-712`, `765-767`), which default it to 30s when left zero.
+`ShutdownTimeout` is the deadline of the graceful shutdown a cancelled context starts:
+one deadline for the drain of in-flight requests and then the `OnShutdown` hooks. It is
+consumed by `StartWithContext` and `StartWithListenerAndContext`
+(`celeris/server.go` (`listenUntilCancelled`)), which default it to 30s when left zero.
 Plain `Start()` blocks until you call `Shutdown(ctx)` yourself, in which case the
 deadline comes from the context *you* pass to `Shutdown`, not from this field.
 
