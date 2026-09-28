@@ -85,11 +85,12 @@ if err := s.Start(); err != nil {
 
 ### Graceful shutdown
 
-`Shutdown(ctx)` stops the engine, then fires any hooks you registered with
-`OnShutdown` — in registration order, with the shutdown context. On `std` and
-`adaptive` it waits for in-flight requests before the hooks; on `epoll` and
-`io_uring` the engine drains as its listen context is cancelled, and the hooks do
-not wait for that (see [Graceful shutdown](/docs/graceful-shutdown#shutdown-sequence)).
+`Shutdown(ctx)` stops the engine, waits for the in-flight requests to drain (bounded
+by `ctx`), then fires any hooks you registered with `OnShutdown` — in registration
+order, with the shutdown context. The order is the same on every engine, apart from
+two kinds of HTTP/2 stream the drain does not wait for (see
+[Graceful shutdown](/docs/graceful-shutdown#what-the-drain-waits-for)). A `Start` that
+`Shutdown` stops returns only after `Shutdown` has returned.
 
 `StartWithContext` wires this up for you: when the context is cancelled, the server
 shuts down using `Config.ShutdownTimeout` (default 30s), and `StartWithContext`

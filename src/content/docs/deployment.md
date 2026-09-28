@@ -534,8 +534,8 @@ drain finish before sending `SIGKILL`.
 
 Use `StartWithContext` with a signal-cancelled context so a rolling deploy drains
 in-flight requests instead of dropping them
-(`celeris/server.go:753-784`). `Config.ShutdownTimeout` bounds the drain (default
-30s):
+(`celeris/server.go` (`StartWithContext`)). `Config.ShutdownTimeout` (default 30s) is
+one deadline for the drain and then the `OnShutdown` hooks:
 
 ```go
 ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -553,10 +553,16 @@ if err := s.StartWithContext(ctx); err != nil {
 Neither `Shutdown` nor `PauseAccept` touches the readiness probe — the
 `healthcheck` middleware only ever returns what your `ReadyChecker` returns
 (`celeris/middleware/healthcheck/healthcheck.go:83`). To stop the LB sending new
-traffic during a drain you have to flip readiness yourself. The idiomatic wiring is
-an `atomic.Bool`, set `true` at startup, flipped to `false` from an
-[`OnShutdown`](#graceful-shutdown-during-deploys) hook (fired during `Shutdown`,
-`celeris/server.go:218-225`), and read by the `ReadyChecker`:
+traffic during a drain you have to flip readiness yourself, and before the drain
+begins: the `OnShutdown` hooks run only after the requests in flight have finished, on
+every engine since celeris v1.6.0
+([celeris#703](https://github.com/goceleris/celeris/issues/703); HTTP/2 has two
+exceptions, see
+[What the drain waits for](/docs/graceful-shutdown#what-the-drain-waits-for)), which is
+too late to steer the load balancer (see
+[Shutdown sequence](/docs/graceful-shutdown#shutdown-sequence)). The idiomatic wiring
+is an `atomic.Bool`, set `true` at startup, flipped to `false` by your `SIGTERM`
+handler *before* it cancels the context, and read by the `ReadyChecker`:
 
 ```go
 var ready atomic.Bool
@@ -564,31 +570,30 @@ ready.Store(true) // serving as soon as we're up
 
 s := celeris.New(celeris.Config{Addr: ":8080", ShutdownTimeout: 15 * time.Second})
 
-// Flip readiness to 503 when Shutdown runs its hooks (see below for when that is).
-s.OnShutdown(func(_ context.Context) {
-    ready.Store(false)
-})
-
 s.Use(healthcheck.New(healthcheck.Config{
     ReadyChecker: func(_ *celeris.Context) bool { return ready.Load() },
 }))
 
-ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+sig, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 defer stop()
+
+// On SIGTERM: fail readiness, give the load balancer time to see it, then drain.
+ctx, cancel := context.WithCancel(context.Background())
+go func() {
+    <-sig.Done()
+    ready.Store(false)          // /readyz now answers 503
+    time.Sleep(5 * time.Second) // at least one readiness-probe period
+    cancel()                    // stop accepting, drain, then run the OnShutdown hooks
+}()
 
 if err := s.StartWithContext(ctx); err != nil {
     log.Fatal(err)
 }
 ```
 
-When that hook runs depends on the engine. On `epoll` and `io_uring` it runs as the
-drain begins, while requests are still in flight. On `std` and `adaptive` it runs
-only after in-flight requests have finished, which is too late to steer the load
-balancer during the drain (see
-[Shutdown sequence](/docs/graceful-shutdown#shutdown-sequence)). To flip readiness
-before the drain on every engine, set `ready.Store(false)` in your own `SIGTERM`
-handler *before* cancelling the context or calling `Shutdown`. Either way the flip is
-yours to make. (`atomic.Bool` is in the standard library's `sync/atomic`.)
+The sleep is how long the load balancer needs to notice (at least one readiness-probe
+period); the server keeps serving meanwhile. The flip is yours to make on every
+engine. (`atomic.Bool` is in the standard library's `sync/atomic`.)
 
 For true zero-downtime restarts on the same host, inherit the listening socket
 across the exec with `InheritListener` + `StartWithListener`
@@ -610,10 +615,11 @@ drain ordering, and the native engines' `SO_REUSEPORT` rebind — is covered in
 [Graceful shutdown and zero-downtime restarts](/docs/graceful-shutdown).
 
 In Kubernetes, the rolling-update pattern is: container receives `SIGTERM` →
-your readiness flip fires (in your `SIGTERM` handler, or on `epoll` and `io_uring` in
-the `OnShutdown` hook above) so `/readyz` returns 503 → LB stops new traffic →
-in-flight requests drain within `ShutdownTimeout` → process exits. Set
-`terminationGracePeriodSeconds` greater than `ShutdownTimeout`.
+your `SIGTERM` handler flips readiness so `/readyz` returns 503 → LB stops new
+traffic → the context is cancelled → in-flight requests drain within
+`ShutdownTimeout` → the `OnShutdown` hooks run → process exits. Set
+`terminationGracePeriodSeconds` greater than the readiness delay plus
+`ShutdownTimeout`.
 
 ## Capacity and timeout tuning
 
