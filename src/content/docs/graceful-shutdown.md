@@ -24,8 +24,8 @@ the context is canceled, Celeris stops accepting, drains the requests in flight,
 runs your `OnShutdown` hooks, and only then does `StartWithContext` return. This is the
 recommended path. A cancel starts that shutdown on every engine, and since celeris
 v1.6.0 it runs in the same order on every engine: the drain first, then the hooks
-([celeris#703](https://github.com/goceleris/celeris/issues/703)). The drain covers
-every HTTP/1.1 request but not every HTTP/2 stream; see
+([celeris#703](https://github.com/goceleris/celeris/issues/703)). Since v1.6.0 the drain
+covers every HTTP/1.1 request and every HTTP/2 stream; see
 [What the drain waits for](#what-the-drain-waits-for).
 
 ```go
@@ -231,8 +231,8 @@ engine's `Shutdown`.
    each receiving the **same** shutdown context you passed to `Shutdown`. A panic in
    one hook is recovered and does not abort the others, nor does it crash the process.
 
-So on every engine the hooks start after the requests in flight have finished (with
-the HTTP/2 exceptions [below](#what-the-drain-waits-for)), a direct `Shutdown` returns
+So on every engine the hooks start after the requests in flight have finished (see
+[below](#what-the-drain-waits-for)), a direct `Shutdown` returns
 after the hooks, and the `Start*` call it stopped returns after `Shutdown`. If `ctx` is
 done before the drain is over, the hooks run then, with that `ctx`, and `Shutdown`
 returns its error (see
@@ -251,20 +251,22 @@ do not surface in the return value — so do your own error logging inside the h
 The drain waits for:
 
 - every **HTTP/1.1** request, on every engine;
-- on `epoll`, `io_uring` and `adaptive`, every **HTTP/2** stream whose handler runs on
-  the connection's worker, which is every route that is not async.
+- on `epoll`, `io_uring` and `adaptive`, every **HTTP/2** stream. A stream whose
+  handler runs on the connection's worker (every route that is not async) is waited
+  for like an HTTP/1.1 request. A stream on an **async route** (`.Async()`, or a route
+  `Config.AsyncHandlers` has made async) runs on a shared HTTP/2 worker pool: the
+  engine sends each HTTP/2 connection GOAWAY, so its client opens no new stream on it,
+  and keeps serving the connection until those handlers have returned and their
+  responses have gone out, up to the shutdown's deadline and never for less than
+  250 ms;
+- on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
 
-It does not wait for two kinds of HTTP/2 stream
-([celeris#759](https://github.com/goceleris/celeris/issues/759)):
-
-- On `epoll`, `io_uring` and `adaptive`, a stream on an **async route**
-  (`.Async()`, or a route `Config.AsyncHandlers` has made async) runs on a shared
-  HTTP/2 worker pool that the drain does not join. The hooks can run while its
-  handler is still running, and the client does not get its response: the
-  connection closes under it (`unexpected EOF`).
-- On `std`, **every h2c stream**. net/http hands an h2c connection to the HTTP/2
-  server and stops tracking it, so the drain does not wait for it. The hooks can run
-  while the handler is still running; the response is still delivered.
+Before celeris v1.6.0 the drain waited for neither kind of stream
+([celeris#759](https://github.com/goceleris/celeris/issues/759)): on `epoll`, `io_uring`
+and `adaptive` an async-route stream's connection was closed under its handler, so the
+client got `unexpected EOF` and the hooks ran first; on `std` net/http, which hands an
+h2c connection over and stops tracking it, did not wait for its streams, so the hooks ran
+while the handler was still running (the response was still delivered).
 
 Once the handlers have returned, the native engines keep sending what the sockets have
 not taken yet before they close the connections, so a response larger than the socket
@@ -286,11 +288,11 @@ the `Start*` call, returns about 10 s later whatever the budget
 ([celeris#806](https://github.com/goceleris/celeris/issues/806)). `std` drains through
 net/http.
 
-(Measured on each engine with one request in flight at the shutdown. An h2c request on
-an `.Async()` route got `unexpected EOF` on `epoll`, `io_uring` and `adaptive`, with the
-hooks run first. On a route that is not async it got its response, with the hooks run
-after the handler. On `std` the hooks ran before the h2c handler returned, and the
-response still arrived. A 3 MiB response was written 200 ms into the shutdown, to a
+(Measured on each engine with one request in flight at the shutdown. An h2c request,
+on an `.Async()` route or not, got its response on every engine, with the hooks run
+after the handler; before v1.6.0 it got `unexpected EOF` on an `.Async()` route on
+`epoll`, `io_uring` and `adaptive`, and on `std` the hooks ran before its handler
+returned. A 3 MiB response was written 200 ms into the shutdown, to a
 client with a 64 KiB receive buffer that started reading 1 s later. The client got all
 of it on `std`, `epoll` and `adaptive` (before v1.6.0, 2,634,240 of its 3,145,849 bytes
 on `epoll` and `adaptive`). On `io_uring` it depends on what the kernel had taken when
@@ -309,7 +311,7 @@ runner.)
 `Server.OnShutdown(fn)` registers a function to run at the end of `Shutdown`, after the
 requests in flight have finished (or the shutdown deadline has passed), on every engine
 (see [Shutdown sequence](#shutdown-sequence), and
-[What the drain waits for](#what-the-drain-waits-for) for the HTTP/2 exceptions). This
+[What the drain waits for](#what-the-drain-waits-for)). This
 is where you close database pools, flush log buffers, deregister from service
 discovery, or persist in-memory state.
 Source: `celeris/server.go` (`OnShutdown`).
@@ -637,8 +639,9 @@ std via the shared inherited fd), so no client connection is refused.
   versions it is not: wait for `Shutdown` to return, as net/http teaches. On `std`, a
   `Shutdown` whose `ctx` expired returns while handlers may still be running, and so
   do `Start` and a cancelled `StartWithContext` (see [the FAQ](#faq)).
-- **Counting on the drain for HTTP/2 async routes, or h2c on `std`.** The drain does
-  not wait for them. See [What the drain waits for](#what-the-drain-waits-for).
+- **Counting on the drain for HTTP/2 async routes, or h2c on `std`, before v1.6.0.**
+  The drain did not wait for them. See
+  [What the drain waits for](#what-the-drain-waits-for).
 - **Under-sizing the shutdown budget.** `ShutdownTimeout` (or your manual context)
   covers the request drain *and* every `OnShutdown` hook, sharing one deadline. If your
   hooks do real work (flushing a remote sink, closing pools), budget for it.
