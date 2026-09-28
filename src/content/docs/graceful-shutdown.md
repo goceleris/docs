@@ -267,9 +267,12 @@ It does not wait for two kinds of HTTP/2 stream
 Once the handlers have returned, the native engines keep sending what the sockets have
 not taken yet before they close the connections, so a response larger than the socket
 buffers still reaches a client that reads slowly. `epoll` (and `adaptive` while it runs
-`epoll`) keeps sending until the shutdown's deadline (`Config.ShutdownTimeout` after a
-cancel, or the `ctx` of a direct `Shutdown`), and never for less than 250 ms; a client
-that never reads holds the shutdown that long and no longer. Before celeris v1.6.0
+`epoll`) keeps sending while the shutdown's context is live: until its deadline
+(`Config.ShutdownTimeout` after a cancel, or the `ctx` of a direct `Shutdown`), or, for a
+`ctx` with no deadline such as `context.Background()`, until that `ctx` is done. It never
+sends for longer than `Config.WriteTimeout` (60 s by default) nor for less than 250 ms,
+so a client that never reads holds the shutdown that long and no longer, even a
+`Shutdown(context.Background())`. Before celeris v1.6.0
 `epoll` closed each connection as soon as the handlers had returned, and such a
 response lost its tail ([celeris#760](https://github.com/goceleris/celeris/issues/760)).
 `io_uring` keeps sending for 250 ms whatever the deadline, so a client slower than that
