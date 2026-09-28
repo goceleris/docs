@@ -256,10 +256,17 @@ The drain waits for:
   for like an HTTP/1.1 request. A stream on an **async route** (`.Async()`, or a route
   `Config.AsyncHandlers` has made async) runs on a shared HTTP/2 worker pool: the
   engine sends each HTTP/2 connection GOAWAY, so its client opens no new stream on it,
-  and keeps serving the connection until those handlers have returned and their
-  responses have gone out, up to the shutdown's deadline and never for less than
-  250 ms;
+  refuses (`REFUSED_STREAM`, safe for the client to retry elsewhere) a stream it opens
+  anyway, and keeps serving the connection until those handlers have returned and
+  their responses have gone out, response data waiting for the client's
+  `WINDOW_UPDATE` included. It does so while the shutdown's context is live (until its
+  deadline or, for a `ctx` with no deadline, until it is done, but no longer than
+  `Config.WriteTimeout`), and never for less than 250 ms;
 - on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
+
+No engine accepts a new connection once the shutdown has begun: the native engines
+close their listeners at once, as net/http's `Shutdown` does, even while they go on
+serving the connections they have.
 
 Before celeris v1.6.0 the drain waited for neither kind of stream
 ([celeris#759](https://github.com/goceleris/celeris/issues/759)): on `epoll`, `io_uring`
