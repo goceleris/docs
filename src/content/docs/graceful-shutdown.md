@@ -264,9 +264,11 @@ The drain waits for:
   `Config.WriteTimeout`), and never for less than 250 ms;
 - on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
 
-No engine accepts a new connection once the shutdown has begun: the native engines
-close their listeners at once, as net/http's `Shutdown` does, even while they go on
-serving the connections they have.
+While the native engines wait for those handlers they accept no new connection: `epoll`
+closes its listeners when the shutdown begins, as net/http's `Shutdown` does, and
+`io_uring` when the wait begins (its 250 ms send drain, below, still answers a
+connection that arrives inside it). Before celeris v1.6.0 a connection that arrived
+during the wait was served, and then cut when the wait ended.
 
 Before celeris v1.6.0 the drain waited for neither kind of stream
 ([celeris#759](https://github.com/goceleris/celeris/issues/759)): on `epoll`, `io_uring`
