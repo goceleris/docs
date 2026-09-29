@@ -218,8 +218,9 @@ engine's `Shutdown`.
    cancelled (the next step).
 3. **Cancel the listen context and wait for the drain.** Cancelling it is what stops a
    running `epoll` or `io_uring` engine: its workers stop accepting, let the handlers
-   they are running return, close their connections and wait for their async
-   handlers. `Shutdown` then waits, bounded by `ctx`, until the engine's `Listen` has
+   they are running return and wait for their async handlers, send what the sockets
+   have not taken yet (see [What the drain waits for](#what-the-drain-waits-for)), and
+   close their connections. `Shutdown` then waits, bounded by `ctx`, until the engine's `Listen` has
    returned, which is when the drain is over (on `std` and `adaptive`, at once: step 2
    drained). What that drain covers, and what it does not, is in
    [What the drain waits for](#what-the-drain-waits-for).
@@ -265,21 +266,36 @@ It does not wait for two kinds of HTTP/2 stream
   server and stops tracking it, so the drain does not wait for it. The hooks can run
   while the handler is still running; the response is still delivered.
 
-There is one more gap on `epoll`, and on `adaptive` while it runs `epoll`. The drain
-is over when the handlers have returned, and each connection is then closed without
-flushing what the socket has not taken yet. A response larger than the socket buffers,
-to a client that reads slowly, loses its tail
-([celeris#760](https://github.com/goceleris/celeris/issues/760)). `io_uring` keeps
-sending for up to 250 ms before it closes, and `std` drains through net/http.
+Once the handlers have returned, the native engines keep sending what the sockets have
+not taken yet before they close the connections, so a response larger than the socket
+buffers still reaches a client that reads slowly. `epoll` (and `adaptive` while it runs
+`epoll`) keeps sending while the shutdown's context is live: until its deadline
+(`Config.ShutdownTimeout` after a cancel, or the `ctx` of a direct `Shutdown`), or, for a
+`ctx` with no deadline such as `context.Background()`, until that `ctx` is done. It never
+sends for less than 250 ms, nor, while `Config.WriteTimeout` is set (60 s by default),
+for longer than that, so a client that never reads holds the shutdown that long and no
+longer, even a `Shutdown(context.Background())`. With `WriteTimeout: -1` (no timeout)
+only the context bounds it, and a `Shutdown(context.Background())` waits for as long as
+such a client does not read. Before celeris v1.6.0
+`epoll` closed each connection as soon as the handlers had returned, and such a
+response lost its tail ([celeris#760](https://github.com/goceleris/celeris/issues/760)).
+`io_uring` keeps sending for 250 ms whatever the deadline, so a client slower than that
+can still lose the tail. A send stalled on a client that does not read at all is not cut
+at 250 ms, though: the worker waits in the kernel, and `io_uring`'s `Listen`, and with it
+the `Start*` call, returns about 10 s later whatever the budget
+([celeris#806](https://github.com/goceleris/celeris/issues/806)). `std` drains through
+net/http.
 
 (Measured on each engine with one request in flight at the shutdown. An h2c request on
 an `.Async()` route got `unexpected EOF` on `epoll`, `io_uring` and `adaptive`, with the
 hooks run first. On a route that is not async it got its response, with the hooks run
 after the handler. On `std` the hooks ran before the h2c handler returned, and the
 response still arrived. A 3 MiB response was written 200 ms into the shutdown, to a
-client with a 64 KiB receive buffer that started reading 1 s later. The client got
-2,634,240 of its 3,145,849 bytes on `epoll` and `adaptive`, and all of them on `std`
-and `io_uring`.)
+client with a 64 KiB receive buffer that started reading 1 s later. The client got all
+of it on `std`, `epoll` and `adaptive` (before v1.6.0, 2,634,240 of its 3,145,849 bytes
+on `epoll` and `adaptive`). On `io_uring` it depends on what the kernel had taken when
+the 250 ms ran out: all of it on one machine, 2,634,119 of 3,145,728 body bytes on a CI
+runner.)
 
 > **The shutdown context is shared across the engine drain *and* every hook.** Within a
 > single `Shutdown(ctx)` call, the same `ctx` bounds the drain and then flows into each
@@ -658,9 +674,11 @@ Celeris stops waiting for them; it does not interrupt them. When the deadline
 `Shutdown`) passes before the drain is over, the `OnShutdown` hooks run then, with the
 expired context, and a direct `Shutdown` returns `context.DeadlineExceeded` once they
 have run. A handler still running keeps running and keeps its connection, and its
-response still reaches the client when it finishes. On `epoll` a response larger than
-the socket buffers can lose its tail (see
-[What the drain waits for](#what-the-drain-waits-for)). `c.Context()` is not cancelled
+response still reaches the client when it finishes. The deadline has passed by then,
+so on `epoll` and `io_uring` that response gets 250 ms to go out before the connection
+closes (on `io_uring` longer when a send is stalled on a client that does not read at
+all, [celeris#806](https://github.com/goceleris/celeris/issues/806)): one larger than the socket buffers, to a client that reads slowly, can lose its
+tail (see [What the drain waits for](#what-the-drain-waits-for)). `c.Context()` is not cancelled
 at the deadline, so a handler cannot see it there.
 
 When the `Start*` call returns differs by engine:
