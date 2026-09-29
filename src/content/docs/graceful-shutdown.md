@@ -261,7 +261,8 @@ The drain waits for:
   their responses have gone out, response data waiting for the client's
   `WINDOW_UPDATE` included. It does so while the shutdown's context is live (until its
   deadline or, for a `ctx` with no deadline, until it is done, and, while
-  `Config.WriteTimeout` is set, no longer than that), and never for less than 250 ms;
+  `Config.WriteTimeout` is set, no longer than that), and never for less than 250 ms,
+  even with a shorter `WriteTimeout`;
 - on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
 
 While the native engines wait for those handlers they accept no new connection: `epoll`
