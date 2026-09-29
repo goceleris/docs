@@ -272,14 +272,19 @@ buffers still reaches a client that reads slowly. `epoll` (and `adaptive` while 
 `epoll`) keeps sending while the shutdown's context is live: until its deadline
 (`Config.ShutdownTimeout` after a cancel, or the `ctx` of a direct `Shutdown`), or, for a
 `ctx` with no deadline such as `context.Background()`, until that `ctx` is done. It never
-sends for longer than `Config.WriteTimeout` (60 s by default) nor for less than 250 ms,
-so a client that never reads holds the shutdown that long and no longer, even a
-`Shutdown(context.Background())`. Before celeris v1.6.0
+sends for less than 250 ms, nor, while `Config.WriteTimeout` is set (60 s by default),
+for longer than that, so a client that never reads holds the shutdown that long and no
+longer, even a `Shutdown(context.Background())`. With `WriteTimeout: -1` (no timeout)
+only the context bounds it, and a `Shutdown(context.Background())` waits for as long as
+such a client does not read. Before celeris v1.6.0
 `epoll` closed each connection as soon as the handlers had returned, and such a
 response lost its tail ([celeris#760](https://github.com/goceleris/celeris/issues/760)).
 `io_uring` keeps sending for 250 ms whatever the deadline, so a client slower than that
-can still lose the tail ([celeris#806](https://github.com/goceleris/celeris/issues/806)),
-and `std` drains through net/http.
+can still lose the tail. A send stalled on a client that does not read at all is not cut
+at 250 ms, though: the worker waits in the kernel, and `io_uring`'s `Listen`, and with it
+the `Start*` call, returns about 10 s later whatever the budget
+([celeris#806](https://github.com/goceleris/celeris/issues/806)). `std` drains through
+net/http.
 
 (Measured on each engine with one request in flight at the shutdown. An h2c request on
 an `.Async()` route got `unexpected EOF` on `epoll`, `io_uring` and `adaptive`, with the
@@ -671,7 +676,8 @@ expired context, and a direct `Shutdown` returns `context.DeadlineExceeded` once
 have run. A handler still running keeps running and keeps its connection, and its
 response still reaches the client when it finishes. The deadline has passed by then,
 so on `epoll` and `io_uring` that response gets 250 ms to go out before the connection
-closes: one larger than the socket buffers, to a client that reads slowly, can lose its
+closes (on `io_uring` longer when a send is stalled on a client that does not read at
+all, [celeris#806](https://github.com/goceleris/celeris/issues/806)): one larger than the socket buffers, to a client that reads slowly, can lose its
 tail (see [What the drain waits for](#what-the-drain-waits-for)). `c.Context()` is not cancelled
 at the deadline, so a handler cannot see it there.
 
