@@ -38,6 +38,45 @@ The seven standard HTTP verbs each have a dedicated method on `*Server` (and on
 `*RouteGroup`): `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`.
 Source: `celeris/server.go:154-186`.
 
+### `HEAD` and `OPTIONS` are answered for you
+
+You rarely need to register `HEAD` or `OPTIONS` yourself (RFC 9110 §9.3.2,
+§9.3.7):
+
+- **`HEAD`** to a path that has a `GET` route but no `HEAD` route runs the `GET`
+  route: the same middleware and handler, which see `c.Method() == "HEAD"`. The
+  response carries the headers the `GET` would send, `Content-Length` included,
+  and no body, on every engine and over HTTP/1.1 and HTTP/2. A streamed response
+  (`StreamWriter`, SSE) sends its headers and none of its chunks. An async `GET`
+  route answers `HEAD` asynchronously too.
+- **`OPTIONS`** to a path that has any route but no `OPTIONS` route gets
+  `200 OK` with `Content-Length: 0` and an `Allow` header listing the methods
+  the path answers. The global middleware (`s.Use`) runs first, so a
+  `cors.New()` installed there answers a CORS preflight with its `204`; group
+  and route middleware do not run.
+- A route you register yourself always wins: `s.HEAD(...)` to answer `HEAD`
+  differently (a cheaper handler, say), `s.OPTIONS(...)` for a custom
+  `OPTIONS` response.
+
+The `Allow` header (on the automatic `OPTIONS` answer and on a `405`) lists
+`GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS` in that order, keeping only
+those the path answers, then any custom methods sorted. `HEAD` is listed
+whenever the path has a `GET` route, and `OPTIONS` always:
+
+```go
+s.GET("/users/:id", getUser)
+s.PUT("/users/:id", replaceUser)
+
+// HEAD /users/7     -> 200, getUser's headers, no body
+// OPTIONS /users/7  -> 200, Allow: GET, PUT, HEAD, OPTIONS
+// DELETE /users/7   -> 405, Allow: GET, PUT, HEAD, OPTIONS
+```
+
+> **Changed in v1.6.0.** Before, `HEAD` and `OPTIONS` to a path without a route
+> for them got `405 Method Not Allowed` (and the `Allow` header listed only the
+> registered methods). A CORS preflight therefore needed an explicit
+> `s.OPTIONS(...)` route for `cors.New()` to answer it.
+
 ### Per-route middleware
 
 Because the signature is variadic, you can attach middleware to a single route at
@@ -442,7 +481,9 @@ yourself (`celeris/server.go:233-238`).
 The router returns the set of allowed methods; register a handler with
 `s.MethodNotAllowed(...)` to customise the 405 response (the `Allow` header is set
 automatically). Define a catch-all for unmatched paths with `s.NotFound(...)`. Both
-are covered in [Middleware](/docs/middleware).
+are covered in [Middleware](/docs/middleware). `HEAD` to a path with a `GET` route
+and `OPTIONS` to any routed path are not "wrong methods": they are answered for you
+(see [`HEAD` and `OPTIONS` are answered for you](#head-and-options-are-answered-for-you)).
 
 ## See also
 
