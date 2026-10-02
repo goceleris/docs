@@ -674,6 +674,9 @@ page's initialiser is still an inline `<script>`.) The page references the files
 relative to `{BasePath}/`, so they also load behind a reverse proxy that
 publishes the page under another prefix (`/ext/swagger/` forwarded to
 `/swagger/`). Embedding adds about 2 MB to any binary that imports the package.
+Like the page and the spec, the files are public unless an authentication
+middleware runs before `swagger`: the bundle is a 1.5 MiB response at a fixed
+URL.
 Scalar (4.4 MB) and ReDoc (1.1 MB) are not embedded: the renderer is chosen at
 run time, so every embedded bundle would end up in every binary.
 
@@ -688,6 +691,9 @@ requests that match a route, unless a custom `NotFound` handler is set
 ([celeris#852](https://github.com/goceleris/celeris/issues/852)). So mount it
 with `s.Pre`, register a catch-all route such as `s.GET("/swagger/*filepath", …)`,
 or set `NotFound`; and forward the whole `{BasePath}/` prefix through any proxy.
+With the catch-all route, the bare `/swagger` (no trailing slash) matches no
+route, so it answers 404 instead of redirecting to `/swagger/`; link to
+`/swagger/`.
 
 **CDN.** `CDN: true` loads the renderer from `cdn.jsdelivr.net`, pinned to the
 exact versions in `swagger.SwaggerUIVersion`, `swagger.ScalarVersion` and
@@ -749,8 +755,10 @@ See [Static files](/docs/static-files) for serving a directory.
 - **Invalidation needs your own store reference.** `cache.Invalidate` /
   `InvalidatePrefix` operate on the `store.KV` *you* constructed and passed in —
   the middleware never exposes a store it created for you.
-- **`swagger` needs a spec.** `swagger.New` panics if neither `SpecContent` nor
-  `SpecURL` is set, and if `BasePath` doesn't start with `/`.
+- **`swagger` panics on an incomplete config.** `swagger.New` panics if neither
+  `SpecContent` nor `SpecURL` is set, if `BasePath` doesn't start with `/`, if
+  `Renderer` is `RendererScalar` or `RendererReDoc` without `CDN: true` or
+  `AssetsPath` (neither is embedded), and if both `AssetsPath` and `CDN` are set.
 - **`compress` levels panic on bad ranges.** An out-of-range level (e.g.
   `ZstdLevel: 9`) panics at startup — use the `Level` sentinels or a value in the
   codec's valid range.
