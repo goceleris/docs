@@ -370,12 +370,12 @@ understood, and only a single range is served.
 
 | Request | Response |
 | --- | --- |
-| `GET` with one satisfiable range, e.g. `Range: bytes=1000-` | `206 Partial Content`, `Content-Range: bytes 1000-65535/65536`, those bytes. A last position past the end, or a suffix longer than the file (`bytes=-100000`), is cut to the file. |
+| `GET` with one satisfiable range, e.g. `Range: bytes=1000-` | `206 Partial Content`, `Content-Range: bytes 1000-65535/65536`, those bytes. A last position past the end, or a suffix longer than the file (`bytes=-100000`), is cut to the file. Exception: with `FS` and `Compress`, a pre-compressed `.br`/`.gz` variant is always sent whole as a `200`. |
 | `GET` with a range no byte of the file satisfies, e.g. `bytes=70000-` on a 64 KiB file | `416 Range Not Satisfiable`, `Content-Range: bytes */65536`, no body. |
 | `If-Range` whose validator still matches | The range, as above. |
 | `If-Range` whose validator no longer matches | `200 OK` with the whole file. |
 | A syntactically invalid range, an unknown unit, or several satisfiable ranges (`bytes=0-1,5-6`) | `200 OK` with the whole file. `multipart/byteranges` is not supported. |
-| `HEAD` (or any method but `GET`) with `Range` | `Range` is ignored: the `200` headers of the whole file. |
+| `HEAD` with `Range` | `Range` is ignored: the `200` headers of the whole file. `File` ignores `Range` on every method but `GET`; the static middleware serves only `GET` and `HEAD` and passes other methods on to the next handler. |
 | An empty file | `Range` is ignored: `200 OK`. |
 
 **How `If-Range` is checked.** An entity-tag matches only under the *strong*
@@ -392,15 +392,22 @@ response's `Last-Modified`. What it is compared against:
 
 ```go
 s.GET("/downloads/:name", func(c *celeris.Context) error {
-    info, err := os.Stat(filepath.Join("./files", c.Param("name")))
+    name := c.Param("name")
+    // Keep the os.Stat inside ./files too: FileFromDir rejects traversal,
+    // but only after this lookup.
+    if !filepath.IsLocal(name) {
+        return celeris.NewHTTPError(404, "not found")
+    }
+    info, err := os.Stat(filepath.Join("./files", name))
     if err != nil {
         return celeris.NewHTTPError(404, "not found")
     }
-    // Validators for If-Range (and caches). A strong ETag must change
-    // whenever the bytes do; mtime+size is a cheap stand-in.
+    // A Last-Modified date lets a client resume with If-Range. It is only as
+    // good as the mtime: replace a file so that its mtime changes. A strong
+    // ETag must change whenever the bytes do, so derive it from the content
+    // (e.g. a hash taken when the file is published), never from metadata.
     c.SetHeader("last-modified", info.ModTime().UTC().Format(http.TimeFormat))
-    c.SetHeader("etag", fmt.Sprintf(`"%x-%x"`, info.ModTime().UnixNano(), info.Size()))
-    return c.FileFromDir("./files", c.Param("name"))
+    return c.FileFromDir("./files", name)
 })
 ```
 
@@ -443,6 +450,10 @@ middleware set `Accept-Ranges: bytes`, answer a satisfiable range with
 so a download resumed after the file changed restarts with the new file instead
 of splicing two versions. See
 [Range requests and resumable downloads](#range-requests-and-resumable-downloads).
+One exception: with `Compress`, a pre-compressed `.br`/`.gz` variant served from
+`Root` is checked against the original file's validators, so rebuilding only the
+variant can still splice two versions
+([celeris#846](https://github.com/goceleris/celeris/issues/846)).
 
 **Can I serve a single-binary app with no files on disk?**
 Yes — `go:embed` your assets and serve them with `FileFromFS` (fixed paths) or
