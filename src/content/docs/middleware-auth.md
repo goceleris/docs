@@ -113,8 +113,8 @@ failure the default `ErrorHandler` responds `401` with `WWW-Authenticate`,
 | Field | Type | Notes |
 | ----- | ---- | ----- |
 | `Users` | `map[string]string` | Plaintext user→pass. Auto constant-time validator. |
-| `HashedUsers` | `map[string]string` | User→opaque hash string. **Requires** `HashedUsersFunc`. |
-| `HashedUsersFunc` | `func(hash, password string) bool` | Verifies a candidate against a stored hash. Required whenever `HashedUsers` is set — `New` panics otherwise. |
+| `HashedUsers` | `map[string]string` | User→opaque hash string. Needs `HashedUsersFunc` unless every entry is pbkdf2-sha256. |
+| `HashedUsersFunc` | `func(hash, password string) bool` | Verifies a candidate against a stored hash. Defaults to `basicauth.VerifyPassword` when every `HashedUsers` entry is pbkdf2-sha256; for any other format it is required, and `New` panics without it. |
 | `Validator` | `func(user, pass string) bool` | Custom credential check. |
 | `ValidatorWithContext` | `func(c *celeris.Context, user, pass string) bool` | Like `Validator` but with the request context. Takes precedence over `Validator`. |
 | `Realm` | `string` | Authentication realm. Default `"Restricted"`. |
@@ -123,7 +123,7 @@ failure the default `ErrorHandler` responds `401` with `WWW-Authenticate`,
 At least one of `Users`, `HashedUsers`, `Validator`, or `ValidatorWithContext`
 must be set, or `New` panics.
 
-### Hashed passwords (bcrypt / argon2)
+### Hashed passwords (PBKDF2, bcrypt, argon2)
 
 **Never store plaintext passwords in production.** Storing real credentials means
 hashing them with a slow, credential-grade KDF. The one built-in format is PBKDF2
@@ -166,8 +166,9 @@ response time does not reveal whether a stored hash is well formed:
 ```go
 s.Use(basicauth.New(basicauth.Config{
     HashedUsers: map[string]string{
-        // the whole string basicauth.HashPasswordPBKDF2("s3cr3t") returned;
-        // New panics, naming the entry, if one does not parse
+        // the whole string basicauth.HashPasswordPBKDF2("s3cr3t") returned.
+        // New panics if an entry is not valid pbkdf2-sha256, and names the
+        // entry when it keeps the pbkdf2-sha256$ prefix
         "alice": "pbkdf2-sha256$600000$...redacted...",
     },
 }))
