@@ -531,12 +531,14 @@ Pick the frontend with `Renderer`:
 s.Use(swagger.New(swagger.Config{
     SpecContent: spec,
     Renderer:    swagger.RendererScalar,
+    CDN:         true, // Scalar and ReDoc are not embedded: pick CDN or AssetsPath
 }))
 ```
 
-By default the renderer's JS/CSS load from a public CDN (unpkg for Swagger UI,
-jsDelivr for Scalar/ReDoc). See [self-hosted assets](#self-hosted-assets) to serve
-them yourself.
+Swagger UI is **embedded** in the package and served by the middleware itself,
+so the default page loads nothing from a third party. Scalar and ReDoc are not
+embedded: set `CDN: true` (pinned, integrity-checked) or `AssetsPath`, or `New`
+panics. See [assets](#assets-embedded-cdn-or-self-hosted).
 
 ### Where the spec comes from
 
@@ -564,7 +566,8 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Renderer`   | `swagger.UIRenderer`  | `RendererSwaggerUI`   | UI frontend.                                                  |
 | `UI`         | `swagger.UIConfig`    | see below             | Appearance/behavior of the UI.                               |
 | `Options`    | `map[string]any`      | `nil`                 | Renderer-specific JSON-serializable config (must marshal).    |
-| `AssetsPath` | `string`              | `""` (CDN)            | Local URL prefix for self-hosted UI assets.                  |
+| `AssetsPath` | `string`              | `""` (embedded)       | URL prefix of UI assets you serve yourself.                  |
+| `CDN`        | `bool`                | `false`               | Load the UI from jsDelivr, pinned to an exact version with SRI hashes. |
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
@@ -639,6 +642,7 @@ middleware panics at construction) passed straight to the renderer:
 s.Use(swagger.New(swagger.Config{
     SpecContent: spec,
     Renderer:    swagger.RendererReDoc,
+    CDN:         true,
     Options: map[string]any{
         "expandResponses":    "200,201",
         "hideDownloadButton": true,
@@ -648,11 +652,41 @@ s.Use(swagger.New(swagger.Config{
 
 Source: `swagger/config.go:120-138`, `swagger/swagger.go:175-234`.
 
-### Self-hosted assets
+### Assets: embedded, CDN or self-hosted
 
-To avoid the public CDN (air-gapped deploys, CSP policies, no third-party
-requests), set `AssetsPath` to a URL prefix you serve the renderer's
-files from yourself — for example with the `static` middleware:
+Where the page loads the renderer's JavaScript and CSS from:
+
+| Source | How | Swagger UI | Scalar / ReDoc |
+| ------ | --- | ---------- | -------------- |
+| Embedded (default) | nothing to set | served from `{BasePath}/assets/swagger-ui-dist@<version>/` | not embedded: `New` panics, set `CDN` or `AssetsPath` |
+| CDN | `CDN: true` | jsDelivr, exact version, SRI | jsDelivr, exact version, SRI |
+| Self-hosted | `AssetsPath: "/prefix"` | your files | your files |
+
+**Embedded.** The middleware embeds swagger-ui-dist (`swagger.SwaggerUIVersion`)
+byte for byte as published, together with its upstream licence notices
+(Apache-2.0 `LICENSE` and `NOTICE`, plus the bundles' third-party notices). It
+serves them under `{BasePath}/assets/swagger-ui-dist@<version>/` with
+`Cache-Control: public, max-age=31536000, immutable`, which is safe because the
+version is part of the URL. The page then works offline, and its
+Content-Security-Policy needs no third-party origin for scripts or styles. (The
+page's initialiser is still an inline `<script>`.) Embedding adds about 2 MB to
+any binary that imports the package. Scalar (4.4 MB) and ReDoc (1.1 MB) are not
+embedded: the renderer is chosen at run time, so every embedded bundle would end
+up in every binary.
+
+**CDN.** `CDN: true` loads the renderer from `cdn.jsdelivr.net`, pinned to the
+exact versions in `swagger.SwaggerUIVersion`, `swagger.ScalarVersion` and
+`swagger.ReDocVersion`. Every tag carries a Subresource Integrity hash and
+`crossorigin="anonymous"`, so the browser refuses a file that differs from the
+release the package was built against. The page then needs `cdn.jsdelivr.net` in
+its CSP, and viewers need Internet access.
+
+```go
+s.Use(swagger.New(swagger.Config{SpecContent: spec, CDN: true}))
+```
+
+**Self-hosted.** Set `AssetsPath` to a URL prefix you serve the files from, for
+example with the `static` middleware:
 
 ```go
 // Serve the downloaded swagger-ui-dist files under /swagger-assets.
@@ -663,12 +697,13 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-You are responsible for placing the actual asset files at that prefix. The
-expected filenames differ per renderer — Swagger UI needs `swagger-ui.css`,
-`swagger-ui-bundle.js`, and `swagger-ui-standalone-preset.js`; ReDoc needs
-`redoc.standalone.js`; Scalar needs `standalone.min.js`. Source:
-`swagger/swagger.go:97-233`. See [Static files](/docs/static-files) for serving a
-directory.
+You are responsible for putting the files at that prefix. The filenames differ
+per renderer: Swagger UI needs `swagger-ui.css`, `swagger-ui-bundle.js` and
+`swagger-ui-standalone-preset.js`; ReDoc needs `redoc.standalone.js`; Scalar
+needs `standalone.min.js`. The page is written for the pinned versions above and
+carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
+cannot both be set (`New` panics). Source: `swagger/assets.go`, `swagger/pins.go`.
+See [Static files](/docs/static-files) for serving a directory.
 
 ## Common pitfalls
 
