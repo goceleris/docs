@@ -417,10 +417,10 @@ s.GET("/downloads/:name", func(c *celeris.Context) error {
 mtimes, and it has one-second precision. Two versions with the same
 `Last-Modified` (written within the same second, or built with normalized
 mtimes such as `SOURCE_DATE_EPOCH`) let the old `If-Range` match the new file,
-and the resumed download splices two versions. The validators are also read
-before the file is opened, so a file replaced in between is served under the
-old date. This holds for the example above and for the static middleware, whose
-only usable `If-Range` validator is its `Last-Modified`
+and the resumed download splices two versions. In the example and on the static
+middleware's `Root` path the validators are also read before the file is
+opened, so a file replaced in between is served under the old date. The static
+middleware's only usable `If-Range` validator is its `Last-Modified`
 ([celeris#846](https://github.com/goceleris/celeris/issues/846)). A resume is
 safe only when the validator changes with the bytes served.
 
