@@ -391,25 +391,38 @@ response's `Last-Modified`. What it is compared against:
   weak (mtime and size), so only the `Last-Modified` date can match.
 
 ```go
+// Opened once at startup: os.Root keeps every lookup inside ./files,
+// symlinks included.
+files, err := os.OpenRoot("./files")
+if err != nil {
+    log.Fatal(err)
+}
+
 s.GET("/downloads/:name", func(c *celeris.Context) error {
     name := c.Param("name")
-    // Keep the os.Stat inside ./files too: FileFromDir rejects traversal,
-    // but only after this lookup.
-    if !filepath.IsLocal(name) {
-        return celeris.NewHTTPError(404, "not found")
-    }
-    info, err := os.Stat(filepath.Join("./files", name))
+    info, err := files.Stat(name)
     if err != nil {
         return celeris.NewHTTPError(404, "not found")
     }
-    // A Last-Modified date lets a client resume with If-Range. It is only as
-    // good as the mtime: replace a file so that its mtime changes. A strong
-    // ETag must change whenever the bytes do, so derive it from the content
-    // (e.g. a hash taken when the file is published), never from metadata.
+    // A Last-Modified date lets a client resume with If-Range (see its
+    // limits below). A strong ETag must change whenever the bytes do, so
+    // derive it from the content (e.g. a hash taken when the file is
+    // published), never from metadata.
     c.SetHeader("last-modified", info.ModTime().UTC().Format(http.TimeFormat))
     return c.FileFromDir("./files", name)
 })
 ```
+
+**Limits of a date validator.** A date is only as reliable as the files'
+mtimes, and it has one-second precision. Two versions with the same
+`Last-Modified` (written within the same second, or built with normalized
+mtimes such as `SOURCE_DATE_EPOCH`) let the old `If-Range` match the new file,
+and the resumed download splices two versions. The validators are also read
+before the file is opened, so a file replaced in between is served under the
+old date. This holds for the example above and for the static middleware, whose
+only usable `If-Range` validator is its `Last-Modified`
+([celeris#846](https://github.com/goceleris/celeris/issues/846)). A resume is
+safe only when the validator changes with the bytes served.
 
 Preconditions that come earlier still win: with the static middleware, a
 matching `If-None-Match` or `If-Modified-Since` gets `304` whatever the `Range`.
@@ -446,13 +459,14 @@ additionally sniffs the first bytes with `http.DetectContentType`.
 **Do range requests / resumable downloads work?**
 Yes, for a single range. `File` (and the helpers built on it) and the static
 middleware set `Accept-Ranges: bytes`, answer a satisfiable range with
-`206 Partial Content`, an unsatisfiable one with `416`, and honour `If-Range`,
-so a download resumed after the file changed restarts with the new file instead
-of splicing two versions. See
-[Range requests and resumable downloads](#range-requests-and-resumable-downloads).
-One exception: with `Compress`, a pre-compressed `.br`/`.gz` variant served from
-`Root` is checked against the original file's validators, so rebuilding only the
-variant can still splice two versions
+`206 Partial Content`, an unsatisfiable one with `416`, and honour `If-Range`:
+a download resumed after the file changed restarts with the new file instead of
+splicing two versions, provided the validator (`ETag` or `Last-Modified`)
+changed with the bytes. See
+[Range requests and resumable downloads](#range-requests-and-resumable-downloads)
+for when a date does not. One more exception: with `Compress`, a pre-compressed
+`.br`/`.gz` variant served from `Root` is checked against the original file's
+validators, so rebuilding only the variant can still splice two versions
 ([celeris#846](https://github.com/goceleris/celeris/issues/846)).
 
 **Can I serve a single-binary app with no files on disk?**
