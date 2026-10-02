@@ -38,7 +38,7 @@ What it does for you:
 | Behaviour | Detail |
 | --- | --- |
 | **Content-Type** | Detected from the file extension via `mime.TypeByExtension`. Falls back to `application/octet-stream` when the extension is unknown. |
-| **Range requests** | Sets `Accept-Ranges: bytes`. A valid `Range` header produces a `206 Partial Content` response with the correct `Content-Range`. |
+| **Range requests** | Sets `Accept-Ranges: bytes`. A `GET` with a single byte range gets `206 Partial Content` with its `Content-Range`; a range no byte of the file satisfies gets `416 Range Not Satisfiable`; `If-Range` is honoured. See [Range requests and resumable downloads](#range-requests-and-resumable-downloads). |
 | **Zero-copy** | On native engines that support it, the body is sent via `sendfile(2)` without copying through user space. Falls back to a buffered read otherwise (see note below). |
 | **Size cap** | The whole file is read into memory, capped at **100 MB**. A larger file returns an `HTTPError` with status **413**. |
 
@@ -357,10 +357,55 @@ are resolved and re-checked so a listing can't escape the root.
 | Source | OS directory only | OS directory (`Root`) **or** `fs.FS` (`FS`) |
 | Index file | No | Yes (`Index`) |
 | SPA fallback | No | Yes (`SPA`) |
-| `Cache-Control` / ETag / 304 | ETag/304 via `File`; no `Cache-Control` | Full (`MaxAge`, ETag, `Last-Modified`, 304) |
+| `Cache-Control` / ETag / 304 | None (`File` sets no `ETag` or `Last-Modified`, so no 304 and no `If-Range` match) | Full (`MaxAge`, ETag, `Last-Modified`, 304) |
 | Pre-compressed `.br`/`.gz` | No | Yes (`Compress`) |
 | Directory listing | No | Yes (`Browse`) |
 | Traversal-safe | Yes (`FileFromDir`) | Yes |
+
+## Range requests and resumable downloads
+
+`File`, `FileFromDir`, the `Static` helper and the static middleware answer a
+`Range` request the way RFC 9110 §14 describes. Only the `bytes` unit is
+understood, and only a single range is served.
+
+| Request | Response |
+| --- | --- |
+| `GET` with one satisfiable range, e.g. `Range: bytes=1000-` | `206 Partial Content`, `Content-Range: bytes 1000-65535/65536`, those bytes. A last position past the end, or a suffix longer than the file (`bytes=-100000`), is cut to the file. |
+| `GET` with a range no byte of the file satisfies, e.g. `bytes=70000-` on a 64 KiB file | `416 Range Not Satisfiable`, `Content-Range: bytes */65536`, no body. |
+| `If-Range` whose validator still matches | The range, as above. |
+| `If-Range` whose validator no longer matches | `200 OK` with the whole file. |
+| A syntactically invalid range, an unknown unit, or several satisfiable ranges (`bytes=0-1,5-6`) | `200 OK` with the whole file. `multipart/byteranges` is not supported. |
+| `HEAD` (or any method but `GET`) with `Range` | `Range` is ignored: the `200` headers of the whole file. |
+| An empty file | `Range` is ignored: `200 OK`. |
+
+**How `If-Range` is checked.** An entity-tag matches only under the *strong*
+comparison: both tags strong and byte-for-byte equal, so a weak tag (`W/"…"`)
+never matches. A date matches only when it is the same instant as the
+response's `Last-Modified`. What it is compared against:
+
+- **`File` / `FileFromDir` / `Static`**: the `ETag` and `Last-Modified`
+  response headers already set when `File` is called. `File` sets neither
+  itself, so set them in the handler if clients should resume with `If-Range`;
+  without them `If-Range` never matches and the whole file is sent.
+- **Static middleware**: its own `Last-Modified` and `ETag`. Its `ETag` is
+  weak (mtime and size), so only the `Last-Modified` date can match.
+
+```go
+s.GET("/downloads/:name", func(c *celeris.Context) error {
+    info, err := os.Stat(filepath.Join("./files", c.Param("name")))
+    if err != nil {
+        return celeris.NewHTTPError(404, "not found")
+    }
+    // Validators for If-Range (and caches). A strong ETag must change
+    // whenever the bytes do; mtime+size is a cheap stand-in.
+    c.SetHeader("last-modified", info.ModTime().UTC().Format(http.TimeFormat))
+    c.SetHeader("etag", fmt.Sprintf(`"%x-%x"`, info.ModTime().UnixNano(), info.Size()))
+    return c.FileFromDir("./files", c.Param("name"))
+})
+```
+
+Preconditions that come earlier still win: with the static middleware, a
+matching `If-None-Match` or `If-Modified-Since` gets `304` whatever the `Range`.
 
 ## Common pitfalls
 
@@ -392,9 +437,12 @@ From the file extension via `mime.TypeByExtension`. If the extension is unknown,
 additionally sniffs the first bytes with `http.DetectContentType`.
 
 **Do range requests / resumable downloads work?**
-Yes. `File` (and the helpers built on it) set `Accept-Ranges: bytes` and answer
-a valid `Range` header with `206 Partial Content` and a `Content-Range`. The
-static middleware supports ranges too.
+Yes, for a single range. `File` (and the helpers built on it) and the static
+middleware set `Accept-Ranges: bytes`, answer a satisfiable range with
+`206 Partial Content`, an unsatisfiable one with `416`, and honour `If-Range`,
+so a download resumed after the file changed restarts with the new file instead
+of splicing two versions. See
+[Range requests and resumable downloads](#range-requests-and-resumable-downloads).
 
 **Can I serve a single-binary app with no files on disk?**
 Yes — `go:embed` your assets and serve them with `FileFromFS` (fixed paths) or
