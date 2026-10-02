@@ -126,10 +126,11 @@ must be set, or `New` panics.
 ### Hashed passwords (bcrypt / argon2)
 
 **Never store plaintext passwords in production.** Storing real credentials means
-hashing them with a slow, credential-grade KDF. There is no built-in default —
-fast hashes like SHA-2/SHA-3/BLAKE2 are crackable at billions of guesses per
-second — so you must wire a `HashedUsersFunc`. The function receives the stored
-hash and the plaintext candidate and returns `true` on match:
+hashing them with a slow, credential-grade KDF. The one built-in format is PBKDF2
+(below); fast hashes like SHA-2/SHA-3/BLAKE2 are crackable at billions of guesses
+per second, so there is no fast-hash default, and any other format needs a
+`HashedUsersFunc`. The function receives the stored hash and the plaintext
+candidate and returns `true` on match:
 
 ```go
 import (
@@ -156,9 +157,27 @@ s.Use(basicauth.New(basicauth.Config{
 > empty hash, so for argon2 (or hand-rolled schemes) compare against a
 > pre-computed dummy hash with `crypto/subtle.ConstantTimeCompare`.
 
-The deprecated `basicauth.HashPassword` helper returns a hex SHA-256 digest; it
-is **not** credential-grade and is retained only for backwards compatibility. Do
-not use it for new code.
+Without a third-party dependency, hash with `basicauth.HashPasswordPBKDF2`
+(PBKDF2-HMAC-SHA256, a random 16-byte salt, 600,000 iterations). When every
+`HashedUsers` entry is in that format, `HashedUsersFunc` defaults to
+`basicauth.VerifyPassword`, which costs one PBKDF2 derivation for every input, so
+response time does not reveal whether a stored hash is well formed:
+
+```go
+s.Use(basicauth.New(basicauth.Config{
+    HashedUsers: map[string]string{
+        // the whole string basicauth.HashPasswordPBKDF2("s3cr3t") returned;
+        // New panics, naming the entry, if one does not parse
+        "alice": "pbkdf2-sha256$600000$...redacted...",
+    },
+}))
+```
+
+`VerifyPassword` accepts only `pbkdf2-sha256$...` strings. v1.6.0 removed the
+`basicauth.HashPassword` helper, whose bare hex SHA-256 digest is not
+credential-grade, and `VerifyPassword` no longer accepts such digests
+([celeris#826](https://github.com/goceleris/celeris/issues/826)). Re-hash any with
+`HashPasswordPBKDF2`.
 
 ### Reading the username downstream
 
