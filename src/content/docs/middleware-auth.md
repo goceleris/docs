@@ -113,7 +113,7 @@ failure the default `ErrorHandler` responds `401` with `WWW-Authenticate`,
 | Field | Type | Notes |
 | ----- | ---- | ----- |
 | `Users` | `map[string]string` | Plaintext user→pass. Auto constant-time validator. |
-| `HashedUsers` | `map[string]string` | User→opaque hash string. Needs `HashedUsersFunc` unless every entry is pbkdf2-sha256. |
+| `HashedUsers` | `map[string]string` | User→opaque hash string. Used only when `Validator`, `ValidatorWithContext` and `Users` are all unset, since those take precedence. Needs `HashedUsersFunc` unless every entry is pbkdf2-sha256. |
 | `HashedUsersFunc` | `func(hash, password string) bool` | Verifies a candidate against a stored hash. Defaults to `basicauth.VerifyPassword` when every `HashedUsers` entry is pbkdf2-sha256; for any other format it is required, and `New` panics without it. |
 | `Validator` | `func(user, pass string) bool` | Custom credential check. |
 | `ValidatorWithContext` | `func(c *celeris.Context, user, pass string) bool` | Like `Validator` but with the request context. Takes precedence over `Validator`. |
@@ -160,8 +160,11 @@ s.Use(basicauth.New(basicauth.Config{
 Without a third-party dependency, hash with `basicauth.HashPasswordPBKDF2`
 (PBKDF2-HMAC-SHA256, a random 16-byte salt, 600,000 iterations). When every
 `HashedUsers` entry is in that format, `HashedUsersFunc` defaults to
-`basicauth.VerifyPassword`, which costs one PBKDF2 derivation for every input, so
-response time does not reveal whether a stored hash is well formed:
+`basicauth.VerifyPassword`. It runs one PBKDF2 derivation for every input: at the
+stored iteration count for a valid entry, and at the default 600,000 for anything
+else. Response time therefore does not reveal whether a stored hash is well formed.
+An entry stored with more iterations than the default does take longer to verify,
+as a higher bcrypt cost does:
 
 ```go
 s.Use(basicauth.New(basicauth.Config{
