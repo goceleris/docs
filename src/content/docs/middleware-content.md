@@ -513,6 +513,7 @@ s.Use(swagger.New(swagger.Config{SpecContent: spec}))
 // → GET /swagger/      serves the UI
 // → GET /swagger/spec  serves the raw spec
 // → GET /swagger       301-redirects to /swagger/
+// → GET /swagger/assets/swagger-ui-dist@<version>/…  the embedded Swagger UI files
 ```
 
 Source: `celeris/middleware/swagger/swagger.go`, `swagger/config.go`.
@@ -536,9 +537,9 @@ s.Use(swagger.New(swagger.Config{
 ```
 
 Swagger UI is **embedded** in the package and served by the middleware itself,
-so the default page loads nothing from a third party. Scalar and ReDoc are not
-embedded: set `CDN: true` (pinned, integrity-checked) or `AssetsPath`, or `New`
-panics. See [assets](#assets-embedded-cdn-or-self-hosted).
+so the default page loads no script or stylesheet from a third party. Scalar and
+ReDoc are not embedded: set `CDN: true` (pinned, integrity-checked) or
+`AssetsPath`, or `New` panics. See [assets](#assets-embedded-cdn-or-self-hosted).
 
 ### Where the spec comes from
 
@@ -553,7 +554,7 @@ required (the middleware **panics at construction** if neither is set):
 
 If you don't set `SpecFile`, the content type of an inline spec is sniffed from
 its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
-`swagger/config.go:101-112`, `swagger/config.go:213-237`, `swagger/swagger.go:26-83`.
+`swagger/config.go:109-124`, `swagger/config.go:265-289`, `swagger/swagger.go:163-171`.
 
 ### Config reference
 
@@ -571,7 +572,7 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
-Source: `swagger/config.go:86-153`.
+Source: `swagger/config.go:86-197`.
 
 ### UI options
 
@@ -602,7 +603,7 @@ s.Use(swagger.New(swagger.Config{
 
 `DefaultModelsExpandDepth` is a `*int` so the middleware can tell "unset" (use the
 UI default of 1) from an explicit `0`. Use `swagger.IntPtr` to set it. Source:
-`swagger/config.go:24-160`.
+`swagger/config.go:24-62`, `swagger/config.go:199-204`.
 
 ### OAuth2 with PKCE
 
@@ -627,7 +628,7 @@ s.Use(swagger.New(swagger.Config{
 ```
 
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `UsePKCE`.
-Source: `swagger/config.go:52-84`, `swagger/swagger.go:118-143`.
+Source: `swagger/config.go:64-84`, `swagger/swagger.go:271-288`.
 
 ### Renderer-specific options
 
@@ -650,7 +651,7 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-Source: `swagger/config.go:120-138`, `swagger/swagger.go:175-234`.
+Source: `swagger/config.go:132-150`, `swagger/swagger.go:236-321`.
 
 ### Assets: embedded, CDN or self-hosted
 
@@ -669,17 +670,35 @@ serves them under `{BasePath}/assets/swagger-ui-dist@<version>/` with
 `Cache-Control: public, max-age=31536000, immutable`, which is safe because the
 version is part of the URL. The page then works offline, and its
 Content-Security-Policy needs no third-party origin for scripts or styles. (The
-page's initialiser is still an inline `<script>`.) Embedding adds about 2 MB to
-any binary that imports the package. Scalar (4.4 MB) and ReDoc (1.1 MB) are not
-embedded: the renderer is chosen at run time, so every embedded bundle would end
-up in every binary.
+page's initialiser is still an inline `<script>`.) The page references the files
+relative to `{BasePath}/`, so they also load behind a reverse proxy that
+publishes the page under another prefix (`/ext/swagger/` forwarded to
+`/swagger/`). Embedding adds about 2 MB to any binary that imports the package.
+Scalar (4.4 MB) and ReDoc (1.1 MB) are not embedded: the renderer is chosen at
+run time, so every embedded bundle would end up in every binary.
+
+**The asset requests must reach the middleware.** Besides `{BasePath}/` and
+`{BasePath}/spec`, the browser asks the middleware for
+`{BasePath}/assets/swagger-ui-dist@<version>/…`. If only the page and the spec
+get through, the page loads but stays blank. Routing exactly
+`s.GET("/swagger/", …)` and `s.GET("/swagger/spec", …)` is one such setup; a
+group-scoped mount and a proxy or ingress rule that forwards only those two
+paths are others. A middleware added with `s.Use` currently runs only for
+requests that match a route, unless a custom `NotFound` handler is set
+([celeris#852](https://github.com/goceleris/celeris/issues/852)). So mount it
+with `s.Pre`, register a catch-all route such as `s.GET("/swagger/*filepath", …)`,
+or set `NotFound`; and forward the whole `{BasePath}/` prefix through any proxy.
 
 **CDN.** `CDN: true` loads the renderer from `cdn.jsdelivr.net`, pinned to the
 exact versions in `swagger.SwaggerUIVersion`, `swagger.ScalarVersion` and
 `swagger.ReDocVersion`. Every tag carries a Subresource Integrity hash and
 `crossorigin="anonymous"`, so the browser refuses a file that differs from the
 release the package was built against. The page then needs `cdn.jsdelivr.net` in
-its CSP, and viewers need Internet access.
+its CSP, and viewers need Internet access. Swagger UI used to load from
+`unpkg.com`, so a CSP written for the old default must allow `cdn.jsdelivr.net`
+instead. Wherever it is loaded from, Scalar's bundle also names
+`fonts.scalar.com` (its default fonts, the `withDefaultFonts` option) and
+`proxy.scalar.com` (its request proxy, the `proxyUrl` option).
 
 ```go
 s.Use(swagger.New(swagger.Config{SpecContent: spec, CDN: true}))
@@ -700,7 +719,9 @@ s.Use(swagger.New(swagger.Config{
 You are responsible for putting the files at that prefix. The filenames differ
 per renderer: Swagger UI needs `swagger-ui.css`, `swagger-ui-bundle.js` and
 `swagger-ui-standalone-preset.js`; ReDoc needs `redoc.standalone.js`; Scalar
-needs `standalone.min.js`. The page is written for the pinned versions above and
+needs `standalone.min.js`. `@scalar/api-reference` ships that file as
+`dist/browser/standalone.js`, so serve it under the name `standalone.min.js`.
+The page is written for the pinned versions above and
 carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
 cannot both be set (`New` panics). Source: `swagger/assets.go`, `swagger/pins.go`.
 See [Static files](/docs/static-files) for serving a directory.
