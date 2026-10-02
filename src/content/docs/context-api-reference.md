@@ -245,7 +245,7 @@ func get(c *celeris.Context) error {
 
 | Signature | Behaviour |
 | --------- | --------- |
-| `File(filePath string) error` | Serve a file by path; content type from extension; supports `Range` (206). `HTTPError` 413 if over 100 MB. **Sanitize untrusted paths yourself.** |
+| `File(filePath string) error` | Serve a file by path; content type from extension; a `GET` with one satisfiable byte range gets 206, an unsatisfiable one 416, and `If-Range` is checked against the `ETag`/`Last-Modified` already set (see [Range requests](/docs/static-files#range-requests-and-resumable-downloads)). `HTTPError` 413 if over 100 MB. **Sanitize untrusted paths yourself.** |
 | `FileFromDir(baseDir, userPath string) error` | Serve a file safely from within `baseDir` — cleans/joins and rejects traversal (incl. symlink escape) with `HTTPError` 400. |
 | `FileFromFS(name string, fsys fs.FS) error` | Serve a file from an `fs.FS` (e.g. `embed.FS`). `HTTPError` 413 if over 100 MB. Sanitize untrusted `name`. |
 | `Attachment(filename string)` | Set `Content-Disposition: attachment` (prompts a download). |
