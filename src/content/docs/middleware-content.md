@@ -521,9 +521,15 @@ var spec []byte
 s.Use(swagger.New(swagger.Config{SpecContent: spec}))
 // → GET /swagger/      serves the UI
 // → GET /swagger/spec  serves the raw spec
-// → GET /swagger       301-redirects to /swagger/
+// → GET /swagger       301-redirects to /swagger/ (Location: ./swagger/)
 // → GET /swagger/assets/swagger-ui-dist@<version>/…  the embedded Swagger UI files
+// → GET /swagger/oauth2-redirect.html (and .js)       Swagger UI's OAuth2 redirect page
 ```
+
+The page refers to the spec, to its files and to the redirect page relative to
+itself, and the redirect's `Location` is relative too. So the defaults also work
+behind a reverse proxy that publishes the app under another prefix and strips it
+(the browser asks for `/ext/swagger/`, the app sees `/swagger/`).
 
 Source: `celeris/middleware/swagger/swagger.go`, `swagger/config.go`.
 
@@ -557,13 +563,13 @@ required (the middleware **panics at construction** if neither is set):
 
 | Field         | Type     | Meaning                                                                                  |
 | ------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `SpecContent` | `[]byte` | Inline spec (JSON or YAML). Served at `{BasePath}/spec`.                                  |
+| `SpecContent` | `[]byte` | Inline spec (JSON or YAML). Served at `{BasePath}/spec`; the page loads it as `spec`, relative to itself. |
 | `SpecURL`     | `string` | URL to an externally hosted spec. When set, `SpecContent` is ignored and `/spec` is **not** registered. |
 | `SpecFile`    | `string` | Original filename (e.g. `"openapi.yaml"`); a hint for content-type detection of `SpecContent`. |
 
 If you don't set `SpecFile`, the content type of an inline spec is sniffed from
 its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
-`swagger/config.go:109-124`, `swagger/config.go:265-289`, `swagger/swagger.go:163-171`.
+`swagger/config.go:137-154`, `swagger/config.go:298-322`, `swagger/swagger.go:176-187`.
 
 ### Config reference
 
@@ -581,7 +587,7 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
-Source: `swagger/config.go:86-197`.
+Source: `swagger/config.go:105-230`.
 
 ### UI options
 
@@ -595,7 +601,8 @@ Scalar/ReDoc:
 | `DeepLinking`               | `bool`   | `false`                 | Deep links for tags/operations. Swagger UI only.                  |
 | `PersistAuthorization`      | `bool`   | `false`                 | Keep auth across sessions. Swagger UI only.                       |
 | `DefaultModelsExpandDepth`  | `*int`   | `nil` (UI default 1)    | `IntPtr(0)` = names only, `IntPtr(-1)` = hide models. Swagger UI only. |
-| `OAuth2RedirectURL`         | `string` | `""`                    | OAuth2 redirect URL. Swagger UI only.                             |
+| `OAuth2RedirectURL`         | `string` | `""` (`{BasePath}/oauth2-redirect.html`) | OAuth2 redirect URL. Leave it empty: the middleware serves the redirect page. Swagger UI only. |
+| `ValidatorURL`              | `string` | `""` (badge off)        | Validator the online validator badge sends the spec URL to. Swagger UI only. |
 | `OAuth2`                    | `*OAuth2Config` | `nil`            | Pre-fills the OAuth2 dialog. Swagger UI only.                     |
 
 ```go
@@ -612,7 +619,7 @@ s.Use(swagger.New(swagger.Config{
 
 `DefaultModelsExpandDepth` is a `*int` so the middleware can tell "unset" (use the
 UI default of 1) from an explicit `0`. Use `swagger.IntPtr` to set it. Source:
-`swagger/config.go:24-62`, `swagger/config.go:199-204`.
+`swagger/config.go:24-81`, `swagger/config.go:232-237`.
 
 ### OAuth2 with PKCE
 
@@ -625,7 +632,6 @@ confidential token exchange on your backend, never in the page.
 s.Use(swagger.New(swagger.Config{
     SpecContent: spec,
     UI: swagger.UIConfig{
-        OAuth2RedirectURL: "/swagger/oauth2-redirect.html",
         OAuth2: &swagger.OAuth2Config{
             ClientID: "my-public-client",  // public; embedded in HTML
             AppName:  "Acme API Docs",
@@ -636,8 +642,21 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
+The authorization server sends the browser back to Swagger UI's redirect page,
+which hands the result to the docs page through `window.opener`, so it must come
+from the docs page's own origin. The middleware serves it, the one shipped in
+swagger-ui-dist, at `{BasePath}/oauth2-redirect.html` (its script at
+`{BasePath}/oauth2-redirect.js`), whether the UI's files are embedded, on the CDN
+or self-hosted. That is where Swagger UI sends the browser when
+`OAuth2RedirectURL` is empty: the page's directory plus `oauth2-redirect.html`,
+as an absolute URL on the page's origin. Register that URL with the authorization
+server as a redirect URI (for example `https://api.example.com/swagger/oauth2-redirect.html`,
+or the public URL behind a proxy). Set `OAuth2RedirectURL` only to use a page of
+your own; it is sent as the `redirect_uri`, so it must be an absolute URL on the
+docs page's origin.
+
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `UsePKCE`.
-Source: `swagger/config.go:64-84`, `swagger/swagger.go:271-288`.
+Source: `swagger/config.go`, `swagger/swagger.go`, `swagger/assets.go`.
 
 ### Renderer-specific options
 
@@ -661,7 +680,7 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-Source: `swagger/config.go:132-150`, `swagger/swagger.go:236-321`.
+Source: `swagger/config.go:162-180`, `swagger/swagger.go:281-372`.
 
 ### Assets: embedded, CDN or self-hosted
 
@@ -681,10 +700,13 @@ serves them under `{BasePath}/assets/swagger-ui-dist@<version>/` with
 version is part of the URL. The page then works without Internet access, as
 long as the spec is `SpecContent` or a `SpecURL` on your own server, and its
 Content-Security-Policy needs no third-party origin for scripts or styles. (The
-page's initialiser is still an inline `<script>`.) The page references the files
-relative to `{BasePath}/`, so they also load behind a reverse proxy that
-publishes the page under another prefix (`/ext/swagger/` forwarded to
-`/swagger/`). Embedding adds about 2 MB to any binary that imports the package.
+page's initialiser is still an inline `<script>`.) Swagger UI's online validator
+badge is off: the page sets `validatorUrl: "none"`, so no viewer's browser sends
+the spec's URL to `validator.swagger.io` (which would also fetch the spec when it
+can reach it). Set `UI.ValidatorURL` to a validator you trust to show the badge.
+The page references the files relative to `{BasePath}/`, so they also load
+behind a reverse proxy that publishes the page under another prefix
+(`/ext/swagger/` forwarded to `/swagger/`). Embedding adds about 2 MB to any binary that imports the package.
 Like the page and the spec, the files are public unless an authentication
 middleware runs before `swagger`: the bundle is a 1.5 MiB response at a fixed
 URL.
@@ -740,13 +762,15 @@ s.Pre(swagger.New(swagger.Config{
 }))
 ```
 
-You are responsible for putting the files at that prefix. The filenames differ
-per renderer: Swagger UI needs `swagger-ui.css`, `swagger-ui-bundle.js` and
-`swagger-ui-standalone-preset.js`; ReDoc needs `redoc.standalone.js`; Scalar
-needs `standalone.min.js`. `@scalar/api-reference` ships that file as
-`dist/browser/standalone.js`, so serve it under the name `standalone.min.js`.
-The page is written for the pinned versions above and
-carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
+You are responsible for putting the files at that prefix, under the names the
+packages publish them: Swagger UI needs `swagger-ui.css`, `swagger-ui-bundle.js`
+and `swagger-ui-standalone-preset.js` (swagger-ui-dist's root); ReDoc needs
+`redoc.standalone.js` (redoc's `bundles/`); Scalar needs `standalone.js`
+(`@scalar/api-reference`'s `dist/browser/`). Before celeris v1.6.0 the Scalar
+page asked for `standalone.min.js`, a name the package does not publish: if you
+served Scalar's file under that name, serve it as `standalone.js` now. Swagger
+UI's OAuth2 redirect page is still served by the middleware. The page is
+written for the pinned versions above and carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
 cannot both be set (`New` panics). Source: `swagger/assets.go`, `swagger/pins.go`.
 See [Static files](/docs/static-files) for serving a directory.
 
@@ -805,7 +829,9 @@ custom marshal/unmarshal options via `FromContext`.
 
 **How do I serve the OpenAPI spec at a different path?**
 Set `BasePath`. The UI is served at `{BasePath}/` and the inline spec at
-`{BasePath}/spec`; a bare `{BasePath}` 301-redirects to the trailing-slash form.
+`{BasePath}/spec`; a bare `{BasePath}` 301-redirects to the trailing-slash form
+with a relative `Location` (`./api/` for `BasePath: "/docs/api"`), so the redirect
+stays under a reverse proxy's prefix.
 
 **How does `cache` choose what to store from a single concurrent burst?**
 With `Singleflight` (default on), one leader runs the handler and its waiters
