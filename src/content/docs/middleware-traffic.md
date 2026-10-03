@@ -703,7 +703,7 @@ When many identical requests arrive at once (a cache stampede, a dashboard that
 N clients all refresh on the same tick), `singleflight` lets the **first**
 request run the handler and serves every concurrent duplicate a *copy* of that
 one response. Coalesced responses carry an `X-Singleflight: HIT` header.
-Source: `celeris/middleware/singleflight/singleflight.go:59`, `singleflight.go:115`.
+Source: `celeris/middleware/singleflight/singleflight.go:59`, `singleflight.go:123`.
 
 ```go
 import "github.com/goceleris/celeris/middleware/singleflight"

@@ -148,7 +148,7 @@ single-instance app needs zero store configuration:
 | Middleware    | Config field | Type | Capabilities required | Default |
 | ------------- | ------------ | ---- | --------------------- | ------- |
 | Session       | `Store` | `store.KV` | `Scanner` for `Reset` (else no-op) | in-memory (`session.NewMemoryStore`) — `middleware/session/config.go:63-66,205-206` |
-| Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `middleware/cache/config.go:12-13,84-85` |
+| Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `middleware/cache/config.go:12-13,89-90` |
 | CSRF          | `Storage` | `store.KV` | `GetAndDeleter` for single-use tokens | **nil** — pure double-submit cookie mode (`middleware/csrf/config.go:73-82`) |
 | Idempotency   | `Store` | `idempotency.KVStore` (`store.KV` + `store.SetNXer`) | **`SetNXer` is mandatory** | in-memory — `middleware/idempotency/config.go:15-24` |
 | SSE replay    | `KV` | `store.KV` | `Counter` for cross-process IDs (else per-process) | none — you supply it — `middleware/sse/replay_kv.go:32-34` |

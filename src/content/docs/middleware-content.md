@@ -117,7 +117,7 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
 If compression itself errors, the middleware degrades gracefully: it flushes the
 original uncompressed body so the client never sees a blank page.
 
-Source: `compress/compress.go:84-194`.
+Source: `compress/compress.go:84-198`.
 
 ### Install order relative to `etag`
 
@@ -203,7 +203,7 @@ before `Range` (RFC 9110 §13.2.2).
 
 If a downstream handler or middleware (for example the `static` file middleware)
 **already** set an `ETag` header, `etag` reuses that tag verbatim instead of
-hashing the body — so you never get a double tag. Source: `etag/etag.go:17-97`.
+hashing the body — so you never get a double tag. Source: `etag/etag.go:17-111`.
 
 ### It must be the innermost transform
 
@@ -247,7 +247,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `Skip`                | `func(*Context) bool`         | `nil`                  | Return `true` to skip caching for a request.                                            |
 | `SkipPaths`           | `[]string`                    | `nil`                  | Exact-match paths to skip.                                                              |
 
-Source: `cache/config.go:11-72`.
+Source: `cache/config.go:11-77`.
 
 ### Cache keys and `VaryHeaders`
 
@@ -274,7 +274,7 @@ s.Use(cache.New(cache.Config{
 }))
 ```
 
-Source: `cache/cache.go:292-335`.
+Source: `cache/cache.go:304-347`.
 
 ### Singleflight
 
@@ -311,7 +311,7 @@ s.GET("/me", func(c *celeris.Context) error {
 
 `Set-Cookie` is excluded from the stored header set by default, so a cached
 response won't leak one user's session cookie to another. Source:
-`cache/cache.go:191-220`, `cache/config.go:102-104`.
+`cache/cache.go:191-220`, `cache/config.go:107-109`.
 
 ### Invalidation
 
@@ -345,7 +345,7 @@ s.POST("/users/:id", func(c *celeris.Context) error {
 > your invalidation calls. The middleware does not expose the store it created
 > internally, so to invalidate you must own the reference.
 
-Source: `cache/cache.go:386-403`.
+Source: `cache/cache.go:398-415`.
 
 ### Pluggable stores
 
