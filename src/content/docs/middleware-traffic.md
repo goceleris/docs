@@ -731,6 +731,10 @@ s.GET("/me/feed", singleflight.New(singleflight.Config{
 it is not a cache. Once the leader returns, the next request runs the handler
 fresh. It's purely a stampede guard.
 
+A request with a `Range` header is never coalesced: its response, a
+`206 Partial Content`, answers that range, so it must not be handed to requests
+for the whole resource, and a ranged request must not wait on a full one.
+
 ### `idempotency` — make retries safe
 
 `idempotency` implements the HTTP `Idempotency-Key` pattern: a client sends a

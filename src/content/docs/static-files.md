@@ -390,6 +390,11 @@ response's `Last-Modified`. What it is compared against:
 - **Static middleware**: its own `Last-Modified` and `ETag`. Its `ETag` is
   weak (mtime and size), so only the `Last-Modified` date can match.
 
+**Behind `cache`, `compress`, `etag` or `singleflight`.** A `206` goes through
+each of them untouched: `cache` never stores a `206` or a `416` (its key does not
+include `Range`), `compress` does not encode a `206`, `etag` does not tag one,
+and `singleflight` does not coalesce a request with a `Range` header.
+
 ```go
 // Opened once at startup: os.Root keeps every lookup inside ./files,
 // symlinks included.

@@ -102,7 +102,10 @@ Source: `compress/config.go:11-28`, `compress/config.go:109-146`.
 Even when the client accepts a codec, `compress` flushes the body **uncompressed**
 (but still sets `Vary: Accept-Encoding`) in these cases:
 
-- The response status is not `2xx`.
+- The response status is not `2xx`, or it is `206 Partial Content`. A 206's
+  `Content-Range` counts bytes of the uncompressed file, and once a
+  `Content-Encoding` applies a range is over the encoded bytes (RFC 9110
+  §14.1.2), so a compressed part could not be reassembled.
 - The body is empty, or smaller than `MinLength`.
 - The response already has a `Content-Encoding` header (don't double-compress).
 - The content type matches an `ExcludedContentTypes` prefix.
@@ -192,6 +195,10 @@ s.Use(etag.New(etag.Config{
 `2xx` and the body is non-empty. On an `If-None-Match` match it discards the
 buffered body and returns `304` with the validator header set.
 
+A `206 Partial Content` passes through untouched, whatever tag the handler set
+on it: its body is one part of the file, whose hash is not the file's tag, and
+`etag` does not answer `If-None-Match` for it.
+
 If a downstream handler or middleware (for example the `static` file middleware)
 **already** set an `ETag` header, `etag` reuses that tag verbatim instead of
 hashing the body — so you never get a double tag. Source: `etag/etag.go:17-97`.
@@ -228,7 +235,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `KeyGenerator`        | `func(*Context) string`       | method+path+query+vary | Derives the cache key. See below.                                                       |
 | `Singleflight`        | `bool`                        | `true`                 | Coalesce concurrent misses for the same key into one handler run.                        |
 | `Methods`             | `[]string`                    | `["GET", "HEAD"]`      | Methods eligible for caching. Others pass through untouched.                             |
-| `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored.                                          |
+| `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored. A `206` or `416` is never stored, whatever it says: both answer the request's `Range`, which the key does not include. |
 | `VaryHeaders`         | `[]string`                    | `nil`                  | Request headers folded into the default key.                                            |
 | `HeaderName`          | `string`                      | `"X-Cache"`            | Header set to `HIT`/`MISS`/`ERROR`. `""` disables it.                                    |
 | `MaxBodyBytes`        | `int`                         | `1 << 20` (1 MiB)      | Bodies larger than this are not cached.                                                  |
