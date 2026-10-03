@@ -252,9 +252,12 @@ The drain waits for:
 
 - every **HTTP/1.1** request, on every engine;
 - on `epoll`, `io_uring` and `adaptive`, every **HTTP/2** stream. A stream whose
-  handler runs on the connection's worker (every route that is not async) is waited
+  handler runs on the connection's worker (a route that is not async) is waited
   for like an HTTP/1.1 request. A stream on an **async route** (`.Async()`, or a route
-  `Config.AsyncHandlers` has made async) runs on a shared HTTP/2 worker pool: the
+  `Config.AsyncHandlers` has made async), and a sync route's stream on a connection
+  that holds 4 MiB of response data its client has not granted window for (see
+  [Core concepts](/docs/core-concepts), "HTTP/2: a response write can wait for the
+  client"), runs on a shared HTTP/2 worker pool: the
   engine sends each HTTP/2 connection GOAWAY, so its client opens no new stream on it,
   refuses (`REFUSED_STREAM`, safe for the client to retry elsewhere) a stream it opens
   anyway, and keeps serving the connection until those handlers have returned and
@@ -262,7 +265,11 @@ The drain waits for:
   `WINDOW_UPDATE` included. It does so while the shutdown's context is live (until its
   deadline or, for a `ctx` with no deadline, until it is done, and, while
   `Config.WriteTimeout` is set, no longer than that), and never for less than 250 ms,
-  even with a shorter `WriteTimeout`;
+  even with a shorter `WriteTimeout`. A handler waiting for the client's window gives
+  up at `WriteTimeout` from its write. With `WriteTimeout: -1` it waits until the
+  client grants window or closes, and if a sync handler waiting on it (a lock it holds
+  across the write) blocks the worker that would see either, nothing ends the wait
+  and the server does not stop, whatever the shutdown's deadline;
 - on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
 
 While the native engines wait for those handlers they accept no new connection: `epoll`
