@@ -113,7 +113,7 @@ failure the default `ErrorHandler` responds `401` with `WWW-Authenticate`,
 | Field | Type | Notes |
 | ----- | ---- | ----- |
 | `Users` | `map[string]string` | Plaintext user→pass. Auto constant-time validator. |
-| `HashedUsers` | `map[string]string` | User→opaque hash string. Used only when `Validator`, `ValidatorWithContext` and `Users` are all unset, since those take precedence. Needs `HashedUsersFunc` unless every entry is pbkdf2-sha256. |
+| `HashedUsers` | `map[string]string` | User→opaque hash string. Used only when `Validator` and `ValidatorWithContext` are nil and `Users` is empty, since those take precedence. Needs `HashedUsersFunc` unless every entry is pbkdf2-sha256. |
 | `HashedUsersFunc` | `func(hash, password string) bool` | Verifies a candidate against a stored hash. Defaults to `basicauth.VerifyPassword` when every `HashedUsers` entry is pbkdf2-sha256; for any other format it is required, and `New` panics without it. |
 | `Validator` | `func(user, pass string) bool` | Custom credential check. |
 | `ValidatorWithContext` | `func(c *celeris.Context, user, pass string) bool` | Like `Validator` but with the request context. Takes precedence over `Validator`. |
