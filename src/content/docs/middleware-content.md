@@ -668,7 +668,8 @@ byte for byte as published, together with its upstream licence notices
 (Apache-2.0 `LICENSE` and `NOTICE`, plus the bundles' third-party notices). It
 serves them under `{BasePath}/assets/swagger-ui-dist@<version>/` with
 `Cache-Control: public, max-age=31536000, immutable`, which is safe because the
-version is part of the URL. The page then works offline, and its
+version is part of the URL. The page then works without Internet access, as
+long as the spec is `SpecContent` or a `SpecURL` on your own server, and its
 Content-Security-Policy needs no third-party origin for scripts or styles. (The
 page's initialiser is still an inline `<script>`.) The page references the files
 relative to `{BasePath}/`, so they also load behind a reverse proxy that
@@ -678,7 +679,12 @@ Like the page and the spec, the files are public unless an authentication
 middleware runs before `swagger`: the bundle is a 1.5 MiB response at a fixed
 URL.
 Scalar (4.4 MB) and ReDoc (1.1 MB) are not embedded: the renderer is chosen at
-run time, so every embedded bundle would end up in every binary.
+run time, so every embedded bundle would end up in every binary. (Measured in
+[celeris#851](https://github.com/goceleris/celeris/pull/851): with
+swagger-ui-dist 5.33.1, linux/amd64 and arm64 binaries grow by 2.03 to 2.07 MB
+and `swagger-ui-bundle.js` is 1,586,002 bytes; Scalar 1.72.4's
+`standalone.js` is 4,381,105 bytes and ReDoc 2.5.4's `redoc.standalone.js`
+1,103,471.)
 
 **The asset requests must reach the middleware.** Besides `{BasePath}/` and
 `{BasePath}/spec`, the browser asks the middleware for
@@ -700,14 +706,15 @@ exact versions in `swagger.SwaggerUIVersion`, `swagger.ScalarVersion` and
 `swagger.ReDocVersion`. Every tag carries a Subresource Integrity hash and
 `crossorigin="anonymous"`, so the browser refuses a file that differs from the
 release the package was built against. The page then needs `cdn.jsdelivr.net` in
-its CSP, and viewers need Internet access. Swagger UI used to load from
-`unpkg.com`, so a CSP written for the old default must allow `cdn.jsdelivr.net`
-instead. Wherever it is loaded from, Scalar's bundle also names
+its CSP, and viewers need Internet access. Before
+[celeris#851](https://github.com/goceleris/celeris/pull/851), Swagger UI loaded
+from `unpkg.com`, so a CSP written for the old default must allow
+`cdn.jsdelivr.net` instead. Wherever it is loaded from, Scalar's bundle also names
 `fonts.scalar.com` (its default fonts, the `withDefaultFonts` option) and
 `proxy.scalar.com` (its request proxy, the `proxyUrl` option).
 
 ```go
-s.Use(swagger.New(swagger.Config{SpecContent: spec, CDN: true}))
+s.Pre(swagger.New(swagger.Config{SpecContent: spec, CDN: true})) // s.Pre: see above (celeris#852)
 ```
 
 **Self-hosted.** Set `AssetsPath` to a URL prefix you serve the files from, for
@@ -715,8 +722,9 @@ example with the `static` middleware:
 
 ```go
 // Serve the downloaded swagger-ui-dist files under /swagger-assets.
-s.Use(static.New(static.Config{Root: "./swagger-ui-dist", Prefix: "/swagger-assets"}))
-s.Use(swagger.New(swagger.Config{
+// Both are mounted with s.Pre so that their unrouted paths reach them (celeris#852).
+s.Pre(static.New(static.Config{Root: "./swagger-ui-dist", Prefix: "/swagger-assets"}))
+s.Pre(swagger.New(swagger.Config{
     SpecContent: spec,
     AssetsPath:  "/swagger-assets", // page now references {AssetsPath}/swagger-ui-bundle.js etc.
 }))
