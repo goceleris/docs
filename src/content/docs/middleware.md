@@ -160,8 +160,10 @@ request. Before celeris v1.6.0 this happened only when a `NotFound` or
 `MethodNotAllowed` handler was set
 ([celeris#852](https://github.com/goceleris/celeris/issues/852)). Under
 `AsyncHandlers: true` an unmatched request is dispatched like a route that inherits
-that default, so a global middleware that blocks (a remote session store, an auth
-upstream) does not hold an engine worker for 404s.
+that default, with one decision for all unmatched requests: a global middleware that
+blocks only for some of them (a remote session store, an auth upstream) can still
+hold an engine worker for one, and with `AsyncHandlers: false` they always run inline
+(see `AsyncHandlers` in [Configuration](/docs/configuration)).
 
 > **Check what a `Use`-mounted endpoint lets in.** A `pprof`, `debug`, `metrics` or
 > `static` middleware mounted with `s.Use`, which answered 404 before v1.6.0 when no
@@ -541,9 +543,9 @@ Three `*Server` hooks complete the request lifecycle. All must be set before
 
 | Hook                        | Fires when                                                       | Source                  |
 | --------------------------- | --------------------------------------------------------------- | ----------------------- |
-| `OnError(fn)`               | An unhandled error reaches the safety net after all middleware. | `celeris/server.go:215` |
-| `NotFound(handler)`         | No route matches the request path, and no global middleware answered it. | `celeris/server.go:199` |
-| `MethodNotAllowed(handler)` | The path matches but the method doesn't (`Allow` header is set automatically), and no global middleware answered it. | `celeris/server.go:206` |
+| `OnError(fn)`               | An unhandled error reaches the safety net after all middleware. | `celeris/server.go:300` |
+| `NotFound(handler)`         | No route matches the request path, and no global middleware answered it. | `celeris/server.go:279` |
+| `MethodNotAllowed(handler)` | The path matches but the method doesn't (`Allow` header is set automatically), and no global middleware answered it. | `celeris/server.go:291` |
 
 ```go
 s.OnError(func(c *celeris.Context, err error) {

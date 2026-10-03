@@ -417,9 +417,16 @@ Individual routes and groups override this with `Route.Async()` / `RouteGroup.As
 this `false` and mark just the I/O routes `.Async()` / `.UsesDriver()`. See
 [Routing](/docs/routing) for the per-route controls and [Engines](/docs/engines) for
 the full dispatch model. A request no route matches runs the global middleware
-too; with `AsyncHandlers: true` it is dispatched like a route that inherits that
-default (inline until its chain blocks, then async), so a blocking global middleware
-does not hold a worker for 404s either.
+too. With `AsyncHandlers: true` it is dispatched like a route that inherits that
+default: inline until a timed run of its chain blocks, then async. All unmatched
+requests share that one decision, and a run of fast ones (scanner 404s, health
+checks) settles it as it settles a route; from then on an unmatched request whose
+chain blocks runs inline on the engine worker, unless it is the one re-timed after a
+settle re-open (every 5 s). With `AsyncHandlers: false` unmatched requests always run
+inline, even when routes are `.Async()`. So a global middleware that can block (a
+remote session store, an auth upstream, `pprof`'s profile) can hold an engine worker,
+and every connection on it, for an unmatched request; mount it on `.Async()` routes
+where that matters.
 
 ```go
 celeris.Config{AsyncHandlers: false}            // default: inline; mark I/O routes .Async()

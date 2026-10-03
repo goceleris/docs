@@ -331,6 +331,20 @@ api.Use(circuitbreaker.New(circuitbreaker.Config{
 }))
 ```
 
+> **Installed with `s.Use`, the breaker also counts requests no route matches**
+> (celeris v1.6.0, [celeris#852](https://github.com/goceleris/celeris/issues/852)).
+> Under the default `IsError` their 404 or 405 is a success, so a run of them (a
+> scanner, a browser's `/favicon.ico`) dilutes the failure ratio, and one can be the
+> half-open probe that closes the breaker while the dependency still fails. Wrap only
+> the routes that call the dependency, as above, or skip the requests no route
+> matched, whose `FullPath()` is a sentinel such as `<unmatched>`:
+>
+> ```go
+> s.Use(circuitbreaker.New(circuitbreaker.Config{
+>     Skip: func(c *celeris.Context) bool { return !strings.HasPrefix(c.FullPath(), "/") },
+> }))
+> ```
+
 ### Observing and controlling the breaker
 
 `New` returns just the handler. Use `NewWithBreaker` when you want a handle on the
