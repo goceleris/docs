@@ -275,6 +275,12 @@ s.MethodNotAllowed(func(c *celeris.Context) error {
 These handlers run *inside* the error path, so if they themselves return an
 error it flows through `OnError` / the safety net like any other.
 
+The global middleware (`s.Use`) runs for unmatched requests too, before either
+handler, and the handler (or the built-in 404 / 405) runs only if no middleware
+has answered the request: a `swagger`, `pprof` or `static` middleware serves its
+own paths first, and an authentication middleware's 401 is sent instead of the
+404. Group and route middleware do not run for an unmatched request.
+
 ## Writing first, then returning an error is a no-op
 
 Once a response has been committed, the error path cannot overwrite it. Every
