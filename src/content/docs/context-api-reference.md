@@ -149,9 +149,6 @@ func create(c *celeris.Context) error {
 }
 ```
 
-> `FormValueOk` exists as a **deprecated** alias for `FormValueOK` — prefer the
-> capitalized form.
-
 ---
 
 ## 4. Identity and connection metadata

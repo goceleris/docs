@@ -113,8 +113,8 @@ failure the default `ErrorHandler` responds `401` with `WWW-Authenticate`,
 | Field | Type | Notes |
 | ----- | ---- | ----- |
 | `Users` | `map[string]string` | Plaintext user→pass. Auto constant-time validator. |
-| `HashedUsers` | `map[string]string` | User→opaque hash string. **Requires** `HashedUsersFunc`. |
-| `HashedUsersFunc` | `func(hash, password string) bool` | Verifies a candidate against a stored hash. Required whenever `HashedUsers` is set — `New` panics otherwise. |
+| `HashedUsers` | `map[string]string` | User→opaque hash string. Used only when `Validator` and `ValidatorWithContext` are nil and `Users` is empty, since those take precedence. Needs `HashedUsersFunc` unless every entry is pbkdf2-sha256. |
+| `HashedUsersFunc` | `func(hash, password string) bool` | Verifies a candidate against a stored hash. Defaults to `basicauth.VerifyPassword` when every `HashedUsers` entry is pbkdf2-sha256; for any other format it is required, and `New` panics without it. |
 | `Validator` | `func(user, pass string) bool` | Custom credential check. |
 | `ValidatorWithContext` | `func(c *celeris.Context, user, pass string) bool` | Like `Validator` but with the request context. Takes precedence over `Validator`. |
 | `Realm` | `string` | Authentication realm. Default `"Restricted"`. |
@@ -123,13 +123,14 @@ failure the default `ErrorHandler` responds `401` with `WWW-Authenticate`,
 At least one of `Users`, `HashedUsers`, `Validator`, or `ValidatorWithContext`
 must be set, or `New` panics.
 
-### Hashed passwords (bcrypt / argon2)
+### Hashed passwords (PBKDF2, bcrypt, argon2)
 
 **Never store plaintext passwords in production.** Storing real credentials means
-hashing them with a slow, credential-grade KDF. There is no built-in default —
-fast hashes like SHA-2/SHA-3/BLAKE2 are crackable at billions of guesses per
-second — so you must wire a `HashedUsersFunc`. The function receives the stored
-hash and the plaintext candidate and returns `true` on match:
+hashing them with a slow, credential-grade KDF. The one built-in format is PBKDF2
+(below); fast hashes like SHA-2/SHA-3/BLAKE2 are crackable at billions of guesses
+per second, so there is no fast-hash default, and any other format needs a
+`HashedUsersFunc`. The function receives the stored hash and the plaintext
+candidate and returns `true` on match:
 
 ```go
 import (
@@ -156,9 +157,31 @@ s.Use(basicauth.New(basicauth.Config{
 > empty hash, so for argon2 (or hand-rolled schemes) compare against a
 > pre-computed dummy hash with `crypto/subtle.ConstantTimeCompare`.
 
-The deprecated `basicauth.HashPassword` helper returns a hex SHA-256 digest; it
-is **not** credential-grade and is retained only for backwards compatibility. Do
-not use it for new code.
+Without a third-party dependency, hash with `basicauth.HashPasswordPBKDF2`
+(PBKDF2-HMAC-SHA256, a random 16-byte salt, 600,000 iterations). When every
+`HashedUsers` entry is in that format, `HashedUsersFunc` defaults to
+`basicauth.VerifyPassword`. It runs one PBKDF2 derivation for every input: at the
+stored iteration count for a valid entry, and at the default 600,000 for anything
+else. Response time therefore does not reveal whether a stored hash is well formed.
+An entry stored with more iterations than the default does take longer to verify,
+as a higher bcrypt cost does:
+
+```go
+s.Use(basicauth.New(basicauth.Config{
+    HashedUsers: map[string]string{
+        // the whole string basicauth.HashPasswordPBKDF2("s3cr3t") returned.
+        // New panics if an entry is not valid pbkdf2-sha256, and names the
+        // entry when it keeps the pbkdf2-sha256$ prefix
+        "alice": "pbkdf2-sha256$600000$...redacted...",
+    },
+}))
+```
+
+`VerifyPassword` accepts only `pbkdf2-sha256$...` strings. v1.6.0 removed the
+`basicauth.HashPassword` helper, whose bare hex SHA-256 digest is not
+credential-grade, and `VerifyPassword` no longer accepts such digests
+([celeris#826](https://github.com/goceleris/celeris/issues/826)). Re-hash any with
+`HashPasswordPBKDF2`.
 
 ### Reading the username downstream
 

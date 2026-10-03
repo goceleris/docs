@@ -262,11 +262,6 @@ s.Use(ratelimit.New(ratelimit.Config{
 }))
 ```
 
-> `LimitReached func(c *celeris.Context) error` is the deprecated predecessor of
-> `ErrorHandler`; if both are set, `ErrorHandler` wins. Prefer `ErrorHandler` for
-> consistency with the rest of the middleware family.
-> Source: `celeris/middleware/ratelimit/config.go:108-122`.
-
 ## Circuit breakers
 
 A rate limiter protects *you* from your callers. A circuit breaker protects you
