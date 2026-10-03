@@ -252,9 +252,12 @@ The drain waits for:
 
 - every **HTTP/1.1** request, on every engine;
 - on `epoll`, `io_uring` and `adaptive`, every **HTTP/2** stream. A stream whose
-  handler runs on the connection's worker (every route that is not async) is waited
+  handler runs on the connection's worker (a route that is not async) is waited
   for like an HTTP/1.1 request. A stream on an **async route** (`.Async()`, or a route
-  `Config.AsyncHandlers` has made async) runs on a shared HTTP/2 worker pool: the
+  `Config.AsyncHandlers` has made async), and a sync route's stream on a connection
+  that holds 4 MiB of response data its client has not granted window for (see
+  [Core concepts](/docs/core-concepts), "HTTP/2: a response write can wait for the
+  client"), runs on a shared HTTP/2 worker pool: the
   engine sends each HTTP/2 connection GOAWAY, so its client opens no new stream on it,
   refuses (`REFUSED_STREAM`, safe for the client to retry elsewhere) a stream it opens
   anyway, and keeps serving the connection until those handlers have returned and
