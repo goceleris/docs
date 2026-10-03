@@ -253,6 +253,10 @@ func (s *Server) MethodNotAllowed(handler HandlerFunc) *Server
   `POST` to a `GET`-only route). The **`Allow` header is set automatically** to
   the list of supported methods before your handler runs. Without it, Celeris
   sends `405 Method Not Allowed` as `text/plain`, again with the `Allow` header.
+  `HEAD` to a path with a `GET` route and `OPTIONS` to any routed path never get
+  here: they are answered for you (the `GET` route without its body, and `200`
+  with `Allow`; see [Routing](/docs/routing#head-and-options-are-answered-for-you)),
+  and the `Allow` list includes `HEAD` (when the path has `GET`) and `OPTIONS`.
 
 ```go
 s.NotFound(func(c *celeris.Context) error {

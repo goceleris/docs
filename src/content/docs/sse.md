@@ -210,6 +210,13 @@ sse.New(sse.Config{
 
 Source: `celeris/middleware/sse/sse.go:358-364`, `:433-435`.
 
+**`HEAD` requests.** A `HEAD` to an SSE route is answered by its `GET` route
+(see [Routing](/docs/routing#head-and-options-are-answered-for-you)) and gets the
+stream's headers (`Content-Type: text/event-stream`, …) with no body; the response
+ends there. `OnConnect` runs for it, and a rejection is handled as for `GET`;
+when it accepts, `OnDisconnect` runs right after the headers are sent. `Handler`
+does not run.
+
 ## Slow-client handling
 
 By default (`MaxQueueDepth == 0`), `Send` writes **directly to the wire and

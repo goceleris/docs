@@ -292,7 +292,9 @@ to reason about. For every request, Celeris runs these stages in order:
 3. Route match      The router resolves method + path. No match →
                     404 Not Found (or 405 Method Not Allowed if the path
                     exists for a different method). Custom handlers:
-                    s.NotFound / s.MethodNotAllowed.
+                    s.NotFound / s.MethodNotAllowed. HEAD without a HEAD
+                    route runs the GET route (no body is sent); OPTIONS
+                    without an OPTIONS route gets 200 with Allow.
 
 4. Handler chain    The matched route runs its composed chain in order:
                     global Use middleware → group middleware → route
