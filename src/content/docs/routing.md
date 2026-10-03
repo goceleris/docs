@@ -480,8 +480,9 @@ yourself (`celeris/server.go:233-238`).
 **What happens on a path match with the wrong method?**
 The router returns the set of allowed methods; register a handler with
 `s.MethodNotAllowed(...)` to customise the 405 response (the `Allow` header is set
-automatically). Define a catch-all for unmatched paths with `s.NotFound(...)`. Both
-are covered in [Middleware](/docs/middleware). `HEAD` to a path with a `GET` route
+automatically). Define a catch-all for unmatched paths with `s.NotFound(...)`. The
+global middleware (`s.Use`) runs before either. Both are covered in
+[Middleware](/docs/middleware). `HEAD` to a path with a `GET` route
 and `OPTIONS` to any routed path are not "wrong methods": they are answered for you
 (see [`HEAD` and `OPTIONS` are answered for you](#head-and-options-are-answered-for-you)).
 

@@ -113,7 +113,7 @@ is fixed, so install order in your setup code matters.
 | Install point             | Method                                  | Scope                                  | When it runs                          |
 | ------------------------- | --------------------------------------- | -------------------------------------- | ------------------------------------- |
 | Pre-routing               | `s.Pre(mw...)`                          | Every request, before route matching   | Before the router resolves a handler  |
-| Global                    | `s.Use(mw...)`                          | Every matched route                    | Outermost of the route chain          |
+| Global                    | `s.Use(mw...)`                          | Every matched route, and the 404/405 answer of an unmatched request | Outermost of the route chain          |
 | Per-group                 | `g.Use(mw...)` / `s.Group(p, mw...)`   | Routes registered on that group        | After global, before route handlers   |
 | Per-route (registration)  | `s.GET(path, mw..., handler)`           | One route                              | Leading handlers, before the terminal |
 | Per-route (after the fact)| `r.Use(mw...)`                          | One route                              | Just before that route's terminal     |
@@ -147,6 +147,30 @@ s.Use(requestid.New())
 s.Use(logger.New())
 s.Use(recovery.New())
 ```
+
+Global middleware also runs for a request **no route matches**, before its 404 or 405
+answer (your `NotFound` / `MethodNotAllowed` handler, or the built-in one). So
+`logger`, `metrics`, `otel` and `requestid` see unmatched requests; an authentication
+middleware answers them as it answers routed ones (an unauthenticated client gets its
+401, not the 404); and the middleware that serve their own paths (`swagger`, `pprof`,
+`debug`, `healthcheck`, the `metrics` endpoint, `static`) answer those paths mounted
+with `Use`, with no route registered for them. The 404 or 405 is sent only if no
+middleware has answered. Group and route middleware do not run for an unmatched
+request. Before celeris v1.6.0 this happened only when a `NotFound` or
+`MethodNotAllowed` handler was set
+([celeris#852](https://github.com/goceleris/celeris/issues/852)). Under
+`AsyncHandlers: true` an unmatched request is dispatched like a route that inherits
+that default, with one decision for all unmatched requests: a global middleware that
+blocks only for some of them (a remote session store, an auth upstream) can still
+hold an engine worker for one, and with `AsyncHandlers: false` they always run inline
+(see `AsyncHandlers` in [Configuration](/docs/configuration)).
+
+> **Check what a `Use`-mounted endpoint lets in.** A `pprof`, `debug`, `metrics` or
+> `static` middleware mounted with `s.Use`, which answered 404 before v1.6.0 when no
+> `NotFound` handler was set, now serves its paths. The default `AuthFunc` of `pprof`
+> and `debug` admits a loopback peer, which behind a reverse proxy on the same host is
+> every client; the `metrics` endpoint has no `AuthFunc` by default; and `static`'s
+> default `Prefix` is `/`.
 
 > **`s.Use` MUST precede every route or it panics.** Chains are composed when each
 > route is registered, so calling `Use` after a `GET`/`POST`/etc. would silently
@@ -519,9 +543,9 @@ Three `*Server` hooks complete the request lifecycle. All must be set before
 
 | Hook                        | Fires when                                                       | Source                  |
 | --------------------------- | --------------------------------------------------------------- | ----------------------- |
-| `OnError(fn)`               | An unhandled error reaches the safety net after all middleware. | `celeris/server.go:215` |
-| `NotFound(handler)`         | No route matches the request path.                              | `celeris/server.go:199` |
-| `MethodNotAllowed(handler)` | The path matches but the method doesn't (`Allow` header is set automatically). | `celeris/server.go:206` |
+| `OnError(fn)`               | An unhandled error reaches the safety net after all middleware. | `celeris/server.go:300` |
+| `NotFound(handler)`         | No route matches the request path, and no global middleware answered it. | `celeris/server.go:279` |
+| `MethodNotAllowed(handler)` | The path matches but the method doesn't (`Allow` header is set automatically), and no global middleware answered it. | `celeris/server.go:291` |
 
 ```go
 s.OnError(func(c *celeris.Context, err error) {

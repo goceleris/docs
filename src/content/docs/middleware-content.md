@@ -727,17 +727,21 @@ and `swagger-ui-bundle.js` is 1,586,002 bytes; Scalar 1.72.4's
 **The asset requests must reach the middleware.** Besides `{BasePath}/` and
 `{BasePath}/spec`, the browser asks the middleware for
 `{BasePath}/assets/swagger-ui-dist@<version>/…`. If only the page and the spec
-get through, the page loads but stays blank. Routing exactly
-`s.GET("/swagger/", …)` and `s.GET("/swagger/spec", …)` is one such setup; a
-group-scoped mount and a proxy or ingress rule that forwards only those two
-paths are others. A middleware added with `s.Use` currently runs only for
-requests that match a route, unless a custom `NotFound` handler is set
-([celeris#852](https://github.com/goceleris/celeris/issues/852)). So mount it
-with `s.Pre`, register a catch-all route such as `s.GET("/swagger/*filepath", …)`,
-or set `NotFound`; and forward the whole `{BasePath}/` prefix through any proxy.
-With the catch-all route, the bare `/swagger` (no trailing slash) matches no
-route, so it answers 404 instead of redirecting to `/swagger/`; link to
-`/swagger/`.
+get through, the page loads but stays blank. Mounted with `s.Use` (or `s.Pre`),
+the middleware sees every request under `{BasePath}`, whether or not a route
+matches it: the global middleware also runs for unmatched requests, before the
+404 (since celeris v1.6.0; before it, only when a `NotFound` handler was set,
+[celeris#852](https://github.com/goceleris/celeris/issues/852)). A route of yours
+that also matches one of its paths, such as an SPA's catch-all `/*filepath`, still
+runs after the middleware has answered, because a middleware that returns without
+calling `Next` does not stop the chain: the route's write fails, or, behind a
+buffering middleware (`etag`, `compress`, `cache`), replaces the middleware's
+response ([celeris#927](https://github.com/goceleris/celeris/issues/927)).
+A group-scoped mount sees only the group's routes, so it needs such a catch-all
+route, `g.GET("/*filepath", …)`, with the same caveat; the bare `/swagger` (no
+trailing slash) then matches no route, so it answers 404 instead of redirecting to
+`/swagger/`. Prefer `s.Use`. Forward the whole `{BasePath}/` prefix through any proxy
+or ingress rule.
 
 **CDN.** `CDN: true` loads the renderer from `cdn.jsdelivr.net`, pinned to the
 exact versions in `swagger.SwaggerUIVersion`, `swagger.ScalarVersion` and
@@ -752,7 +756,7 @@ from `unpkg.com`, so a CSP written for the old default must allow
 `proxy.scalar.com` (its request proxy, the `proxyUrl` option).
 
 ```go
-s.Pre(swagger.New(swagger.Config{SpecContent: spec, CDN: true})) // s.Pre: see above (celeris#852)
+s.Use(swagger.New(swagger.Config{SpecContent: spec, CDN: true}))
 ```
 
 **Self-hosted.** Set `AssetsPath` to a URL prefix you serve the files from, for
@@ -760,9 +764,8 @@ example with the `static` middleware:
 
 ```go
 // Serve the downloaded swagger-ui-dist files under /swagger-assets.
-// Both are mounted with s.Pre so that their unrouted paths reach them (celeris#852).
-s.Pre(static.New(static.Config{Root: "./swagger-ui-dist", Prefix: "/swagger-assets"}))
-s.Pre(swagger.New(swagger.Config{
+s.Use(static.New(static.Config{Root: "./swagger-ui-dist", Prefix: "/swagger-assets"}))
+s.Use(swagger.New(swagger.Config{
     SpecContent: spec,
     AssetsPath:  "/swagger-assets", // page now references {AssetsPath}/swagger-ui-bundle.js etc.
 }))

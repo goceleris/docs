@@ -486,8 +486,16 @@ second prefix, so the names become `<ns>_<sub>_…`:
 | `<ns>_active_requests` | Gauge | Currently in-flight requests. |
 
 `path` uses the matched route pattern (`c.FullPath()`), so high-cardinality
-path params don't explode your label space — `404` requests are labeled
-`<unmatched>`.
+path params don't explode your label space. A request no route matched is labeled
+`<unmatched>` (`<method-not-allowed>` when its path has routes for other methods),
+whatever answers it: the 404, or a `Use`-mounted endpoint installed after `metrics`,
+so the 200s of `healthcheck`'s `/livez`, `static` files and the `swagger` page are
+counted under `<unmatched>` too. For a request no route
+matched, `method` is the request method when it is a standard one (`GET`, `HEAD`,
+`POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `TRACE`, `CONNECT`) and `_OTHER`
+otherwise, so a client cannot add series by sending made-up methods (celeris v1.6.0,
+[celeris#852](https://github.com/goceleris/celeris/issues/852)). A routed request
+keeps its method, custom ones included.
 
 ### Configuration
 
