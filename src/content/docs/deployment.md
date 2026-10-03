@@ -18,7 +18,7 @@ Terminate TLS upstream and forward cleartext HTTP/1.1 or h2c to Celeris.
 
 ## TLS: terminate it upstream
 
-Celeris exposes exactly three protocol modes (`celeris/config.go:11-21`), all of
+Celeris exposes exactly three protocol modes (`celeris/config.go:12-22`), all of
 them cleartext:
 
 | `Config.Protocol`  | Wire protocol                                          |
@@ -65,7 +65,7 @@ s := celeris.New(celeris.Config{
 ```
 
 How `Auto` handles the HTTP/1.1 `Upgrade: h2c` handshake is controlled by
-`Config.EnableH2Upgrade` (`celeris/config.go:221-232`), a `*bool`:
+`Config.EnableH2Upgrade` (`celeris/config.go:231-242`), a `*bool`:
 
 | `EnableH2Upgrade`  | Effect                                                            |
 | ------------------ | ---------------------------------------------------------------- |
@@ -133,7 +133,7 @@ URL. Celeris gives you two complementary tools to fix this.
 ### `Config.TrustedProxies` — corrects `ClientIP()`
 
 Set `Config.TrustedProxies` to the CIDR ranges (or bare IPs) of your proxies
-(`celeris/config.go:212-216`). When set, `c.ClientIP()` walks the
+(`celeris/config.go:222-226`). When set, `c.ClientIP()` walks the
 `X-Forwarded-For` chain **right-to-left**, skipping hops inside a trusted network,
 and returns the first untrusted address — the real client
 (`celeris/context_request.go:416-484`):
@@ -351,7 +351,7 @@ back with `s.Addr()` after `Start` (`celeris/server.go:431-439`), handy in tests
 ### Workers and GOMAXPROCS
 
 `Config.Workers` sets the number of I/O worker goroutines and **defaults to
-`GOMAXPROCS`** (`celeris/config.go:80-81`). In a container, `GOMAXPROCS` defaults to
+`GOMAXPROCS`** (`celeris/config.go:81-82`). In a container, `GOMAXPROCS` defaults to
 the *node's* CPU count unless you constrain it, which over-subscribes a pod with a
 CPU limit. On Go 1.25+ the runtime reads the cgroup CPU quota automatically;
 otherwise set `GOMAXPROCS` to match the pod's CPU limit (or pin `Workers`
@@ -597,7 +597,7 @@ engine. (`atomic.Bool` is in the standard library's `sync/atomic`.)
 
 For true zero-downtime restarts on the same host, inherit the listening socket
 across the exec with `InheritListener` + `StartWithListener`
-(`celeris/server.go:693-751`):
+(`celeris/server.go:693-758`):
 
 ```go
 ln, err := celeris.InheritListener("CELERIS_LISTENER_FD")
@@ -628,13 +628,13 @@ The timeout and limit fields most relevant in production (full list in
 
 | Field                | Default | Why it matters in prod                                            |
 | -------------------- | ------- | ---------------------------------------------------------------- |
-| `ReadHeaderTimeout`  | `10s`   | Slow-loris defence — drip-fed headers get killed fast (`config.go:92-102`) |
-| `ReadTimeout`        | `60s`   | Caps total request read time (`config.go:89-91`)                  |
-| `WriteTimeout`       | `60s`   | Caps response write time (`config.go:103-105`)                      |
-| `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`config.go:106-108`) |
-| `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`config.go:109-111`)           |
-| `MaxRequestBodySize` | `100MB` | Reject oversized bodies; `-1` disables (`config.go:117-120`)      |
-| `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`config.go:139-140`)  |
+| `ReadHeaderTimeout`  | `10s`   | Slow-loris defence — drip-fed headers get killed fast (`celeris/config.go:94-104`) |
+| `ReadTimeout`        | `60s`   | Caps total request read time (`celeris/config.go:91-93`)                  |
+| `WriteTimeout`       | `60s`   | Caps response write time (`celeris/config.go:105-107`)                      |
+| `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`celeris/config.go:108-110`) |
+| `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`celeris/config.go:111-115`)           |
+| `MaxRequestBodySize` | `100MB` | Reject oversized bodies; `-1` disables (`celeris/config.go:121-124`)      |
+| `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`celeris/config.go:163-164`)  |
 
 Set `IdleTimeout` *below* your load balancer's upstream idle timeout so Celeris
 closes idle keep-alives first, avoiding the race where the LB reuses a connection
@@ -649,7 +649,7 @@ engine selection and the feature matrix, see [Engines](/docs/engines).
 ## Logging and observability in production
 
 Pass a structured `*slog.Logger` via `Config.Logger` (defaults to `slog.Default()`,
-`celeris/config.go:218-219`); use a JSON handler so your log pipeline can parse it:
+`celeris/config.go:228-229`); use a JSON handler so your log pipeline can parse it:
 
 ```go
 logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -660,7 +660,7 @@ s := celeris.New(celeris.Config{Addr: ":8080", Logger: logger})
 
 Built-in metrics are on by default; read a snapshot from the collector for a
 `/metrics`-style endpoint, or disable with `Config.DisableMetrics`
-(`celeris/config.go:154-157`):
+(`celeris/config.go:164-167`):
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU

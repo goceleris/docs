@@ -198,7 +198,7 @@ Established connections now transplant between engines on a switch (see above), 
 the **start** engine no longer fixes the keep-alive throughput ceiling — but the
 steady-state concurrency is still unknowable when the server binds, and a good
 start avoids an unnecessary early switch. `WorkloadHint`
-(`celeris/config.go:43-60`) is the config-level way to bias that start decision. It
+(`celeris/config.go:44-61`) is the config-level way to bias that start decision. It
 affects **nothing but the Adaptive engine's start choice**; on Epoll, IOUring, and
 Std it is ignored.
 
@@ -228,7 +228,7 @@ Adaptive falls back to starting on epoll.
 Every time the adaptive controller changes strategy it increments a counter you can
 read from the metrics collector. `Server.Collector().Snapshot()` returns a
 `Snapshot` whose `EngineSwitches` field counts the switches since start
-(`celeris/observe/collector.go:40-57`).
+(`celeris/observe/collector.go:34-51`).
 
 ```go
 snap := s.Collector().Snapshot()
@@ -452,7 +452,7 @@ These are the counters the adaptive controller reads to derive its load signals 
 error rate (see [The adaptive controller](#the-adaptive-controller)). They are also
 re-exported on the metrics `Snapshot` as `EngineMetrics`, alongside `RequestsTotal`,
 `ErrorsTotal`, `ActiveConns`, `EngineSwitches`, latency buckets, and CPU
-utilisation (`celeris/observe/collector.go:40-57`).
+utilisation (`celeris/observe/collector.go:34-51`).
 
 A request rate is not one of the counters: take two snapshots and divide the
 `RequestCount` difference by the time between them.

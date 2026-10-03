@@ -38,7 +38,7 @@ s.Use(Timing)
 
 `Context.Next()` advances to and runs the next handler in the chain, returning the
 **first non-nil error** from anything downstream and short-circuiting the rest
-(`celeris/context.go:309`). A middleware can inspect or swallow that error simply by
+(`celeris/context.go:311`). A middleware can inspect or swallow that error simply by
 choosing what to return.
 
 ### Short-circuiting
@@ -48,8 +48,8 @@ There are three ways to stop the chain early:
 | Technique                        | What happens                                                                 |
 | -------------------------------- | --------------------------------------------------------------------------- |
 | **Return without calling `Next`**| Downstream handlers never run; whatever you wrote (or returned) is final.    |
-| **`c.Abort()`**                  | Sets the chain index past the end so no pending handler runs. Writes nothing on its own — write a response first. (`celeris/context.go:323`) |
-| **`c.AbortWithStatus(code)`**    | Calls `Abort()` and sends an empty-body status code. Returns the error for propagation. (`celeris/context.go:330`) |
+| **`c.Abort()`**                  | Sets the chain index past the end so no pending handler runs. Writes nothing on its own — write a response first. (`celeris/context.go:325`) |
+| **`c.AbortWithStatus(code)`**    | Calls `Abort()` and sends an empty-body status code. Returns the error for propagation. (`celeris/context.go:332`) |
 
 ```go
 // A guard that rejects unauthenticated requests and stops the chain.
@@ -62,7 +62,7 @@ func RequireAuth(c *celeris.Context) error {
 }
 ```
 
-`c.IsAborted()` reports whether the chain was aborted (`celeris/context.go:337`),
+`c.IsAborted()` reports whether the chain was aborted (`celeris/context.go:339`),
 which downstream middleware can check before doing expensive work.
 
 > Returning an error and aborting are different things. Returning a non-nil error
@@ -101,8 +101,8 @@ func listItems(c *celeris.Context) error {
 
 Note `GetString` returns `(string, bool)`, not a bare string — unlike Gin's
 `c.GetString`. For non-string values use `Set` / `Get`, which round-trip an `any`
-you type-assert at the read site (`celeris/context.go:400`, `celeris/context.go:413`,
-`celeris/context.go:483`, `celeris/context.go:499`).
+you type-assert at the read site (`celeris/context.go:402`, `celeris/context.go:415`,
+`celeris/context.go:485`, `celeris/context.go:501`).
 
 ## Install points
 

@@ -29,8 +29,8 @@ There are two constructors. Both build a `*celeris.Context` and return a
 | `NewContext(method, path string, opts ...Option)`       | `(*celeris.Context, *ResponseRecorder)` | You must `defer celeristest.ReleaseContext(ctx)`        |
 | `NewContextT(t *testing.T, method, path, opts ...Option)` | `(*celeris.Context, *ResponseRecorder)` | Registers `t.Cleanup` automatically — no defer needed   |
 
-Source: `celeris/celeristest/celeristest.go:254` (`NewContextT`) and
-`celeris/celeristest/celeristest.go:264` (`NewContext`).
+Source: `celeris/celeristest/celeristest.go:255` (`NewContextT`) and
+`celeris/celeristest/celeristest.go:265` (`NewContext`).
 
 `NewContextT` is the one to reach for in almost every test — it registers the
 release with `t.Cleanup`, so you can't forget it and you won't leak a pooled
@@ -80,7 +80,7 @@ func TestHelloManual(t *testing.T) {
 ### The `ResponseRecorder`
 
 The recorder is a plain struct with three fields and two convenience methods
-(`celeris/celeristest/celeristest.go:26`). It captures exactly one response — the
+(`celeris/celeristest/celeristest.go:27`). It captures exactly one response — the
 last one the handler wrote.
 
 | Field / method            | Type           | Description                                                        |
@@ -125,7 +125,7 @@ Everything about the simulated request — body, headers, query string, path
 params, auth, cookies, client address, protocol — is configured through `Option`
 values passed to the constructor. Each `With*` helper returns an `Option`; pass as
 many as you need, in any order. They are defined in
-`celeris/celeristest/celeristest.go:129-216`.
+`celeris/celeristest/celeristest.go:130-217`.
 
 | Option                                   | Effect on the test request                                                                                   |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -218,7 +218,7 @@ func TestSession(t *testing.T) {
 > `WithCookie` does **not** escape `;` or CR/LF inside the value — pass
 > well-formed values only. To exercise your server's handling of a *malformed*
 > cookie header, set the raw header yourself with `WithHeader("cookie", …)`.
-> Source: `celeris/celeristest/celeristest.go:159-169`.
+> Source: `celeris/celeristest/celeristest.go:160-170`.
 
 ### Client IP behind a proxy
 
@@ -306,7 +306,7 @@ There are two independent things to assert on, and a well-rounded test checks bo
 ### Cleanup
 
 With `NewContextT` cleanup is automatic. With `NewContext` you are responsible for
-calling `ReleaseContext` (`celeris/celeristest/celeristest.go:220`), which returns
+calling `ReleaseContext` (`celeris/celeristest/celeristest.go:221`), which returns
 the context, its stream, and the recorder to their pools:
 
 ```go
@@ -321,7 +321,7 @@ handler panics. Do not access `ctx` or `rec` after release.
 ## Testing middleware
 
 Middleware is a handler that calls `c.Next()` to invoke the rest of the chain
-(`celeris/context.go:324`). To test that interaction you need a real chain, which
+(`celeris/context.go:326`). To test that interaction you need a real chain, which
 is exactly what `WithHandlers` builds. List the handlers in execution order; the
 last one is the terminal handler:
 
@@ -536,7 +536,7 @@ func TestServerIntegration(t *testing.T) {
 Key APIs in play:
 
 - **`celeris.New(Config{Addr: ":0"})`** — `:0` asks the OS for any free port,
-  which keeps parallel tests from colliding on a fixed port (`celeris/config.go:74`).
+  which keeps parallel tests from colliding on a fixed port (`celeris/config.go:75`).
 - **`s.Addr() net.Addr`** — returns the listener's bound address, or `nil` if the
   server hasn't started yet. Use it to discover the OS-assigned port
   (`celeris/server.go:434`).

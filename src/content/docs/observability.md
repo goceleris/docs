@@ -52,7 +52,7 @@ affects what they see (see [Ordering](#recommended-ordering)).
 ## Built-in metrics — the Collector
 
 The server creates an `observe.Collector` **eagerly in `New`** unless you set
-`Config.DisableMetrics: true` (`celeris/config.go:133`, `celeris/server.go:99`).
+`Config.DisableMetrics: true` (`celeris/config.go:134`, `celeris/server.go:99`).
 It uses lock-free, cache-line-padded counters sharded per worker, so recording is
 cheap on the hot path.
 
@@ -84,7 +84,7 @@ if col != nil {
 ### Reading a Snapshot
 
 `Collector.Snapshot()` returns a point-in-time copy of all counters
-(`celeris/observe/collector.go:187`). All fields are read-only values captured
+(`celeris/observe/collector.go:181`). All fields are read-only values captured
 at the moment of the call.
 
 | Field | Type | Meaning |
@@ -101,7 +101,7 @@ at the moment of the call.
 The histogram is paired: `LatencyBuckets[i]` is the count of requests whose
 latency was `<= BucketBounds[i]` seconds (the final bucket is the overflow).
 The default bounds are `0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 5`
-seconds (`celeris/observe/collector.go:13`).
+seconds (`celeris/observe/collector.go:11`).
 
 ```go
 snap := s.Collector().Snapshot()
@@ -180,7 +180,7 @@ It is intentionally rich and zero-alloc on the steady-state path.
 ### The server-level logger
 
 `Config.Logger` is the server's structured logger; it defaults to
-`slog.Default()` when nil (`celeris/config.go:197`). This logger is used by the
+`slog.Default()` when nil (`celeris/config.go:207`). This logger is used by the
 server itself (and is the default sink for several middleware, including
 `recovery` — see [Error handling](/docs/error-handling)). Set it once at
 construction:

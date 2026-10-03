@@ -291,7 +291,7 @@ defer rdb.Close()
 v, err := rdb.Get(ctx, "key")
 ```
 
-`redis.NewClient(addr, opts...)` (`driver/redis/client.go:22`) dials a lazy pool.
+`redis.NewClient(addr, opts...)` (`driver/redis/client.go:20`) dials a lazy pool.
 The typed surface covers strings, hashes, lists, sets, sorted sets, key ops,
 pub/sub, scripting, pipelines, and `MULTI`/`EXEC` transactions; anything not typed
 is reachable via `rdb.Do(ctx, args...)`. Common options
@@ -309,7 +309,7 @@ is reachable via `rdb.Do(ctx, args...)`. Common options
 
 > TLS (`rediss://`) is **not** supported — `NewClient` rejects the scheme with a
 > clear error. Deploy over a VPC, loopback, or a sidecar TLS terminator
-> (`driver/redis/client.go:23-24`).
+> (`driver/redis/client.go:21-22`).
 
 ### PostgreSQL
 
@@ -395,7 +395,7 @@ if err != nil {
 defer mc.Close()
 ```
 
-`memcached.NewClient(addr, opts...)` (`driver/memcached/client.go:34`) follows the
+`memcached.NewClient(addr, opts...)` (`driver/memcached/client.go:33`) follows the
 same shape as the Redis client and accepts `WithEngine` to colocate. TLS is not
 supported.
 

@@ -212,8 +212,8 @@ s.Use(ratelimit.New(ratelimit.Config{Store: store}))
 The Redis store uses an atomic Lua token-bucket script (loaded via `SCRIPT LOAD`
 at `New` time, then run with `EVALSHA` on the hot path), so the limit holds even
 under concurrent requests across replicas. Source:
-`celeris/middleware/ratelimit/redisstore/redisstore.go:61-70` (the script),
-`redisstore.go:114-116` (`New`). A memcached store ships alongside it at
+`celeris/middleware/ratelimit/redisstore/redisstore.go:60-69` (the script),
+`redisstore.go:113-115` (`New`). A memcached store ships alongside it at
 `github.com/goceleris/celeris/middleware/ratelimit/memcachedstore`.
 
 ### Refunding tokens
@@ -531,8 +531,8 @@ Source: `celeris/server.go:542`.
 `observe.NewCPUMonitor()` returns a platform-appropriate monitor (Linux reads
 `/proc/stat`; others use `runtime/metrics`) and a non-nil `error`, so check it
 before calling `SetCPUMonitor`. Source: `celeris/observe/cpumon_linux.go:10`,
-`cpumon_other.go:9`, `celeris/observe/collector.go:130` (`SetCPUMonitor`),
-`collector.go:77` (`CPUMonitor`). For the full metrics surface see
+`cpumon_other.go:9`, `celeris/observe/collector.go:124` (`SetCPUMonitor`),
+`collector.go:71` (`CPUMonitor`). For the full metrics surface see
 [Configuration](/docs/configuration).
 
 ### Depth and latency signals

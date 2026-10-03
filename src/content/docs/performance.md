@@ -116,7 +116,7 @@ so the worker returns to `epoll_wait` / `io_uring_enter` while the handler waits
 ### The three levers
 
 The dispatch mode is resolved **route > group > server default**, where the server
-default is `Config.AsyncHandlers` (`celeris/config.go:159-198`, `celeris/router.go:205-302`):
+default is `Config.AsyncHandlers` (`celeris/config.go:169-208`, `celeris/router.go:205-302`):
 
 | Lever | Where | Effect |
 | --- | --- | --- |
@@ -149,7 +149,7 @@ a no-op — net/http already runs a goroutine per request.
 
 Async dispatch costs a goroutine spawn per request (~100 ns) plus scheduler
 overhead. On a pure-CPU static-response benchmark that measures as a **~3–5%
-regression** (`celeris/config.go:174`). So the rule is simple:
+regression** (`celeris/config.go:184`). So the rule is simple:
 
 - **CPU-only, latency-critical routes** → keep them inline (`Sync`, the default).
 - **Anything that touches a DB, cache, or upstream service** → mark it async, so
@@ -157,14 +157,14 @@ regression** (`celeris/config.go:174`). So the rule is simple:
 
 When `AsyncHandlers` is `true`, the per-worker serialization ceiling
 (`NumWorkers × 1/RTT`) is replaced by goroutine-per-connection parallelism that
-matches net/http's concurrency model (`celeris/config.go:159-166`).
+matches net/http's concurrency model (`celeris/config.go:169-176`).
 
 ### Adaptive auto-promotion (and why fast driver calls need `UsesDriver`)
 
 Setting `Config.AsyncHandlers = true` also turns on an **adaptive safety net**: any
 *unmarked* handler that runs slower than **~300 µs** is auto-promoted to the
 goroutine path, while routes that stay fast settle back to a zero-cost inline path
-after a short learning phase (`celeris/config.go:193-196`,
+after a short learning phase (`celeris/config.go:203-206`,
 `celeris/router.go:253-255`).
 
 This is why a **fast localhost driver call needs an explicit `.UsesDriver()` /
@@ -179,7 +179,7 @@ dispatched off the worker regardless of how fast the backend answers
 > `AsyncHandlers` is set **or** any route is `.Async()`. If you keep
 > `AsyncHandlers` false and rely on per-route marks, **open the driver after those
 > routes are registered** (the effective state is read at driver construction);
-> otherwise set `AsyncHandlers = true` (`celeris/config.go:167-178`). See
+> otherwise set `AsyncHandlers = true` (`celeris/config.go:177-188`). See
 > [Stores and database drivers](/docs/data-stores).
 
 ### Watching the handoff: `AsyncPromotedConns`
@@ -211,7 +211,7 @@ For the full dispatch model see [Engines and the I/O model](/docs/engines) and
 On Linux you choose the I/O engine via `Config.Engine`; the default is **Adaptive**
 (`Std` on non-Linux). Adaptive starts on epoll — best for ramp-from-zero,
 low-concurrency, and latency-sensitive traffic — and promotes individual
-connections to io_uring under sustained high load (`celeris/config.go:43-60`).
+connections to io_uring under sustained high load (`celeris/config.go:44-61`).
 
 ### Letting Adaptive decide vs forcing an engine
 
@@ -226,7 +226,7 @@ As of v1.5.6 Adaptive **transplants** established keep-alive connections between
 epoll and io_uring on a switch (both directions), so the *starting* engine no
 longer fixes keep-alive throughput. Concurrency is still unknowable at bind time,
 though, so `Config.WorkloadHint` is the lever that biases Adaptive's start choice
-without hard-pinning the engine (`celeris/config.go:43-78`):
+without hard-pinning the engine (`celeris/config.go:44-79`):
 
 ```go
 s := celeris.New(celeris.Config{
@@ -287,7 +287,7 @@ that high-water mark back to the OS. `Config.MemoryLimitBytes` is an **optional
 soft heap ceiling** (applied via `runtime/debug.SetMemoryLimit` at `Start`) that
 makes the GC collect before the heap balloons during that ramp, trading a few
 extra ramp-phase GC cycles for a lower peak. Steady RSS sits far below the limit,
-so steady-state throughput is unaffected (`celeris/config.go:142-152`):
+so steady-state throughput is unaffected (`celeris/config.go:143-162`):
 
 ```go
 cfg := celeris.Config{Addr: ":8080", Workers: 8}
@@ -296,7 +296,7 @@ s := celeris.New(cfg)
 ```
 
 `celeris.DeriveMemoryLimit(workers)` returns `max(256 MiB, workers × 32 MiB)`
-(`celeris/config.go:62-69`) — sized **high** on purpose: the goal is to clip the
+(`celeris/config.go:63-70`) — sized **high** on purpose: the goal is to clip the
 ramp spike, not run the heap tight. Two caveats: `0` (the default) means celeris
 **does not touch** the process GC, so embedders keep full control; and
 `SetMemoryLimit` is **process-global**, so only set this when celeris owns the
@@ -309,7 +309,7 @@ See [Configuration reference](/docs/configuration) for the full field list and
 
 Keep-alive is on by default — reusing a TCP connection across requests is the
 single biggest throughput win on a benchmark and a real workload alike. The
-relevant `Config` fields (`celeris/config.go:80-131`):
+relevant `Config` fields (`celeris/config.go:81-132`):
 
 | Field | Default | Notes |
 | --- | --- | --- |
@@ -397,7 +397,7 @@ s := celeris.New(celeris.Config{
 })
 ```
 
-(`celeris/config.go:108-111`, `celeris/middleware/bodylimit/doc.go`.) Enable
+(`celeris/config.go:109-112`, `celeris/middleware/bodylimit/doc.go`.) Enable
 `ContentLengthRequired` to reject bodies that don't declare their size up-front
 (411 Length Required).
 
@@ -542,7 +542,7 @@ A slow-loris attacker dribbles request headers one byte at a time to pin a worke
 and a listener-backlog slot for the *entire* `ReadTimeout` window.
 `Config.ReadHeaderTimeout` caps the read of **just the request line + headers**
 separately from the body, killing such clients in seconds. It defaults to **10 s**;
-`-1` disables it (`celeris/config.go:83-93`):
+`-1` disables it (`celeris/config.go:84-94`):
 
 ```go
 s := celeris.New(celeris.Config{
@@ -611,7 +611,7 @@ fmt.Printf("requests=%d errors=%d active=%d cpu=%.2f\n",
     snap.RequestsTotal, snap.ErrorsTotal, snap.ActiveConns, snap.CPUUtilization)
 ```
 
-`Snapshot` fields you'll watch most (`celeris/observe/collector.go:40-57`):
+`Snapshot` fields you'll watch most (`celeris/observe/collector.go:34-51`):
 
 | Field | Meaning |
 | --- | --- |
@@ -624,7 +624,7 @@ fmt.Printf("requests=%d errors=%d active=%d cpu=%.2f\n",
 | `EngineSwitches` | How many times the adaptive engine changed strategy. |
 
 The latency buckets use fixed bounds of 1 ms, 5 ms, 10 ms, 25 ms, 50 ms, 100 ms,
-250 ms, 500 ms, 1 s, 5 s (`celeris/observe/collector.go:13-15`). Track the fraction
+250 ms, 500 ms, 1 s, 5 s (`celeris/observe/collector.go:11-13`). Track the fraction
 of requests in the high buckets to watch your tail without a full histogram backend.
 
 `snap.EngineMetrics` carries the engine-level counters that drive tuning decisions
