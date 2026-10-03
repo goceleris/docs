@@ -195,9 +195,11 @@ s.Use(etag.New(etag.Config{
 `2xx` and the body is non-empty. On an `If-None-Match` match it discards the
 buffered body and returns `304` with the validator header set.
 
-A `206 Partial Content` passes through untouched, whatever tag the handler set
-on it: its body is one part of the file, whose hash is not the file's tag, and
-`etag` does not answer `If-None-Match` for it.
+A `206 Partial Content` is never hashed: its body is one part of the file, whose
+hash is not the file's tag. Without a tag of the handler's it passes through
+untouched. With one, `etag` keeps it (see below) and answers a matching
+`If-None-Match` with `304`, as for a full response: `If-None-Match` is evaluated
+before `Range` (RFC 9110 §13.2.2).
 
 If a downstream handler or middleware (for example the `static` file middleware)
 **already** set an `ETag` header, `etag` reuses that tag verbatim instead of
@@ -235,7 +237,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `KeyGenerator`        | `func(*Context) string`       | method+path+query+vary | Derives the cache key. See below.                                                       |
 | `Singleflight`        | `bool`                        | `true`                 | Coalesce concurrent misses for the same key into one handler run.                        |
 | `Methods`             | `[]string`                    | `["GET", "HEAD"]`      | Methods eligible for caching. Others pass through untouched.                             |
-| `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored. A `206` or `416` is never stored, whatever it says: both answer the request's `Range`, which the key does not include. |
+| `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored. A `206` or `416` is never stored, whatever it says, even when the key includes `Range` (in `VaryHeaders` or a `KeyGenerator`): both answer one request's `Range`, and a replay would skip the handler's `If-Range` check. |
 | `VaryHeaders`         | `[]string`                    | `nil`                  | Request headers folded into the default key.                                            |
 | `HeaderName`          | `string`                      | `"X-Cache"`            | Header set to `HIT`/`MISS`/`ERROR`. `""` disables it.                                    |
 | `MaxBodyBytes`        | `int`                         | `1 << 20` (1 MiB)      | Bodies larger than this are not cached.                                                  |

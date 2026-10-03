@@ -390,11 +390,6 @@ response's `Last-Modified`. What it is compared against:
 - **Static middleware**: its own `Last-Modified` and `ETag`. Its `ETag` is
   weak (mtime and size), so only the `Last-Modified` date can match.
 
-**Behind `cache`, `compress`, `etag` or `singleflight`.** A `206` goes through
-each of them untouched: `cache` never stores a `206` or a `416` (its key does not
-include `Range`), `compress` does not encode a `206`, `etag` does not tag one,
-and `singleflight` does not coalesce a request with a `Range` header.
-
 ```go
 // Opened once at startup: os.Root keeps every lookup inside ./files,
 // symlinks included.
@@ -431,6 +426,13 @@ safe only when the validator changes with the bytes served.
 
 Preconditions that come earlier still win: with the static middleware, a
 matching `If-None-Match` or `If-Modified-Since` gets `304` whatever the `Range`.
+
+**Behind `cache`, `compress`, `etag` or `singleflight`.** None of them treats a
+`206` like a `200`: `cache` never stores a `206` or a `416` (not even under a key
+that includes `Range`: a replay would skip the `If-Range` check), `compress` does
+not encode a `206`, `etag` does not hash one (it keeps a tag the handler set, and
+a matching `If-None-Match` gets `304` as for a full response), and `singleflight`
+does not coalesce a request with a `Range` header.
 
 ## Common pitfalls
 
