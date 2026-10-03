@@ -14,10 +14,10 @@ a context, shape the request, invoke handlers and middleware chains, assert on
 errors and status codes, and — when you genuinely need the wire — stand up a real
 server on an ephemeral port for integration tests.
 
-`celeristest` is the **only** supported entry point for constructing a `Context`
-in tests. The lower-level helpers it calls (`AcquireTestContext`, `AddTestParam`,
-and friends) are deliberately undocumented plumbing; see
-[What not to use](#what-not-to-use) below.
+`celeristest` is the **only** entry point for constructing a `Context` in tests.
+The lower-level hooks that earlier releases exported from the `celeris` package
+(`AcquireTestContext`, `AddTestParam`, and friends) were removed in v1.6.0; see
+[Removed test hooks](#removed-test-hooks) below.
 
 ## The `celeristest` package
 
@@ -450,28 +450,32 @@ if !errors.Is(err, ErrUserNotFound) {
 }
 ```
 
-## What not to use
+## Removed test hooks
 
 `NewContext`, `NewContextT`, the `With*` options, `ResponseRecorder`, and
-`ReleaseContext` are the entire supported testing surface. You may notice other
-exported functions on the `celeris` package such as `AcquireTestContext`,
-`AddTestParam`, `SetTestHandlers`, `SetTestScheme`, and `ReleaseTestContext`.
+`ReleaseContext` are the entire testing surface. Before v1.6.0 the `celeris`
+package also exported nine low-level hooks that `celeristest` used to assemble a
+context from a stream: `AcquireTestContext`, `ReleaseTestContext`, `TestStream`,
+`SetTestStartTime`, `SetTestFullPath`, `SetTestTrustedNets`, `AddTestParam`,
+`SetTestHandlers`, and `SetTestScheme`. They took internal types and bypassed the
+pooling and reset logic in `NewContext`/`ReleaseContext`.
 
-**Do not call these directly.** They are low-level plumbing that `celeristest`
-uses internally to assemble a context from a stream
-(`celeris/celeristest/celeristest.go:318-354`); they are exported only so the
-`celeristest` package — which lives in a separate package to avoid an import
-cycle — can reach them. They take internal types, have no stability guarantees,
-and bypass the pooling and reset logic in `NewContext`/`ReleaseContext`. Always
-go through the `celeristest` `With*` options:
+**They were removed in v1.6.0; use `celeristest`.** Code that calls them no longer
+compiles. `celeristest` now reaches the same logic through an internal package
+(`celeris/celeristest/celeristest.go:330-366`), and its own API did not change.
+Each removed hook maps to a `celeristest` call:
 
-| Instead of…                       | Use…                                |
+| Removed in v1.6.0                 | Use…                                |
 | --------------------------------- | ----------------------------------- |
+| `celeris.AcquireTestContext`      | `celeristest.NewContext` / `NewContextT` |
+| `celeris.ReleaseTestContext`      | `celeristest.ReleaseContext`        |
 | `celeris.AddTestParam`            | `celeristest.WithParam`             |
 | `celeris.SetTestHandlers`         | `celeristest.WithHandlers`          |
 | `celeris.SetTestScheme`           | `celeristest.WithScheme`            |
-| `celeris.AcquireTestContext`      | `celeristest.NewContext` / `NewContextT` |
-| `celeris.ReleaseTestContext`      | `celeristest.ReleaseContext`        |
+| `celeris.SetTestFullPath`         | `celeristest.WithFullPath`          |
+| `celeris.SetTestTrustedNets`      | `celeristest.WithTrustedProxies`    |
+| `celeris.SetTestStartTime`        | nothing: `NewContext` sets the start time |
+| `celeris.TestStream`              | nothing: `ReleaseContext` releases the stream |
 
 ## Integration-style testing
 
@@ -590,8 +594,9 @@ above.
   render the error response.
 - **Calling `Start` without a goroutine.** `Start` blocks on the accept loop. Run
   it in `go func(){…}()` and poll `Addr()` for readiness.
-- **Reaching for `AddTestParam` / `AcquireTestContext`.** These are internal;
-  always use the `celeristest` options.
+- **Porting tests that call `AddTestParam` / `AcquireTestContext`.** These hooks
+  were removed in v1.6.0; use the `celeristest` options instead (see
+  [Removed test hooks](#removed-test-hooks)).
 
 ## FAQ
 

@@ -207,6 +207,13 @@ violations, and so on), not the correctness of any individual request body. As a
 application author you never import this package and it plays no part in binding
 or validating input. Use `c.Bind*` plus your own field checks, as shown above.
 
+**The package is EXPERIMENTAL.** Its package documentation says so, and it is
+outside the compatibility promise in the Compatibility section of celeris's
+[GOVERNANCE.md](https://github.com/goceleris/celeris/blob/main/GOVERNANCE.md#compatibility)
+(`celeris/validation/doc.go:22-30`): the counter names, the `Counters` fields, the
+socket's JSON and the functions may change or go away in a minor release, and the
+release notes say when they do.
+
 ## Negotiated responses
 
 Binding handles the *request* side; the matching *response* side often wants to
@@ -302,9 +309,9 @@ func createUser(c *celeris.Context) error {
 - **`Bind` does not read form fields.** Posting a `<form>` with the default
   encoding sends `application/x-www-form-urlencoded`, which `Bind` will try to
   parse as JSON and fail. Use `c.FormValue` and friends for forms.
-- **The `celeris/validation` package won't validate your input.** It is a
-  build-tag assertion-counter facility for the engine's own property tests, not a
-  request validator.
+- **The `celeris/validation` package won't validate your input.** It is an
+  experimental build-tag assertion-counter facility for the engine's own property
+  tests, not a request validator.
 
 ## FAQ
 

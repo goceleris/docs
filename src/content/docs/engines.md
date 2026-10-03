@@ -96,20 +96,27 @@ provided buffers — see [Engine selection in practice](#engine-selection-in-pra
 
 #### Tuning environment variables
 
-The engines read these at startup. None is needed for normal operation.
+The engines read these at startup. None is needed for normal operation. The
+Stability column is the level the Compatibility section of celeris's
+[GOVERNANCE.md](https://github.com/goceleris/celeris/blob/main/GOVERNANCE.md#compatibility)
+defines: a **supported** variable keeps its name, values and effect within v1; an
+**experimental** one may change in a minor release, with a release note; an
+**unsupported** one may change or go away in any release.
 
-| Variable | Engine | Values (default in bold) | Effect |
-| -------- | ------ | ------------------------ | ------ |
-| `CELERIS_ADAPTIVE_START` | Adaptive | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
-| `CELERIS_MAX_IOURING_TIER` | io_uring | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable and Adaptive neither starts on io_uring nor switches to it. |
-| `CELERIS_IOURING_SEND_ZC` | io_uring | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). |
-| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier). Any value other than `1` leaves it off. |
-| `CELERIS_IOURING_PBUF_COUNT` | io_uring | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0` or an invalid value keeps the default. |
-| `CELERIS_IOURING_FIXED_FILES` | io_uring | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
+| Variable | Engine | Stability | Values (default in bold) | Effect |
+| -------- | ------ | --------- | ------------------------ | ------ |
+| `CELERIS_ADAPTIVE_START` | Adaptive | supported | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
+| `CELERIS_MAX_IOURING_TIER` | io_uring | supported | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable and Adaptive neither starts on io_uring nor switches to it. The detected kernel version is not capped. |
+| `CELERIS_IOURING_SEND_ZC` | io_uring | supported | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). Whether `auto` should keep enabling it is an open measurement ([celeris#585](https://github.com/goceleris/celeris/issues/585)). |
+| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | experimental | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier). Any value other than `1` leaves it off. |
+| `CELERIS_IOURING_PBUF_COUNT` | io_uring | experimental | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0`, a negative value or a non-integer keeps the default. |
+| `CELERIS_IOURING_FIXED_FILES` | io_uring | unsupported | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
 
 Variables named `CELERIS_DEBUG_*` and `CELERIS_ADAPTIVE_DEBUG` turn on diagnostic
 logging and measurement probes. They are for investigating a specific problem and
-are not a stable interface.
+are unsupported: not a stable interface. The variables only tests and the build
+read (`CELERIS_REQUIRE_*`, the driver test addresses such as `CELERIS_PG_DSN`, and
+the numbered ones such as `CELERIS_589_*`) are not covered either.
 
 ### Std — the portable fallback
 
@@ -493,16 +500,27 @@ _ = s.ResumeAccept()
 
 `Server.EventLoopProvider()` returns the engine's per-worker event-loop provider,
 or `nil` if the engine does not expose one — which is the case for the **std**
-fallback (`celeris/server.go:441-455`). This is the integration point that lets
+fallback (`celeris/server.go:734-755`). This is the integration point that lets
 Celeris database and cache drivers register their own sockets on the *same* worker
 event loops as the HTTP path, so a DB round-trip is driven by the very thread that
 owns the request's connection — no cross-thread handoff, NUMA-local buffers.
+
+It is for the Celeris drivers: pass the server itself to `redis.WithEngine` or its
+postgres and memcached counterparts. The provider's type is defined in an internal
+package, so code outside the celeris module can pass the result on and call its
+methods but cannot name the type. That type and its methods are **not supported
+API** until [celeris#453](https://github.com/goceleris/celeris/issues/453) defines a
+public engine interface; they may change in a minor release (the Compatibility
+section of celeris's
+[GOVERNANCE.md](https://github.com/goceleris/celeris/blob/main/GOVERNANCE.md#compatibility)
+lists them as not covered).
 
 The provider exposes `NumWorkers()` and `WorkerLoop(n)`; the per-worker
 `WorkerLoop` surface (`RegisterConn`, `UnregisterConn`, `Write`, `CPUID`) is
 documented in `celeris/internal/engine/provider.go:32-104`. You normally don't call this
 yourself — a Celeris driver opened `WithEngine(srv)` consumes it for you. When the
 provider is `nil` (std engine), drivers fall back to a standalone mini event loop.
+A nil check and a call such as `p.NumWorkers()` need no name for the type:
 
 ```go
 if p := s.EventLoopProvider(); p != nil {
@@ -515,7 +533,7 @@ if p := s.EventLoopProvider(); p != nil {
 > For drivers to pick their fast netpoll-park path, the server's *effective* async
 > state must be on (server `AsyncHandlers: true`, or routes marked `.Async()` /
 > `.UsesDriver()` registered **before** the driver is opened). `Server.AsyncHandlers()`
-> reports the effective state (`celeris/server.go:457-497`). See
+> reports the effective state (`celeris/server.go:757-797`). See
 > [Routing](/docs/routing#dispatch-mode-async-sync-usesdriver) for the ordering rule.
 
 ## Common pitfalls
