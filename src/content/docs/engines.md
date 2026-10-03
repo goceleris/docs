@@ -438,7 +438,6 @@ own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 | `RequestCount`       | `uint64`  | Cumulative requests handled by this engine.                                    |
 | `ActiveConnections`  | `int64`   | Currently open connections.                                                    |
 | `ErrorCount`         | `uint64`  | Cumulative connection-level or protocol errors.                                |
-| `Throughput`         | `float64` | **Always 0**: no engine has ever set it. Deprecated in v1.6.0, removed in v2.0.0 ([celeris#653](https://github.com/goceleris/celeris/issues/653)). Derive a rate from `RequestCount` (example below). |
 | `Workers`            | `int`     | I/O workers (io_uring) or event loops (epoll). Static after `Start`.            |
 | `AsyncRoutes`        | `int`     | Count of routes registered `.Async(true)`. Static after `Start`; diagnostics.  |
 | `AsyncPromotedConns` | `uint64`  | Cumulative inline→goroutine promotions via per-handler async.                   |
