@@ -569,7 +569,7 @@ required (the middleware **panics at construction** if neither is set):
 
 If you don't set `SpecFile`, the content type of an inline spec is sniffed from
 its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
-`swagger/config.go:137-154`, `swagger/config.go:298-322`, `swagger/swagger.go:176-187`.
+`swagger/config.go:143-160`, `swagger/config.go:304-328`, `swagger/swagger.go:176-187`.
 
 ### Config reference
 
@@ -587,7 +587,7 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
-Source: `swagger/config.go:105-230`.
+Source: `swagger/config.go:111-236`.
 
 ### UI options
 
@@ -619,7 +619,7 @@ s.Use(swagger.New(swagger.Config{
 
 `DefaultModelsExpandDepth` is a `*int` so the middleware can tell "unset" (use the
 UI default of 1) from an explicit `0`. Use `swagger.IntPtr` to set it. Source:
-`swagger/config.go:24-81`, `swagger/config.go:232-237`.
+`swagger/config.go:24-87`, `swagger/config.go:238-243`.
 
 ### OAuth2 with PKCE
 
@@ -653,10 +653,13 @@ as an absolute URL on the page's origin. Register that URL with the authorizatio
 server as a redirect URI (for example `https://api.example.com/swagger/oauth2-redirect.html`,
 or the public URL behind a proxy). Set `OAuth2RedirectURL` only to use a page of
 your own; it is sent as the `redirect_uri`, so it must be an absolute URL on the
-docs page's origin. The middleware answers those two paths before the router, so
-from celeris v1.6.0 its page takes the place of one your app serves at
-`{BasePath}/oauth2-redirect.html` itself; to keep yours, list both paths in
-`SkipPaths`.
+docs page's origin. If your app serves its own page at
+`{BasePath}/oauth2-redirect.html`, list both paths in `SkipPaths`. Otherwise, from
+celeris v1.6.0, both answer: your route still runs after the middleware has, since
+a middleware that returns without calling `Next` does not stop the chain. Its write
+then fails with `celeris.ErrResponseWritten`, or, behind a buffering middleware
+(`etag`, `compress`, `cache`), replaces the middleware's page
+([celeris#927](https://github.com/goceleris/celeris/issues/927)).
 
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `UsePKCE`.
 Source: `swagger/config.go`, `swagger/swagger.go`, `swagger/assets.go`.
@@ -683,7 +686,7 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-Source: `swagger/config.go:162-180`, `swagger/swagger.go:281-372`.
+Source: `swagger/config.go:168-186`, `swagger/swagger.go:281-372`.
 
 ### Assets: embedded, CDN or self-hosted
 
