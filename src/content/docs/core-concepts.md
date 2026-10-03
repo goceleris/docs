@@ -321,15 +321,20 @@ of response data that its client has not yet granted flow-control window for
 that much, a new stream's handler runs on the HTTP/2 worker pool, **even on a
 sync route**, and its response write (`c.JSON`, `c.Blob`, `c.File`, ...) can
 block until the client sends `WINDOW_UPDATE`, as a `net/http` handler's `Write`
-does. The wait lasts at most `Config.WriteTimeout` (60 s by default). Then the
-stream is reset (`RST_STREAM`, `INTERNAL_ERROR`), the request's context is done,
-and the write returns an error that wraps `os.ErrDeadlineExceeded`. With
-`WriteTimeout: -1` the wait has no bound.
+does. The wait lasts at most `Config.WriteTimeout` (60 s by default) from the
+write, for the whole response: progress does not extend it, so a client that
+grants window too slowly is cut off too. Then the stream is reset (`RST_STREAM`,
+`INTERNAL_ERROR`), the request's context is done, and the write returns an error
+that wraps `os.ErrDeadlineExceeded`. With `WriteTimeout: -1` there is no
+deadline: the wait lasts until the client grants window or the connection
+closes, and never ends if the I/O worker that would see either is the one
+waiting (below).
 
 So do not hold a lock across a response write that a sync handler also takes.
 The sync handler would wait for that lock on its I/O worker, and every
-connection on that worker would wait with it, for up to `WriteTimeout`. On `std`
-only the requests that take the lock wait.
+connection on that worker would wait with it, for up to `WriteTimeout`, or for
+good with `WriteTimeout: -1` if the slow client's connection is on that worker.
+On `std` only the requests that take the lock wait.
 
 ### Setting it: default + per-route/group overrides
 

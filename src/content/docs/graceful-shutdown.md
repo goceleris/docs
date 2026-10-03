@@ -265,7 +265,11 @@ The drain waits for:
   `WINDOW_UPDATE` included. It does so while the shutdown's context is live (until its
   deadline or, for a `ctx` with no deadline, until it is done, and, while
   `Config.WriteTimeout` is set, no longer than that), and never for less than 250 ms,
-  even with a shorter `WriteTimeout`;
+  even with a shorter `WriteTimeout`. A handler waiting for the client's window gives
+  up at `WriteTimeout` from its write. With `WriteTimeout: -1` it waits until the
+  client grants window or closes, and if a sync handler waiting on it (a lock it holds
+  across the write) blocks the worker that would see either, nothing ends the wait
+  and the server does not stop, whatever the shutdown's deadline;
 - on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
 
 While the native engines wait for those handlers they accept no new connection: `epoll`
