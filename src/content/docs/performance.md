@@ -639,9 +639,9 @@ log.Printf("rps=%.0f conns=%d accepts=%d closes=%d async_promotions=%d",
     rps, m.ActiveConnections, m.AcceptCount, m.CloseCount, m.AsyncPromotedConns)
 ```
 
-`EngineMetrics.Throughput` is not a rate: no engine has ever set it, so it always reads 0.
-It is deprecated in v1.6.0 and removed in v2.0.0
-([celeris#653](https://github.com/goceleris/celeris/issues/653)).
+`EngineMetrics` has no rate field. v1.6.0 removed `Throughput`, which no engine ever set, so
+it always read 0 ([celeris#653](https://github.com/goceleris/celeris/issues/653),
+[celeris#830](https://github.com/goceleris/celeris/issues/830)).
 
 If you'd rather not poll, the built-in collector stays on by default
 (`DisableMetrics: false`) and you can pair it with the in-tree `middleware/metrics`

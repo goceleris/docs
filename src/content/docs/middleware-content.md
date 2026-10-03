@@ -102,7 +102,10 @@ Source: `compress/config.go:11-28`, `compress/config.go:109-146`.
 Even when the client accepts a codec, `compress` flushes the body **uncompressed**
 (but still sets `Vary: Accept-Encoding`) in these cases:
 
-- The response status is not `2xx`.
+- The response status is not `2xx`, or it is `206 Partial Content`. A 206's
+  `Content-Range` counts bytes of the uncompressed file, and once a
+  `Content-Encoding` applies a range is over the encoded bytes (RFC 9110
+  §14.1.2), so a compressed part could not be reassembled.
 - The body is empty, or smaller than `MinLength`.
 - The response already has a `Content-Encoding` header (don't double-compress).
 - The content type matches an `ExcludedContentTypes` prefix.
@@ -114,7 +117,7 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
 If compression itself errors, the middleware degrades gracefully: it flushes the
 original uncompressed body so the client never sees a blank page.
 
-Source: `compress/compress.go:84-194`.
+Source: `compress/compress.go:84-198`.
 
 ### Install order relative to `etag`
 
@@ -192,9 +195,15 @@ s.Use(etag.New(etag.Config{
 `2xx` and the body is non-empty. On an `If-None-Match` match it discards the
 buffered body and returns `304` with the validator header set.
 
+A `206 Partial Content` is never hashed: its body is one part of the file, whose
+hash is not the file's tag. Without a tag of the handler's it passes through
+untouched. With one, `etag` keeps it (see below) and answers a matching
+`If-None-Match` with `304`, as for a full response: `If-None-Match` is evaluated
+before `Range` (RFC 9110 §13.2.2).
+
 If a downstream handler or middleware (for example the `static` file middleware)
 **already** set an `ETag` header, `etag` reuses that tag verbatim instead of
-hashing the body — so you never get a double tag. Source: `etag/etag.go:17-97`.
+hashing the body — so you never get a double tag. Source: `etag/etag.go:17-111`.
 
 ### It must be the innermost transform
 
@@ -228,7 +237,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `KeyGenerator`        | `func(*Context) string`       | method+path+query+vary | Derives the cache key. See below.                                                       |
 | `Singleflight`        | `bool`                        | `true`                 | Coalesce concurrent misses for the same key into one handler run.                        |
 | `Methods`             | `[]string`                    | `["GET", "HEAD"]`      | Methods eligible for caching. Others pass through untouched.                             |
-| `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored.                                          |
+| `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored. A `206` or `416` is never stored, whatever it says, even when the key includes `Range` (in `VaryHeaders` or a `KeyGenerator`): both answer one request's `Range`, and a replay would skip the handler's `If-Range` check. |
 | `VaryHeaders`         | `[]string`                    | `nil`                  | Request headers folded into the default key.                                            |
 | `HeaderName`          | `string`                      | `"X-Cache"`            | Header set to `HIT`/`MISS`/`ERROR`. `""` disables it.                                    |
 | `MaxBodyBytes`        | `int`                         | `1 << 20` (1 MiB)      | Bodies larger than this are not cached.                                                  |
@@ -238,7 +247,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `Skip`                | `func(*Context) bool`         | `nil`                  | Return `true` to skip caching for a request.                                            |
 | `SkipPaths`           | `[]string`                    | `nil`                  | Exact-match paths to skip.                                                              |
 
-Source: `cache/config.go:11-72`.
+Source: `cache/config.go:11-77`.
 
 ### Cache keys and `VaryHeaders`
 
@@ -265,7 +274,7 @@ s.Use(cache.New(cache.Config{
 }))
 ```
 
-Source: `cache/cache.go:292-335`.
+Source: `cache/cache.go:304-347`.
 
 ### Singleflight
 
@@ -302,7 +311,7 @@ s.GET("/me", func(c *celeris.Context) error {
 
 `Set-Cookie` is excluded from the stored header set by default, so a cached
 response won't leak one user's session cookie to another. Source:
-`cache/cache.go:191-220`, `cache/config.go:102-104`.
+`cache/cache.go:191-220`, `cache/config.go:107-109`.
 
 ### Invalidation
 
@@ -336,7 +345,7 @@ s.POST("/users/:id", func(c *celeris.Context) error {
 > your invalidation calls. The middleware does not expose the store it created
 > internally, so to invalidate you must own the reference.
 
-Source: `cache/cache.go:386-403`.
+Source: `cache/cache.go:398-415`.
 
 ### Pluggable stores
 
@@ -513,6 +522,7 @@ s.Use(swagger.New(swagger.Config{SpecContent: spec}))
 // → GET /swagger/      serves the UI
 // → GET /swagger/spec  serves the raw spec
 // → GET /swagger       301-redirects to /swagger/
+// → GET /swagger/assets/swagger-ui-dist@<version>/…  the embedded Swagger UI files
 ```
 
 Source: `celeris/middleware/swagger/swagger.go`, `swagger/config.go`.
@@ -531,12 +541,14 @@ Pick the frontend with `Renderer`:
 s.Use(swagger.New(swagger.Config{
     SpecContent: spec,
     Renderer:    swagger.RendererScalar,
+    CDN:         true, // Scalar and ReDoc are not embedded: pick CDN or AssetsPath
 }))
 ```
 
-By default the renderer's JS/CSS load from a public CDN (unpkg for Swagger UI,
-jsDelivr for Scalar/ReDoc). See [self-hosted assets](#self-hosted-assets) to serve
-them yourself.
+Swagger UI is **embedded** in the package and served by the middleware itself,
+so the default page loads no script or stylesheet from a third party. Scalar and
+ReDoc are not embedded: set `CDN: true` (pinned, integrity-checked) or
+`AssetsPath`, or `New` panics. See [assets](#assets-embedded-cdn-or-self-hosted).
 
 ### Where the spec comes from
 
@@ -551,7 +563,7 @@ required (the middleware **panics at construction** if neither is set):
 
 If you don't set `SpecFile`, the content type of an inline spec is sniffed from
 its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
-`swagger/config.go:101-112`, `swagger/config.go:213-237`, `swagger/swagger.go:26-83`.
+`swagger/config.go:109-124`, `swagger/config.go:265-289`, `swagger/swagger.go:163-171`.
 
 ### Config reference
 
@@ -564,11 +576,12 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Renderer`   | `swagger.UIRenderer`  | `RendererSwaggerUI`   | UI frontend.                                                  |
 | `UI`         | `swagger.UIConfig`    | see below             | Appearance/behavior of the UI.                               |
 | `Options`    | `map[string]any`      | `nil`                 | Renderer-specific JSON-serializable config (must marshal).    |
-| `AssetsPath` | `string`              | `""` (CDN)            | Local URL prefix for self-hosted UI assets.                  |
+| `AssetsPath` | `string`              | `""` (embedded)       | URL prefix of UI assets you serve yourself.                  |
+| `CDN`        | `bool`                | `false`               | Load the UI from jsDelivr, pinned to an exact version with SRI hashes. |
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
-Source: `swagger/config.go:86-153`.
+Source: `swagger/config.go:86-197`.
 
 ### UI options
 
@@ -599,7 +612,7 @@ s.Use(swagger.New(swagger.Config{
 
 `DefaultModelsExpandDepth` is a `*int` so the middleware can tell "unset" (use the
 UI default of 1) from an explicit `0`. Use `swagger.IntPtr` to set it. Source:
-`swagger/config.go:24-160`.
+`swagger/config.go:24-62`, `swagger/config.go:199-204`.
 
 ### OAuth2 with PKCE
 
@@ -624,14 +637,15 @@ s.Use(swagger.New(swagger.Config{
 ```
 
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `UsePKCE`.
-Source: `swagger/config.go:52-84`, `swagger/swagger.go:118-143`.
+Source: `swagger/config.go:64-84`, `swagger/swagger.go:271-288`.
 
 ### Renderer-specific options
 
 `Options` is a free-form `map[string]any` (it must be JSON-serializable, or the
 middleware panics at construction) passed straight to the renderer:
 
-- **Swagger UI** → `SwaggerUIBundle()`.
+- **Swagger UI**: ignored. Configure Swagger UI through `UI` (see
+  [UI options](#ui-options)).
 - **ReDoc** → `Redoc.init()`.
 - **Scalar** → `data-configuration`.
 
@@ -639,6 +653,7 @@ middleware panics at construction) passed straight to the renderer:
 s.Use(swagger.New(swagger.Config{
     SpecContent: spec,
     Renderer:    swagger.RendererReDoc,
+    CDN:         true,
     Options: map[string]any{
         "expandResponses":    "200,201",
         "hideDownloadButton": true,
@@ -646,29 +661,94 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-Source: `swagger/config.go:120-138`, `swagger/swagger.go:175-234`.
+Source: `swagger/config.go:132-150`, `swagger/swagger.go:236-321`.
 
-### Self-hosted assets
+### Assets: embedded, CDN or self-hosted
 
-To avoid the public CDN (air-gapped deploys, CSP policies, no third-party
-requests), set `AssetsPath` to a URL prefix you serve the renderer's
-files from yourself — for example with the `static` middleware:
+Where the page loads the renderer's JavaScript and CSS from:
+
+| Source | How | Swagger UI | Scalar / ReDoc |
+| ------ | --- | ---------- | -------------- |
+| Embedded (default) | nothing to set | served from `{BasePath}/assets/swagger-ui-dist@<version>/` | not embedded: `New` panics, set `CDN` or `AssetsPath` |
+| CDN | `CDN: true` | jsDelivr, exact version, SRI | jsDelivr, exact version, SRI |
+| Self-hosted | `AssetsPath: "/prefix"` | your files | your files |
+
+**Embedded.** The middleware embeds swagger-ui-dist (`swagger.SwaggerUIVersion`)
+byte for byte as published, together with its upstream licence notices
+(Apache-2.0 `LICENSE` and `NOTICE`, plus the bundles' third-party notices). It
+serves them under `{BasePath}/assets/swagger-ui-dist@<version>/` with
+`Cache-Control: public, max-age=31536000, immutable`, which is safe because the
+version is part of the URL. The page then works without Internet access, as
+long as the spec is `SpecContent` or a `SpecURL` on your own server, and its
+Content-Security-Policy needs no third-party origin for scripts or styles. (The
+page's initialiser is still an inline `<script>`.) The page references the files
+relative to `{BasePath}/`, so they also load behind a reverse proxy that
+publishes the page under another prefix (`/ext/swagger/` forwarded to
+`/swagger/`). Embedding adds about 2 MB to any binary that imports the package.
+Like the page and the spec, the files are public unless an authentication
+middleware runs before `swagger`: the bundle is a 1.5 MiB response at a fixed
+URL.
+Scalar (4.4 MB) and ReDoc (1.1 MB) are not embedded: the renderer is chosen at
+run time, so every embedded bundle would end up in every binary. (Measured in
+[celeris#851](https://github.com/goceleris/celeris/pull/851): with
+swagger-ui-dist 5.33.1, linux/amd64 and arm64 binaries grow by 2.03 to 2.07 MB
+and `swagger-ui-bundle.js` is 1,586,002 bytes; Scalar 1.72.4's
+`standalone.js` is 4,381,105 bytes and ReDoc 2.5.4's `redoc.standalone.js`
+1,103,471.)
+
+**The asset requests must reach the middleware.** Besides `{BasePath}/` and
+`{BasePath}/spec`, the browser asks the middleware for
+`{BasePath}/assets/swagger-ui-dist@<version>/…`. If only the page and the spec
+get through, the page loads but stays blank. Routing exactly
+`s.GET("/swagger/", …)` and `s.GET("/swagger/spec", …)` is one such setup; a
+group-scoped mount and a proxy or ingress rule that forwards only those two
+paths are others. A middleware added with `s.Use` currently runs only for
+requests that match a route, unless a custom `NotFound` handler is set
+([celeris#852](https://github.com/goceleris/celeris/issues/852)). So mount it
+with `s.Pre`, register a catch-all route such as `s.GET("/swagger/*filepath", …)`,
+or set `NotFound`; and forward the whole `{BasePath}/` prefix through any proxy.
+With the catch-all route, the bare `/swagger` (no trailing slash) matches no
+route, so it answers 404 instead of redirecting to `/swagger/`; link to
+`/swagger/`.
+
+**CDN.** `CDN: true` loads the renderer from `cdn.jsdelivr.net`, pinned to the
+exact versions in `swagger.SwaggerUIVersion`, `swagger.ScalarVersion` and
+`swagger.ReDocVersion`. Every tag carries a Subresource Integrity hash and
+`crossorigin="anonymous"`, so the browser refuses a file that differs from the
+release the package was built against. The page then needs `cdn.jsdelivr.net` in
+its CSP, and viewers need Internet access. Before
+[celeris#851](https://github.com/goceleris/celeris/pull/851), Swagger UI loaded
+from `unpkg.com`, so a CSP written for the old default must allow
+`cdn.jsdelivr.net` instead. Wherever it is loaded from, Scalar's bundle also names
+`fonts.scalar.com` (its default fonts, the `withDefaultFonts` option) and
+`proxy.scalar.com` (its request proxy, the `proxyUrl` option).
+
+```go
+s.Pre(swagger.New(swagger.Config{SpecContent: spec, CDN: true})) // s.Pre: see above (celeris#852)
+```
+
+**Self-hosted.** Set `AssetsPath` to a URL prefix you serve the files from, for
+example with the `static` middleware:
 
 ```go
 // Serve the downloaded swagger-ui-dist files under /swagger-assets.
-s.Use(static.New(static.Config{Root: "./swagger-ui-dist", Prefix: "/swagger-assets"}))
-s.Use(swagger.New(swagger.Config{
+// Both are mounted with s.Pre so that their unrouted paths reach them (celeris#852).
+s.Pre(static.New(static.Config{Root: "./swagger-ui-dist", Prefix: "/swagger-assets"}))
+s.Pre(swagger.New(swagger.Config{
     SpecContent: spec,
     AssetsPath:  "/swagger-assets", // page now references {AssetsPath}/swagger-ui-bundle.js etc.
 }))
 ```
 
-You are responsible for placing the actual asset files at that prefix. The
-expected filenames differ per renderer — Swagger UI needs `swagger-ui.css`,
-`swagger-ui-bundle.js`, and `swagger-ui-standalone-preset.js`; ReDoc needs
-`redoc.standalone.js`; Scalar needs `standalone.min.js`. Source:
-`swagger/swagger.go:97-233`. See [Static files](/docs/static-files) for serving a
-directory.
+You are responsible for putting the files at that prefix. The filenames differ
+per renderer: Swagger UI needs `swagger-ui.css`, `swagger-ui-bundle.js` and
+`swagger-ui-standalone-preset.js`; ReDoc needs `redoc.standalone.js`; Scalar
+needs `standalone.min.js`. `@scalar/api-reference` ships that file as
+`dist/browser/standalone.js`, so serve it under the name `standalone.min.js`.
+The page is written for the pinned versions above and
+carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
+cannot both be set (`New` panics). Source: `swagger/assets.go`, `swagger/pins.go`.
+See [Static files](/docs/static-files) for serving a directory.
 
 ## Common pitfalls
 
@@ -693,8 +773,10 @@ directory.
 - **Invalidation needs your own store reference.** `cache.Invalidate` /
   `InvalidatePrefix` operate on the `store.KV` *you* constructed and passed in —
   the middleware never exposes a store it created for you.
-- **`swagger` needs a spec.** `swagger.New` panics if neither `SpecContent` nor
-  `SpecURL` is set, and if `BasePath` doesn't start with `/`.
+- **`swagger` panics on an incomplete config.** `swagger.New` panics if neither
+  `SpecContent` nor `SpecURL` is set, if `BasePath` doesn't start with `/`, if
+  `Renderer` is `RendererScalar` or `RendererReDoc` without `CDN: true` or
+  `AssetsPath` (neither is embedded), and if both `AssetsPath` and `CDN` are set.
 - **`compress` levels panic on bad ranges.** An out-of-range level (e.g.
   `ZstdLevel: 9`) panics at startup — use the `Level` sentinels or a value in the
   codec's valid range.
