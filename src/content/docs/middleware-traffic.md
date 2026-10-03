@@ -703,7 +703,7 @@ When many identical requests arrive at once (a cache stampede, a dashboard that
 N clients all refresh on the same tick), `singleflight` lets the **first**
 request run the handler and serves every concurrent duplicate a *copy* of that
 one response. Coalesced responses carry an `X-Singleflight: HIT` header.
-Source: `celeris/middleware/singleflight/singleflight.go:59`, `singleflight.go:115`.
+Source: `celeris/middleware/singleflight/singleflight.go:59`, `singleflight.go:123`.
 
 ```go
 import "github.com/goceleris/celeris/middleware/singleflight"
@@ -730,6 +730,10 @@ s.GET("/me/feed", singleflight.New(singleflight.Config{
 `singleflight` only deduplicates requests that are *in flight at the same time* —
 it is not a cache. Once the leader returns, the next request runs the handler
 fresh. It's purely a stampede guard.
+
+A request with a `Range` header is never coalesced: its response, a
+`206 Partial Content`, answers that range, so it must not be handed to requests
+for the whole resource, and a ranged request must not wait on a full one.
 
 ### `idempotency` — make retries safe
 
