@@ -20,10 +20,13 @@ listening socket across a restart for true zero-downtime deploys.
 
 The idiomatic entry point is `StartWithContext`. Wire a context to your termination
 signals with the standard library's `signal.NotifyContext`; when the signal lands,
-the context is canceled, Celeris drains in flight requests and runs your
-`OnShutdown` hooks, and only then does `StartWithContext` return. This is the
-recommended path: cancelling the context is what every engine drains on, so it
-behaves identically across `std` and the native Linux engines.
+the context is canceled, Celeris stops accepting, drains the requests in flight, then
+runs your `OnShutdown` hooks, and only then does `StartWithContext` return. This is the
+recommended path. A cancel starts that shutdown on every engine, and since celeris
+v1.6.0 it runs in the same order on every engine: the drain first, then the hooks
+([celeris#703](https://github.com/goceleris/celeris/issues/703)). Since v1.6.0 the drain
+covers every HTTP/1.1 request and every HTTP/2 stream; see
+[What the drain waits for](#what-the-drain-waits-for).
 
 ```go
 package main
@@ -61,32 +64,37 @@ func main() {
 When `ctx` is canceled, `StartWithContext` cancels the engine's listen context (which
 stops accepting and drains in flight requests) and, on a watcher goroutine, calls
 `Shutdown` with a fresh context bounded by `Config.ShutdownTimeout` (defaulting to
-**30s** when unset or non-positive), which runs your `OnShutdown` hooks. It then waits
-for both: `StartWithContext` returns the engine's exit error only after the engine has
-stopped **and** that `Shutdown`, hooks included, has returned. If your code already
-called `Shutdown` itself during the run, the cancel does not run it, or your hooks, a
-second time; and a `Shutdown` your code calls after the cancel has started one waits
-for that one instead of running its own (see
-[Shutting down programmatically](#shutting-down-programmatically-shutdown)).
-`StartWithListenerAndContext` behaves the same way. Source:
-`celeris/server.go` (`StartWithContext`, `StartWithListenerAndContext`,
-`listenUntilCancelled`).
+**30s** when unset or non-positive). That `Shutdown` waits for the drain and then runs
+your `OnShutdown` hooks, all under that one deadline (on `std` since celeris v1.6.0;
+before, a cancel waited for the handlers still running, whatever the deadline:
+[celeris#753](https://github.com/goceleris/celeris/issues/753)). `StartWithContext`
+then waits for both: it returns
+the engine's exit error only after the engine has stopped **and** that `Shutdown`,
+hooks included, has returned. If your code already called `Shutdown` itself during the
+run, the cancel does not run it, or your hooks, a second time; and a `Shutdown` your
+code calls after the cancel has started one waits for that one instead of running its
+own (see [Shutting down programmatically](#shutting-down-programmatically-shutdown)).
+`StartWithListenerAndContext` behaves the same way. Source: `celeris/server.go`
+(`StartWithContext`, `StartWithListenerAndContext`, `listenUntilCancelled`).
 
 The godoc states the contract (since celeris v1.6.0,
 [celeris#673](https://github.com/goceleris/celeris/issues/673)):
 
 > **`StartWithContext`:** "When the context is canceled, the server shuts down
 > gracefully using Config.ShutdownTimeout (default 30s), and StartWithContext returns
-> once that shutdown, including the [Server.OnShutdown] hooks, has finished. A hook
-> must therefore not wait for StartWithContext to return; see [Server.OnShutdown]."
+> once that shutdown, including the [Server.OnShutdown] hooks, has finished; so it does
+> when a direct [Server.Shutdown] stops it. A hook must therefore not wait for
+> StartWithContext to return; see [Server.OnShutdown]."
 >
-> **`OnShutdown`:** "When cancelling the context of [Server.StartWithContext] or
-> [Server.StartWithListenerAndContext] is what shuts the server down, the hooks run
-> before that call returns: it waits for the Shutdown the cancel triggers, hooks
-> included. A hook must therefore not wait for that Start call to return, directly or
-> through anything that happens only after it returns. The two would wait on each
-> other: a hook that returns when its ctx is done ends the wait after
-> [Config.ShutdownTimeout], and a hook that ignores ctx never does."
+> **`OnShutdown`:** "The hooks run before the Start* call that served the server
+> returns, whatever shut it down: a Start* call waits for the direct [Server.Shutdown]
+> call that stopped it, and [Server.StartWithContext] and
+> [Server.StartWithListenerAndContext] wait for the Shutdown a cancel of their context
+> triggers, hooks included (celeris#703). A hook must therefore not wait for that Start
+> call to return, directly or through anything that happens only after it returns. The
+> two would wait on each other: a hook that returns when its ctx is done ends the wait
+> when that ctx is done ([Config.ShutdownTimeout] after a cancel), and a hook that
+> ignores ctx never does."
 
 So a `main` that exits as soon as `StartWithContext` returns does not cut a hook short.
 The one thing a hook must not do is wait for `StartWithContext` (or
@@ -101,12 +109,45 @@ after `Config.ShutdownTimeout`; one that ignores `ctx` hangs the shutdown for go
 ### Shutting down programmatically: `Shutdown`
 
 `Shutdown(ctx)` is the explicit, programmatic way to stop a running server. It stops
-the engine, closes the internal CPU monitor, and runs your `OnShutdown` hooks. On `std`
-and `adaptive` it first waits for in flight requests, bounded by the `ctx` you pass; on
-`epoll` and `io_uring` it returns without waiting for them (see
-[Shutdown sequence](#shutdown-sequence)). When your call is what shuts the server down,
-`Config.ShutdownTimeout` is **not** consulted — *you* own the deadline via the context
-you pass. Source: `celeris/server.go` (`Shutdown`).
+the engine, waits for the requests in flight to drain, closes the internal CPU monitor,
+and runs your `OnShutdown` hooks. The wait for the drain is bounded by the `ctx` you
+pass: if `ctx` is done first, the hooks still run, with that `ctx`, and `Shutdown`
+returns its error (see [Shutdown sequence](#shutdown-sequence)). Since celeris v1.6.0
+this is the same on every engine; before, `Shutdown` on `epoll` and `io_uring` ran the
+hooks and returned without waiting for the drain
+([celeris#703](https://github.com/goceleris/celeris/issues/703)). When your call is
+what shuts the server down, `Config.ShutdownTimeout` is **not** consulted — *you* own
+the deadline via the context you pass. Source: `celeris/server.go` (`Shutdown`).
+
+Because `Shutdown` waits for the requests in flight, a handler must not call it and
+wait for it: the call would wait for its own request until `ctx` is done. Start it on
+its own goroutine instead (`go s.Shutdown(ctx)`), as with net/http.
+
+The `Start*` call that your `Shutdown` stops returns only after that `Shutdown` has
+returned, hooks included, on every engine since celeris v1.6.0
+([celeris#703](https://github.com/goceleris/celeris/issues/703)). So the usual shape,
+a signal goroutine that calls `Shutdown` and a `main` that exits when `Start` returns,
+keeps its hooks:
+
+```go
+go func() {
+	<-sigCh // from signal.Notify
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := s.Shutdown(ctx); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
+}()
+if err := s.Start(); err != nil { // returns after the Shutdown above has returned
+	log.Fatal(err)
+}
+```
+
+On `epoll`, `io_uring` and `adaptive`, `Start` also waits for the drain itself, even
+past `ctx`. On `std` it returns when `Shutdown` does. If `ctx` ran out first, requests
+may still be in their handlers, and exiting then cuts them off (see
+[the FAQ](#faq)). Before v1.6.0, `Start` could return before your hooks had run: on
+those versions wait for `Shutdown` to return before exiting, as net/http teaches.
 
 The exception is a call made after cancelling the context of `StartWithContext` or
 `StartWithListenerAndContext` has already started a shutdown. Since celeris v1.6.0
@@ -141,8 +182,7 @@ if err := s.Shutdown(shutCtx); err != nil {
 > The context-driven entry points (`StartWithContext` / `StartWithListenerAndContext`)
 > are still the better path: a cancel runs `Shutdown` for you with
 > `Config.ShutdownTimeout`, and the call returns only after the engine and the hooks
-> have finished, while a direct `Shutdown` on `epoll` or `io_uring` returns without
-> waiting for the drain (see [Shutdown sequence](#shutdown-sequence)). Source:
+> have finished. Source:
 > `celeris/server.go` (`Start`, `listenContext`, `Shutdown`),
 > `celeris/engine/epoll/engine.go` and `celeris/engine/iouring/engine.go` (`Shutdown`).
 
@@ -150,13 +190,14 @@ if err := s.Shutdown(shutCtx); err != nil {
 
 | Method | Blocks until | Drain deadline | Use when |
 | ------ | ------------ | -------------- | -------- |
-| `StartWithContext(ctx)` | after a cancel: the engine has stopped and `Shutdown`, hooks included, has finished; otherwise an engine error | `Config.ShutdownTimeout` (default 30s), applied to the hook phase | The common case: signal-driven shutdown. |
-| `StartWithListenerAndContext(ctx, ln)` | as `StartWithContext` | `Config.ShutdownTimeout` (default 30s), applied to the hook phase | Socket handoff + signal-driven shutdown. |
-| `Start()` | `Shutdown` is called (since v1.6.0) or engine error | n/a (drain via `StartWithContext`) | Rare; prefer the context entry points. |
-| `StartWithListener(ln)` | as `Start()` | n/a (drain via `StartWithListenerAndContext`) | Socket handoff with the context entry point below. |
-| `Shutdown(ctx)` | hooks complete; on `std` and `adaptive` also the drain, which `epoll` and `io_uring` do not wait for (see [Shutdown sequence](#shutdown-sequence)) | the `ctx` you pass, unless a cancel has already started the shutdown (see [above](#shutting-down-programmatically-shutdown)) | Programmatic shutdown from your own code. |
+| `StartWithContext(ctx)` | after a cancel: the engine has stopped and `Shutdown`, hooks included, has finished; otherwise an engine error | `Config.ShutdownTimeout` (default 30s): one deadline for the drain and then the hooks | The common case: signal-driven shutdown. |
+| `StartWithListenerAndContext(ctx, ln)` | as `StartWithContext` | `Config.ShutdownTimeout` (default 30s): one deadline for the drain and then the hooks | Socket handoff + signal-driven shutdown. |
+| `Start()` | the `Shutdown` that stops it has returned, hooks included (since v1.6.0), or an engine error | the `ctx` you pass to `Shutdown` | Rare; prefer the context entry points. |
+| `StartWithListener(ln)` | as `Start()` | the `ctx` you pass to `Shutdown` | Socket handoff with the context entry point below. |
+| `Shutdown(ctx)` | the drain, bounded by `ctx`, and then every hook (see [Shutdown sequence](#shutdown-sequence)) | the `ctx` you pass, unless a cancel has already started the shutdown (see [above](#shutting-down-programmatically-shutdown)) | Programmatic shutdown from your own code. |
 
-Source: `celeris/server.go:354`, `367`, `705`, `716`, `771`.
+Source: `celeris/server.go` (`StartWithContext`, `StartWithListenerAndContext`, `Start`,
+`StartWithListener`, `Shutdown`).
 
 ## Shutdown sequence
 
@@ -169,14 +210,20 @@ engine's `Shutdown`.
    created) and returns `nil`. Calling `Shutdown` on a server you never started is
    therefore safe and cheap.
 2. **Shut the engine down.** On `std` this is net/http's `Server.Shutdown`: stop
-   accepting, then wait for in flight requests, bounded by the `ctx` you pass (per the
-   engine contract, when the deadline expires remaining connections are closed rather
-   than waited on indefinitely, `celeris/engine/engine.go:16-18`). `adaptive` waits,
-   bounded by `ctx`, for its engines to unwind. On `epoll` and `io_uring` this step
-   returns at once: those engines drain as their listen context is cancelled (the next
-   step), and `Shutdown` does not wait for that.
-3. **Cancel the listen context.** This is what stops a running `epoll` or `io_uring`
-   engine. `Shutdown` does not wait for it to finish draining.
+   accepting, then wait for in flight requests, bounded by the `ctx` you pass. When
+   `ctx` expires it stops waiting, but it does not close the connections of requests
+   still running (see [the FAQ](#faq)). `adaptive` waits, bounded by `ctx`, for its
+   engines to unwind. On `epoll` and
+   `io_uring` this step returns at once: those engines drain as their listen context is
+   cancelled (the next step).
+3. **Cancel the listen context and wait for the drain.** Cancelling it is what stops a
+   running `epoll` or `io_uring` engine: its workers stop accepting, let the handlers
+   they are running return and wait for their async handlers, send what the sockets
+   have not taken yet (see [What the drain waits for](#what-the-drain-waits-for)), and
+   close their connections. `Shutdown` then waits, bounded by `ctx`, until the engine's `Listen` has
+   returned, which is when the drain is over (on `std` and `adaptive`, at once: step 2
+   drained). What that drain covers, and what it does not, is in
+   [What the drain waits for](#what-the-drain-waits-for).
 4. **Close the CPU monitor.** Celeris releases the internal CPU-utilization monitor
    (on Linux this frees the `/proc/stat` file descriptor that powers the adaptive
    engine and `CPUUtilization` metrics).
@@ -184,32 +231,99 @@ engine's `Shutdown`.
    each receiving the **same** shutdown context you passed to `Shutdown`. A panic in
    one hook is recovered and does not abort the others, nor does it crash the process.
 
-So when the hooks run relative to the drain depends on the engine. On `std` and
-`adaptive` they start after in flight requests have finished. On `epoll` and `io_uring`
-they can run, and a direct `Shutdown` can return, while requests are still in flight.
-A cancelled `StartWithContext` still returns only after both the engine and the hooks
-have finished. (Measured on Linux with a 500 ms request in flight when the shutdown
-began: on `epoll` and `io_uring` the hook ran at once, and a direct `Shutdown` returned
-at once; on `std` and `adaptive` the hook ran after the request finished.)
+So on every engine the hooks start after the requests in flight have finished (see
+[below](#what-the-drain-waits-for)), a direct `Shutdown` returns
+after the hooks, and the `Start*` call it stopped returns after `Shutdown`. If `ctx` is
+done before the drain is over, the hooks run then, with that `ctx`, and `Shutdown`
+returns its error (see
+[What happens to requests still running when the deadline expires?](#faq)). A
+cancelled `StartWithContext` returns only after both the engine and the hooks have
+finished. Before celeris v1.6.0, on `epoll` and `io_uring` the hooks ran, and a direct
+`Shutdown` returned, while requests were still in flight
+([celeris#703](https://github.com/goceleris/celeris/issues/703)).
 
-`Shutdown` returns the engine's shutdown error (or `nil`). Note that hook panics are
-swallowed (recovered) — they do not surface in the return value — so do your own
-error logging inside the hook.
+`Shutdown` returns the engine's shutdown error, or `ctx`'s error if the drain did not
+finish within `ctx`, or `nil`. Note that hook panics are swallowed (recovered) — they
+do not surface in the return value — so do your own error logging inside the hook.
+
+### What the drain waits for
+
+The drain waits for:
+
+- every **HTTP/1.1** request, on every engine;
+- on `epoll`, `io_uring` and `adaptive`, every **HTTP/2** stream. A stream whose
+  handler runs on the connection's worker (every route that is not async) is waited
+  for like an HTTP/1.1 request. A stream on an **async route** (`.Async()`, or a route
+  `Config.AsyncHandlers` has made async) runs on a shared HTTP/2 worker pool: the
+  engine sends each HTTP/2 connection GOAWAY, so its client opens no new stream on it,
+  refuses (`REFUSED_STREAM`, safe for the client to retry elsewhere) a stream it opens
+  anyway, and keeps serving the connection until those handlers have returned and
+  their responses have gone out, response data waiting for the client's
+  `WINDOW_UPDATE` included. It does so while the shutdown's context is live (until its
+  deadline or, for a `ctx` with no deadline, until it is done, and, while
+  `Config.WriteTimeout` is set, no longer than that), and never for less than 250 ms,
+  even with a shorter `WriteTimeout`;
+- on `std`, every **h2c stream**'s handler, up to the shutdown's deadline.
+
+While the native engines wait for those handlers they accept no new connection: `epoll`
+closes its listeners when the shutdown begins, as net/http's `Shutdown` does, and
+`io_uring` when the wait begins (its 250 ms send drain, below, still answers a
+connection that arrives inside it). Before celeris v1.6.0 a connection that arrived
+during the wait was served, and then cut when the wait ended.
+
+Before celeris v1.6.0 the drain waited for neither kind of stream
+([celeris#759](https://github.com/goceleris/celeris/issues/759)): on `epoll`, `io_uring`
+and `adaptive` an async-route stream's connection was closed under its handler, so the
+client got `unexpected EOF` and the hooks ran first; on `std` net/http, which hands an
+h2c connection over and stops tracking it, did not wait for its streams, so the hooks ran
+while the handler was still running (the response was still delivered).
+
+Once the handlers have returned, the native engines keep sending what the sockets have
+not taken yet before they close the connections, so a response larger than the socket
+buffers still reaches a client that reads slowly. `epoll` (and `adaptive` while it runs
+`epoll`) keeps sending while the shutdown's context is live: until its deadline
+(`Config.ShutdownTimeout` after a cancel, or the `ctx` of a direct `Shutdown`), or, for a
+`ctx` with no deadline such as `context.Background()`, until that `ctx` is done. It never
+sends for less than 250 ms, nor, while `Config.WriteTimeout` is set (60 s by default),
+for longer than that, so a client that never reads holds the shutdown that long and no
+longer, even a `Shutdown(context.Background())`. With `WriteTimeout: -1` (no timeout)
+only the context bounds it, and a `Shutdown(context.Background())` waits for as long as
+such a client does not read. Before celeris v1.6.0
+`epoll` closed each connection as soon as the handlers had returned, and such a
+response lost its tail ([celeris#760](https://github.com/goceleris/celeris/issues/760)).
+`io_uring` keeps sending for 250 ms whatever the deadline, so a client slower than that
+can still lose the tail. A send stalled on a client that does not read at all is not cut
+at 250 ms, though: the worker waits in the kernel, and `io_uring`'s `Listen`, and with it
+the `Start*` call, returns about 10 s later whatever the budget
+([celeris#806](https://github.com/goceleris/celeris/issues/806)). `std` drains through
+net/http.
+
+(Measured on each engine with one request in flight at the shutdown. An h2c request,
+on an `.Async()` route or not, got its response on every engine, with the hooks run
+after the handler; before v1.6.0 it got `unexpected EOF` on an `.Async()` route on
+`epoll`, `io_uring` and `adaptive`, and on `std` the hooks ran before its handler
+returned. A 3 MiB response was written 200 ms into the shutdown, to a
+client with a 64 KiB receive buffer that started reading 1 s later. The client got all
+of it on `std`, `epoll` and `adaptive` (before v1.6.0, 2,634,240 of its 3,145,849 bytes
+on `epoll` and `adaptive`). On `io_uring` it depends on what the kernel had taken when
+the 250 ms ran out: all of it on one machine, 2,634,119 of 3,145,728 body bytes on a CI
+runner.)
 
 > **The shutdown context is shared across the engine drain *and* every hook.** Within a
 > single `Shutdown(ctx)` call, the same `ctx` bounds the drain and then flows into each
-> hook in turn — so on `std` and `adaptive`, where `Shutdown` waits for the drain, if
-> you pass a 5s context and the drain eats 4.5s, your hooks have only ~500ms of budget
-> left. Size `ShutdownTimeout` (or the context you build manually) to cover both the
-> request drain *and* the slowest resource you close in a hook.
+> hook in turn — so if you pass a 5s context and the drain eats 4.5s, your hooks have
+> only ~500ms of budget left. Size `ShutdownTimeout` (or the context you build
+> manually) to cover both the request drain *and* the slowest resource you close in a
+> hook.
 
 ## Drain hooks: `OnShutdown`
 
-`Server.OnShutdown(fn)` registers a function to run at the end of `Shutdown`. On `std`
-and `adaptive` that is after in flight requests have finished; on `epoll` and
-`io_uring` a hook can run while requests are still in flight (see
-[Shutdown sequence](#shutdown-sequence)). This is where you close database pools,
-flush log buffers, deregister from service discovery, or persist in-memory state.
+`Server.OnShutdown(fn)` registers a function to run at the end of `Shutdown`, after the
+requests in flight have finished (or the shutdown deadline has passed), on every engine
+(see [Shutdown sequence](#shutdown-sequence), and
+[What the drain waits for](#what-the-drain-waits-for)). This
+is where you close database pools, flush log buffers, deregister from service
+discovery, or persist in-memory state.
 Source: `celeris/server.go` (`OnShutdown`).
 
 ```go
@@ -251,11 +365,12 @@ Rules to internalize:
   from exiting. Celeris does **not** forcibly interrupt a hook that ignores the
   deadline — it will run to completion, and a cancelled `StartWithContext` does not
   return until it has.
-- **Never wait for `StartWithContext` inside a hook.** On the `StartWithContext` /
-  `StartWithListenerAndContext` path the hooks run *before* that call returns, so a
+- **Never wait for the `Start*` call inside a hook.** The hooks run *before* the
+  `Start*` call returns, whether a cancel or your own `Shutdown` stopped it, so a
   hook that waits for it to return, directly or on something your code does only
-  after it returns, waits on itself. It is released after `Config.ShutdownTimeout` if
-  it honours `ctx`, and never if it does not.
+  after it returns, waits on itself. It is released when its `ctx` is done
+  (`Config.ShutdownTimeout` after a cancel) if it honours `ctx`, and never if it
+  does not.
 - **Panics are contained.** A panic in one hook is recovered; remaining hooks still
   run and the process does not crash. This is a safety net, not a license to skip
   error handling — log failures yourself.
@@ -302,7 +417,8 @@ queue and the final updates of in-flight requests may be lost — prefer
 Sometimes you want to stop taking *new* connections while keeping the existing ones
 served — for example, to quiesce a node for maintenance, fail a load-balancer health
 check, or back off under pressure — without tearing the whole server down.
-`PauseAccept` and `ResumeAccept` do exactly that. Source: `celeris/server.go:515-540`.
+`PauseAccept` and `ResumeAccept` do exactly that. Source: `celeris/server.go`
+(`PauseAccept`, `ResumeAccept`).
 
 ```go
 // Stop accepting new connections; in flight requests keep running.
@@ -326,7 +442,8 @@ _ = s.ResumeAccept()
 (net/http) engine does **not** support it: both methods return
 `celeris.ErrAcceptControlNotSupported` on `std`, and also when the server has not been
 started yet (no engine is installed). Always check the error and have a fallback (a
-full `Shutdown`) for portability. Source: `celeris/server.go:515-539`,
+full `Shutdown`) for portability. Source: `celeris/server.go` (`PauseAccept`,
+`ResumeAccept`),
 `celeris/errors.go:29-31`, `celeris/engine/engine.go:27-35`. See
 [Engines](/docs/engines) for which engine runs where.
 
@@ -349,8 +466,8 @@ The pieces:
 | `Server.StartWithListener(ln)` | Start the server on an existing `net.Listener` instead of binding `Config.Addr`. |
 | `Server.StartWithListenerAndContext(ctx, ln)` | Same, plus signal-driven graceful shutdown bounded by `Config.ShutdownTimeout`. |
 
-Source: `celeris/server.go:748-763` (`InheritListener`), `705-711`
-(`StartWithListener`), `716-743` (`StartWithListenerAndContext`).
+Source: `celeris/server.go` (`InheritListener`, `StartWithListener`,
+`StartWithListenerAndContext`).
 
 ### `InheritListener` takes an env-var *name*, not an address
 
@@ -377,7 +494,7 @@ if ln == nil {
 Passing an address like `InheritListener(":8080")` is wrong — there is no env var
 named `:8080`, so it returns `nil, nil` and you silently fall through to a cold bind.
 `InheritListener` returns an error only when the variable *is* set but holds an
-invalid fd. Source: `celeris/server.go:748-763`.
+invalid fd. Source: `celeris/server.go` (`InheritListener`).
 
 ### Listener ownership: hands off
 
@@ -391,7 +508,12 @@ on it or `Close` it yourself.** What happens to the listener depends on the engi
   design — the multi-worker native engines need their own per-worker sockets.
 
 In both cases the contract is the same: after calling `StartWithListener`, the
-listener belongs to Celeris. Source: `celeris/server.go:557-711`.
+listener belongs to Celeris. That holds when the start fails, too: if the server cannot
+start before its engine runs (a configuration error, or an engine that cannot be
+created), Celeris closes the listener before it returns the error, since celeris v1.6.0
+([celeris#737](https://github.com/goceleris/celeris/issues/737)). The one exception is
+`ErrAlreadyStarted`: the server is already running, so the listener you passed stays
+yours. Source: `celeris/server.go` (`StartWithListener`, `prepareWithListener`).
 
 > Because native engines rebind via `SO_REUSEPORT`, the old and new processes can both
 > hold a socket on the port simultaneously during the handoff window — which is exactly
@@ -519,13 +641,23 @@ std via the shared inherited fd), so no client connection is refused.
   (or match the listener exactly).
 - **Registering `OnShutdown` after `Start`.** Hooks (and all configuration) must be
   registered before the server starts.
-- **Waiting for `StartWithContext` inside a hook.** The hooks run before a cancelled
-  `StartWithContext` returns, so the two wait on each other. See
+- **Waiting for the `Start*` call inside a hook.** The hooks run before the `Start*`
+  call returns, so the two wait on each other. See
   [Drain hooks](#drain-hooks-onshutdown).
-- **Under-sizing the shutdown budget.** On `std` and `adaptive`, `ShutdownTimeout` (or
-  your manual context) covers the request drain *and* every `OnShutdown` hook, sharing
-  one deadline. If your hooks do real work (flushing a remote sink, closing pools),
-  budget for it.
+- **Exiting before `Shutdown` has returned.** Since v1.6.0 the `Start*` call waits for
+  the `Shutdown` that stopped it, so exiting when it returns is safe. On earlier
+  versions it is not: wait for `Shutdown` to return, as net/http teaches. On `std`, a
+  `Shutdown` whose `ctx` expired returns while handlers may still be running, and so
+  do `Start` and a cancelled `StartWithContext` (see [the FAQ](#faq)).
+- **Counting on the drain for HTTP/2 async routes, or h2c on `std`, before v1.6.0.**
+  The drain did not wait for them. See
+  [What the drain waits for](#what-the-drain-waits-for).
+- **Under-sizing the shutdown budget.** `ShutdownTimeout` (or your manual context)
+  covers the request drain *and* every `OnShutdown` hook, sharing one deadline. If your
+  hooks do real work (flushing a remote sink, closing pools), budget for it.
+- **Calling `Shutdown` from a handler and waiting for it.** `Shutdown` waits for the
+  requests in flight, the handler's own included, so it waits until its `ctx` is done.
+  Run it on its own goroutine.
 - **Expecting hook panics in the return value.** Hook panics are recovered and *not*
   reflected in `Shutdown`'s return. Log errors inside the hook.
 - **Using `PauseAccept` on the std engine.** It returns
@@ -537,23 +669,59 @@ std via the shared inherited fd), so no client connection is refused.
 30 seconds — used by `StartWithContext` and `StartWithListenerAndContext` when
 `Config.ShutdownTimeout` is zero or negative. When your own `Shutdown(ctx)` call is
 what shuts the server down there is no default; you supply the context
-(`celeris/config.go:109-111`, `celeris/server.go:777-780`). A call made after a cancel
-has started the shutdown waits for that one, which keeps its `Config.ShutdownTimeout`
-deadline.
+(`celeris/config.go` (`ShutdownTimeout`), `celeris/server.go` (`listenUntilCancelled`)).
+A call made after a cancel has started the shutdown waits for that one, which keeps its
+`Config.ShutdownTimeout` deadline.
 
 **Is calling `Shutdown` on a server I never started safe?**
 Yes. It returns `nil` immediately (after a harmless CPU-monitor cleanup). Source:
-`celeris/server.go:367-372`.
+`celeris/server.go` (`Shutdown`).
 
 **Do `OnShutdown` hooks run if the engine never started?**
 No. If no engine was installed, `Shutdown` returns before reaching the hook loop. Hooks
 fire only when an engine was started.
 
 **What happens to requests still running when the deadline expires?**
-Per the engine contract, the engine closes remaining connections rather than waiting
-indefinitely when the shutdown context's deadline elapses (`celeris/engine/engine.go:16-18`).
-To bound this on the recommended path, set `Config.ShutdownTimeout`; if you call
-`Shutdown(ctx)` directly, size the context you pass.
+Celeris stops waiting for them; it does not interrupt them. When the deadline
+(`Config.ShutdownTimeout` on the context entry points, or the `ctx` you pass to
+`Shutdown`) passes before the drain is over, the `OnShutdown` hooks run then, with the
+expired context, and a direct `Shutdown` returns `context.DeadlineExceeded` once they
+have run. A handler still running keeps running and keeps its connection, and its
+response still reaches the client when it finishes. The deadline has passed by then,
+so on `epoll` and `io_uring` that response gets 250 ms to go out before the connection
+closes (on `io_uring` longer when a send is stalled on a client that does not read at
+all, [celeris#806](https://github.com/goceleris/celeris/issues/806)): one larger than the socket buffers, to a client that reads slowly, can lose its
+tail (see [What the drain waits for](#what-the-drain-waits-for)). `c.Context()` is not cancelled
+at the deadline, so a handler cannot see it there.
+
+When the `Start*` call returns differs by engine:
+
+- On `epoll`, `io_uring` and `adaptive`, the engine's `Listen` returns only once that
+  handler has finished, and the `Start*` call waits for `Listen`. `Start`,
+  `StartWithListener` and a cancelled `StartWithContext` all return after the handler,
+  so a `main` that exits when they return does not cut the response off.
+- On `std`, the `Start*` call returns when the drain's deadline ends it: the call that a
+  direct `Shutdown` stopped returns when that `Shutdown` returns, and a cancelled
+  `StartWithContext` at `ShutdownTimeout`, after the hooks, while the handler keeps
+  running. A process that exits then cuts the response off. Before celeris v1.6.0 a
+  *cancel* did not stop at `ShutdownTimeout` at all: the hooks, and the call, waited
+  for the handler ([celeris#753](https://github.com/goceleris/celeris/issues/753)).
+
+(Measured with a 500 ms deadline, a 100 ms hook and a request held 2 s, reading each
+call's return as it happens:
+
+- On `epoll`, `io_uring` and `adaptive` the hooks started at 500-510 ms. A direct
+  `Shutdown` returned `DeadlineExceeded` at 602-617 ms, after the hook, and `Start`
+  and `StartWithContext` returned at 2.0 s.
+- On `std` a direct `Shutdown` returned at 610-616 ms, and `Start` or
+  `StartWithContext` returned with it. A cancel ran the hooks at 2.17-2.19 s before
+  v1.6.0; since, it runs them, and `StartWithContext` returns, at the deadline (501 ms
+  with a hook that returns at once).
+- The client got the whole response at 2.0 s on every engine, and `c.Context()` was
+  never cancelled.)
+
+Keep handlers shorter than the budget, and give long-running ones (streams) a stop
+signal of your own that your signal handler fires before it cancels the context.
 
 **Can I pause accept instead of shutting down for a maintenance window?**
 On native engines, yes — `PauseAccept` then `ResumeAccept`. It keeps in flight requests
