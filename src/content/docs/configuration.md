@@ -198,7 +198,7 @@ worker and a listener-backlog slot for the full `ReadTimeout` window. The defaul
 of 10s defeats slow-loris while still letting legitimate proxies and high-latency
 (satellite) clients finish their headers. The std engine wires this to
 `http.Server.ReadHeaderTimeout`; the io_uring/epoll engines enforce the same budget
-inside their H1 header read loop (`celeris/config.go:84-94`,
+inside their H1 header read loop (`celeris/config.go:94-104`,
 `celeris/internal/resource/config.go:45-61`).
 
 ### Streaming and SSE need `-1`
@@ -368,7 +368,7 @@ clips the peak-RSS balloon that a connection-ramp burst would otherwise produce.
 
 - **`0` (default)** — Celeris does **not** touch the process GC; the runtime
   default (`GOGC=100`, no limit) stands, and embedders keep full control
-  (`celeris/config.go:143-162`, applied at `celeris/server.go:647-648`).
+  (`celeris/config.go:166-176`, applied at `celeris/server.go:967-968`).
 - **`> 0`** — the GC collects *before* the heap balloons during a connection-ramp
   burst, trading a few extra GC cycles during the ramp for a lower high-water
   mark. Steady-state RSS sits far below the limit, so steady throughput is

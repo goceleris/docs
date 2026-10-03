@@ -170,7 +170,7 @@ and let Adaptive/Std resolve automatically.
 | Driver event-loop colocation  | Yes          | Yes   | —   |
 
 Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go:38-99`,
-`celeris/server.go:446-539`, `celeris/context_response.go:1357-1380`.
+`celeris/server.go:734-858`, `celeris/context_response.go:1357-1380`.
 
 ## The adaptive controller
 
@@ -414,7 +414,7 @@ The running engine exposes a read-only surface for observability and control.
 ### `EngineInfo` and `EngineType`
 
 `Server.EngineInfo()` returns the active engine's type and a metrics snapshot, or
-`nil` before `Start` (`celeris/server.go:499-509`). On Adaptive, `Type` reflects the
+`nil` before `Start` (`celeris/server.go:799-809`). On Adaptive, `Type` reflects the
 engine that is *currently active*, so you can see which sub-engine the controller
 has selected.
 
@@ -481,7 +481,7 @@ if m.RequestCount > 0 {
 
 To stop accepting new connections while continuing to serve existing ones — useful
 for graceful load shedding or coordinated draining — call `Server.PauseAccept()`
-and later `Server.ResumeAccept()` (`celeris/server.go:511-539`). These work on the
+and later `Server.ResumeAccept()` (`celeris/server.go:811-858`). These work on the
 native engines. The **std engine does not support accept control**: both return
 `celeris.ErrAcceptControlNotSupported` (`celeris/errors.go:29-31`), as does calling
 them before `Start`.

@@ -486,7 +486,7 @@ ulimits:
 Other io_uring prerequisites (checked by the startup io_uring probe):
 
 - **Kernel 5.10+** — Celeris's LTS-stable io_uring floor; older kernels fall through
-  to epoll (`celeris/internal/probe/probe.go:112-122`).
+  to epoll (`celeris/internal/probe/probe.go:112-117`).
 - **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
   (`celeris/internal/probe/probe_linux.go:99-116`); not required for the basic io_uring path.
 
