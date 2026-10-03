@@ -186,9 +186,9 @@ dispatched off the worker regardless of how fast the backend answers
 
 The engine exposes how often the inline → goroutine handoff actually fires.
 `EngineMetrics.AsyncPromotedConns` is the cumulative count of connections promoted
-to the per-conn dispatch goroutine (`celeris/engine/engine.go:101-108`), and
+to the per-conn dispatch goroutine (`celeris/observe/engine_metrics.go:115-122`), and
 `EngineMetrics.AsyncRoutes` reports how many routes are registered async
-(`celeris/engine/engine.go:94-100`). Read them off the running server:
+(`celeris/observe/engine_metrics.go:108-114`). Read them off the running server:
 
 ```go
 info := s.EngineInfo()                       // nil before Start
@@ -271,7 +271,7 @@ A few tuning notes grounded in the engine signals:
   `MaxConns: 10_000` your ceiling is ~80k connections. It's an admission bound, not
   a tuning knob — use it to fail fast rather than thrash when a flood arrives.
 - **The bytes-per-request signal.** The engine tracks `BytesRead` and
-  `BytesWritten` alongside `RequestCount` (`celeris/engine/engine.go:123-131`).
+  `BytesWritten` alongside `RequestCount` (`celeris/observe/engine_metrics.go:141-149`).
   Large average payloads (link-bound workloads) make epoll and io_uring tie, so the
   adaptive controller *suppresses* io_uring selection for them — there's nothing for
   you to set, but it explains why a large-response service may stay on epoll under
@@ -628,7 +628,7 @@ The latency buckets use fixed bounds of 1 ms, 5 ms, 10 ms, 25 ms, 50 ms, 100 ms,
 of requests in the high buckets to watch your tail without a full histogram backend.
 
 `snap.EngineMetrics` carries the engine-level counters that drive tuning decisions
-(`celeris/engine/engine.go:85-132`): `RequestCount` (sample it twice for a rate), `ActiveConnections`,
+(`celeris/observe/engine_metrics.go:22-149`): `RequestCount` (sample it twice for a rate), `ActiveConnections`,
 `AcceptCount` / `CloseCount` (a high close-to-accept ratio means short-lived churn
 connections), `BytesRead` / `BytesWritten` (the bytes-per-request signal), `Workers`,
 and the `AsyncRoutes` / `AsyncPromotedConns` dispatch counters from earlier.

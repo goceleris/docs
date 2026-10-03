@@ -122,7 +122,7 @@ if snap.CPUUtilization >= 0 {
 ### EngineMetrics
 
 `Snapshot.EngineMetrics` (and `Server.EngineInfo().Metrics`) expose the I/O
-engine's own counters (`celeris/engine/engine.go:85`). These are the same
+engine's own counters (`celeris/observe/engine_metrics.go:22`). These are the same
 counters the adaptive controller reads to pick an engine.
 
 | Field | Type | Meaning |

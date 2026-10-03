@@ -373,7 +373,7 @@ runtime — so size it once to the CPUs the pod actually has.
 
 > One Linux-specific exception: when the adaptive engine starts on io_uring, it may
 > reduce the io_uring worker count at startup if `RLIMIT_MEMLOCK` cannot fund the
-> requested rings (`celeris/adaptive`). That is a one-time memlock cap at start, not
+> requested rings (`celeris/internal/engine/iouring/ring.go:45-75`). That is a one-time memlock cap at start, not
 > a runtime scaler — raise `memlock` (below) to fund the full count.
 
 ### Memory limits and peak RSS
@@ -412,7 +412,7 @@ falls back to epoll. This is an optimisation, not a fix-or-fail: epoll is at
 throughput parity, so a container that can't use io_uring still runs at full speed.
 When io_uring setup is denied, Celeris does **not** crash — the probe's
 `io_uring_setup` call returns an error, the io_uring tier is left unselected, and the
-adaptive engine runs on epoll (`celeris/probe/probe.go:118-154`). Confirm which
+adaptive engine runs on epoll (`celeris/internal/probe/probe.go:122-158`). Confirm which
 engine you actually got at runtime with `Server.EngineInfo()` (see
 [Engines](/docs/engines)).
 
@@ -483,12 +483,12 @@ ulimits:
   memlock: -1   # unlimited (or a generous byte value)
 ```
 
-Other io_uring prerequisites (verified by `celeris/probe`):
+Other io_uring prerequisites (checked by the startup io_uring probe):
 
 - **Kernel 5.10+** — Celeris's LTS-stable io_uring floor; older kernels fall through
-  to epoll (`celeris/probe/probe.go:118`).
+  to epoll (`celeris/internal/probe/probe.go:112-122`).
 - **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
-  (`celeris/probe/probe_linux.go:99-116`); not required for the basic io_uring path.
+  (`celeris/internal/probe/probe_linux.go:99-116`); not required for the basic io_uring path.
 
 You do not need to do anything special for epoll; it works on Linux 3.10+ out of the
 box. On macOS and Windows the engine is `std` (Go `net/http`).

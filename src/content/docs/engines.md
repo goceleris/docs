@@ -14,7 +14,7 @@ difference between good and exceptional throughput.
 
 You select an engine with one field, `Config.Engine` (`celeris/config.go`). The
 zero value is the right answer on almost every box: **Adaptive on Linux, Std
-everywhere else** (`celeris/resource/config.go:13-19`). This page explains the four
+everywhere else** (`celeris/internal/resource/config.go:13-19`). This page explains the four
 engines, the adaptive controller that picks between them, how the engine relates
 to protocol and to async dispatch, and the introspection surface for observing it
 all at runtime.
@@ -74,14 +74,14 @@ modern Linux (epoll predates all supported kernels) and the safest native choice
 when io_uring is unavailable or you want to pin behaviour. Epoll is at throughput
 parity with io_uring for most request/response workloads — you are not trading
 latency for compatibility by choosing it. Epoll is also the engine that implements
-zero-copy `sendfile(2)` for static-file responses (`celeris/engine/engine.go:46-72`,
-`celeris/engine/capability.go:38-44`).
+zero-copy `sendfile(2)` for static-file responses (`celeris/internal/engine/engine.go:73-99`,
+`celeris/internal/engine/capability.go:38-44`).
 
 ### IOUring
 
 Completion-based asynchronous I/O on Linux **5.10+**. Celeris detects the io_uring
 feature *tier* at startup and enables only what the running kernel supports
-(`celeris/engine/tier.go`):
+(`celeris/internal/engine/tier.go`):
 
 | Tier         | Kernel    | Features enabled                                                                |
 | ------------ | --------- | ------------------------------------------------------------------------------- |
@@ -126,11 +126,11 @@ io_uring, epoll, and adaptive depend on Linux kernel facilities, so they cannot 
 elsewhere. The distinction worth internalising:
 
 - **Leaving `Engine` unset off Linux silently selects Std.** The default resolves
-  per-platform (`celeris/resource/config.go:13-19`). This is the intended fallback —
+  per-platform (`celeris/internal/resource/config.go:13-19`). This is the intended fallback —
   your code runs unchanged on a Mac.
 - **Explicitly setting a native engine off Linux is a validation error.** It is
   *not* silently downgraded. `Config.Validate` returns `engine <name> requires
-  Linux` (`celeris/resource/config.go`), and `Start` surfaces it as a
+  Linux` (`celeris/internal/resource/config.go`), and `Start` surfaces it as a
   `config validation` error before binding the socket (`celeris/server.go`).
 
 ```go
@@ -162,14 +162,14 @@ and let Adaptive/Std resolve automatically.
 | Accept control (Pause/Resume) | Yes          | Yes   | —   |
 | Driver event-loop colocation  | Yes          | Yes   | —   |
 
-Sources: `celeris/engine/capability.go`, `celeris/engine/engine.go:46-72`,
+Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go:38-99`,
 `celeris/server.go:446-539`, `celeris/context_response.go:1357-1380`.
 
 ## The adaptive controller
 
 The adaptive engine does not guess from configuration — it watches the live
 `EngineMetrics` counters and derives load signals from them. The counters it reads
-are documented field-by-field in `celeris/engine/engine.go`; the signals that
+are documented field-by-field in `celeris/observe/engine_metrics.go`; the signals that
 actually drive the decision are:
 
 | Signal                  | Derived from                                  | What it tells the controller                                              |
@@ -426,11 +426,11 @@ if info := s.EngineInfo(); info != nil {
 | `Metrics` | `EngineMetrics` | A point-in-time snapshot of the counters below.    |
 
 `EngineType` has a `String()` method that returns `"io_uring"`, `"epoll"`,
-`"adaptive"`, or `"std"` (`celeris/engine/enginetype.go:20-33`).
+`"adaptive"`, or `"std"` (`celeris/internal/engine/enginetype.go:20-33`).
 
 ### `EngineMetrics` fields
 
-`EngineMetrics` (`celeris/engine/engine.go`) is a snapshot of the engine's
+`EngineMetrics` (`celeris/observe/engine_metrics.go`) is a snapshot of the engine's
 own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 
 | Field                | Type      | Meaning                                                                       |
@@ -500,7 +500,7 @@ owns the request's connection — no cross-thread handoff, NUMA-local buffers.
 
 The provider exposes `NumWorkers()` and `WorkerLoop(n)`; the per-worker
 `WorkerLoop` surface (`RegisterConn`, `UnregisterConn`, `Write`, `CPUID`) is
-documented in `celeris/engine/provider.go:32-84`. You normally don't call this
+documented in `celeris/internal/engine/provider.go:32-104`. You normally don't call this
 yourself — a Celeris driver opened `WithEngine(srv)` consumes it for you. When the
 provider is `nil` (std engine), drivers fall back to a standalone mini event loop.
 

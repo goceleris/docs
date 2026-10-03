@@ -184,7 +184,7 @@ if err := s.Shutdown(shutCtx); err != nil {
 > `Config.ShutdownTimeout`, and the call returns only after the engine and the hooks
 > have finished. Source:
 > `celeris/server.go` (`Start`, `listenContext`, `Shutdown`),
-> `celeris/engine/epoll/engine.go` and `celeris/engine/iouring/engine.go` (`Shutdown`).
+> `celeris/internal/engine/epoll/engine.go` and `celeris/internal/engine/iouring/engine.go` (`Shutdown`).
 
 ### Entry points at a glance
 
@@ -451,7 +451,7 @@ _ = s.ResumeAccept()
 started yet (no engine is installed). Always check the error and have a fallback (a
 full `Shutdown`) for portability. Source: `celeris/server.go` (`PauseAccept`,
 `ResumeAccept`),
-`celeris/errors.go:29-31`, `celeris/engine/engine.go:27-35`. See
+`celeris/errors.go:29-31`, `celeris/internal/engine/engine.go:38-62`. See
 [Engines](/docs/engines) for which engine runs where.
 
 > Pause/resume is for *temporary* quiescing. It does not drain — in flight requests
@@ -541,7 +541,7 @@ To avoid it when using socket handoff, **leave `Config.Addr` empty** (or set it 
 value that matches the listener). Two cases are deliberately *allowed* and do not
 error: the default `":8080"`, and any `"<host>:0"` (pick-any-port), since delegating
 port selection to the pre-bound listener is a common, intentional pattern. Source:
-`celeris/resource/config.go:152-161`.
+`celeris/internal/resource/config.go:210-224`.
 
 ```go
 // ✅ No Addr → no ambiguity. The listener decides the bind address.
