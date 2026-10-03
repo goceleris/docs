@@ -427,6 +427,13 @@ safe only when the validator changes with the bytes served.
 Preconditions that come earlier still win: with the static middleware, a
 matching `If-None-Match` or `If-Modified-Since` gets `304` whatever the `Range`.
 
+**Behind `cache`, `compress`, `etag` or `singleflight`.** None of them treats a
+`206` like a `200`: `cache` never stores a `206` or a `416` (not even under a key
+that includes `Range`: a replay would skip the `If-Range` check), `compress` does
+not encode a `206`, `etag` does not hash one (it keeps a tag the handler set, and
+a matching `If-None-Match` gets `304` as for a full response), and `singleflight`
+does not coalesce a request with a `Range` header.
+
 ## Common pitfalls
 
 - **Passing request input to `File` or `FileFromFS`.** Both open the path

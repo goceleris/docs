@@ -190,6 +190,13 @@ Keep configured values free of control characters.
 responses with `Access-Control-*` headers. Source: `celeris/middleware/cors/cors.go`,
 `celeris/middleware/cors/config.go`.
 
+Installed with `s.Use`, it answers the preflight for every routed path: an
+`OPTIONS` request to a path without an `OPTIONS` route runs the global middleware
+before the router's automatic `OPTIONS` answer, so you do not register `OPTIONS`
+routes for CORS (see [Routing](/docs/routing#head-and-options-are-answered-for-you)).
+Group or route-level CORS middleware does not see such a preflight; install it
+with `s.Use` or register the `OPTIONS` route.
+
 ```go
 s.Use(cors.New()) // defaults: AllowOrigins ["*"], standard methods/headers
 ```
