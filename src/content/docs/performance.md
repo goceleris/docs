@@ -71,8 +71,10 @@ s.GET("/users/:id", func(c *celeris.Context) error {
 })
 ```
 
-`FullPath()` returns `""` when no route matched (e.g. inside a custom `NotFound`
-handler).
+When no route matched, `FullPath()` returns a sentinel: `"<unmatched>"` for a 404
+(e.g. inside a custom `NotFound` handler or a global middleware), `"<method-not-allowed>"`
+for a 405 and `"<options>"` for the automatic `OPTIONS` answer. It is `""` only before
+routing (in `Pre` middleware).
 
 **Let the JSON fast path do its job.** `c.JSON` has a reflection-free encoder for
 small maps and primitive types that emits byte-identical output to the standard

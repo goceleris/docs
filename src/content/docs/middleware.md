@@ -158,7 +158,17 @@ with `Use`, with no route registered for them. The 404 or 405 is sent only if no
 middleware has answered. Group and route middleware do not run for an unmatched
 request. Before celeris v1.6.0 this happened only when a `NotFound` or
 `MethodNotAllowed` handler was set
-([celeris#852](https://github.com/goceleris/celeris/issues/852)).
+([celeris#852](https://github.com/goceleris/celeris/issues/852)). Under
+`AsyncHandlers: true` an unmatched request is dispatched like a route that inherits
+that default, so a global middleware that blocks (a remote session store, an auth
+upstream) does not hold an engine worker for 404s.
+
+> **Check what a `Use`-mounted endpoint lets in.** A `pprof`, `debug`, `metrics` or
+> `static` middleware mounted with `s.Use`, which answered 404 before v1.6.0 when no
+> `NotFound` handler was set, now serves its paths. The default `AuthFunc` of `pprof`
+> and `debug` admits a loopback peer, which behind a reverse proxy on the same host is
+> every client; the `metrics` endpoint has no `AuthFunc` by default; and `static`'s
+> default `Prefix` is `/`.
 
 > **`s.Use` MUST precede every route or it panics.** Chains are composed when each
 > route is registered, so calling `Use` after a `GET`/`POST`/etc. would silently

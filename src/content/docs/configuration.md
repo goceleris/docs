@@ -416,7 +416,10 @@ Individual routes and groups override this with `Route.Async()` / `RouteGroup.As
 (most-specific wins: route > group > server default). The common pattern is to keep
 this `false` and mark just the I/O routes `.Async()` / `.UsesDriver()`. See
 [Routing](/docs/routing) for the per-route controls and [Engines](/docs/engines) for
-the full dispatch model.
+the full dispatch model. A request no route matches runs the global middleware
+too; with `AsyncHandlers: true` it is dispatched like a route that inherits that
+default (inline until its chain blocks, then async), so a blocking global middleware
+does not hold a worker for 404s either.
 
 ```go
 celeris.Config{AsyncHandlers: false}            // default: inline; mark I/O routes .Async()
