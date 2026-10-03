@@ -635,7 +635,8 @@ Source: `swagger/config.go:64-84`, `swagger/swagger.go:271-288`.
 `Options` is a free-form `map[string]any` (it must be JSON-serializable, or the
 middleware panics at construction) passed straight to the renderer:
 
-- **Swagger UI** → `SwaggerUIBundle()`.
+- **Swagger UI**: ignored. Configure Swagger UI through `UI` (see
+  [UI options](#ui-options)).
 - **ReDoc** → `Redoc.init()`.
 - **Scalar** → `data-configuration`.
 
