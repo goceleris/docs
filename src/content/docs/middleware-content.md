@@ -653,7 +653,10 @@ as an absolute URL on the page's origin. Register that URL with the authorizatio
 server as a redirect URI (for example `https://api.example.com/swagger/oauth2-redirect.html`,
 or the public URL behind a proxy). Set `OAuth2RedirectURL` only to use a page of
 your own; it is sent as the `redirect_uri`, so it must be an absolute URL on the
-docs page's origin.
+docs page's origin. The middleware answers those two paths before the router, so
+from celeris v1.6.0 its page takes the place of one your app serves at
+`{BasePath}/oauth2-redirect.html` itself; to keep yours, list both paths in
+`SkipPaths`.
 
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `UsePKCE`.
 Source: `swagger/config.go`, `swagger/swagger.go`, `swagger/assets.go`.
