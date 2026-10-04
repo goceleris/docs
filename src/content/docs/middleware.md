@@ -130,17 +130,27 @@ s.Pre(proxy.New(proxy.Config{TrustedProxies: []string{"10.0.0.0/8"}}))
 s.Pre(redirect.HTTPSRedirect())
 ```
 
-> **Pre-routing has no auto-abort.** Writing a response in a pre-routing middleware
-> does **not** stop the chain. Custom pre-routing middleware that produces a
-> response (a redirect, a 4xx) MUST `return` *without* calling `c.Next()`. If it
-> writes a body **and** calls `Next()`, the router still runs and may write a second
-> response. The shipped `redirect` middleware already returns without `Next()`.
-> (Source: `celeris/middleware/doc.go`.)
+> **A pre-routing middleware that answers skips routing.** Custom pre-routing
+> middleware that produces a response (a redirect, a 4xx) MUST `return` *without*
+> calling `c.Next()`; routing is then skipped, as after `Abort`. If it writes a body
+> **and** calls `Next()`, the rest of the pre-routing chain runs, and may write a
+> second response. The shipped `redirect` middleware already returns without
+> `Next()`. (Source: `celeris/middleware/doc.go`.)
 
 ### Global — `Server.Use`
 
 `Use` registers global middleware that runs for every matched route, in registration
 order, outermost first (`celeris/server.go:128`).
+
+A handler that answers the request ends the chain: once it has written the
+response, had it captured by a buffering middleware (`etag`, `compress`, `cache`)
+or taken the connection over (`Detach`, `Hijack`), the handlers after it do not
+run, a route included, and `Next` returns `nil` to the middleware above it. So a
+`Use`-mounted middleware that serves its own paths (`swagger`, `pprof`, `debug`,
+`healthcheck`, `static`, `cors`' preflight) wins over a route that also matches
+the request, such as a catch-all. A handler that returns without answering and
+without calling `Next` lets the chain continue. (Since celeris v1.6.0,
+[celeris#927](https://github.com/goceleris/celeris/issues/927).)
 
 ```go
 s.Use(requestid.New())

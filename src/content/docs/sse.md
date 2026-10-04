@@ -322,7 +322,7 @@ Source: `celeris/middleware/sse/broker.go`.
 | `PublishPrepared(*PreparedEvent)`        | Fan out an already-prepared event (no re-encode).                               |
 | `SubscriberCount() int`                  | Point-in-time gauge of current subscribers.                                     |
 | `CallbackPanics() uint64`                | Count of recovered panics in your `OnSlowSubscriber` callback.                  |
-| `Close()`                                | Unsubscribe everyone and reject new `Subscribe` calls. Idempotent.             |
+| `Close()`                                | Unsubscribe everyone and reject new `Subscribe` calls. Idempotent. Returns without waiting for subscribers' writes. |
 
 ### `BrokerConfig`
 
@@ -341,6 +341,12 @@ All fields are optional. Source: `celeris/middleware/sse/broker.go:33-57`.
 | `BrokerPolicyDrop`    | **(default)** Drop the event for that subscriber only.             |
 | `BrokerPolicyRemove`  | Unsubscribe it from the broker, but leave the `Client` open.       |
 | `BrokerPolicyClose`   | Unsubscribe **and** close the underlying `Client`.                 |
+
+Neither a publish nor `Broker.Close` waits for a slow subscriber's client. When `Publish` returns, a
+subscriber the policy removed or closed is unregistered, and under
+`BrokerPolicyClose` its `Context()` is already cancelled, while the close itself,
+which waits for the subscriber's blocked write, completes in the background
+([celeris#926](https://github.com/goceleris/celeris/issues/926)).
 
 ### `PreparedEvent` — encode once, send many
 
