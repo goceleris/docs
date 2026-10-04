@@ -283,8 +283,11 @@ handler — the rest wait and replay the leader's response. This is the classic
 protection against a *cache stampede* when a hot entry expires. The others wait
 for the handler only: the leader stores the response after they have it, so a slow
 or hung store `Set` holds none of them, and a request that arrives during that
-`Set` gets the response too. A waiter waits only as long as its own request
-context lives. If the handler (or the store's `Set`) panics, the panic stays the
+`Set` gets the response too, within the response's TTL: a `Set` that never returns
+does not keep serving it after that. A waiter waits only as long as its own request
+context lives; on `epoll` and `io_uring` an HTTP/1 request's context has no end of
+its own, so give it one with the `timeout` middleware if a waiter must give up. If
+the handler (or the store's `Set`) panics, the panic stays the
 leader's and each waiter runs its own handler. Disable coalescing only if your
 handler must run per-request:
 

@@ -563,7 +563,13 @@ When metrics are enabled (the default), it also records
 `http.server.request.duration`, `http.server.active_requests`,
 `http.server.request.body.size`, and `http.server.response.body.size`. Their
 attribute sets hold the method (unknown methods as `_OTHER`), the route pattern,
-the scheme, the status and, with `ServerPort`, `server.port`. `server.address` is
+the scheme (`http` or `https`; any other value as `_OTHER`), the status and, with
+`ServerPort`, `server.port`. The scheme is bounded at the source too: on an h2c
+stream the client chooses the `:scheme` pseudo-header, and since celeris v1.6.0
+`c.Scheme()` returns `https` only when it says https and `http` for anything else,
+where it used to return the client's value, one new series per made-up value. Only
+a `SetScheme` override can give another value, and the metric records that as
+`_OTHER`. `server.address` is
 on the span only: it is the client's `Host` header, so on a metric every made-up
 `Host` would make a new series, and a client could fill an instrument up to the
 SDK's cardinality limit, after which every request lands in one overflow series.

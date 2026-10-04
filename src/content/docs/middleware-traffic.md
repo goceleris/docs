@@ -220,7 +220,9 @@ under concurrent requests across replicas. Source:
 
 Sometimes you don't want a request to *cost* a token if it failed (or
 succeeded). `SkipFailedRequests` refunds the token when the handler returns a
-status `>= 400`; `SkipSuccessfulRequests` refunds it for status `< 400`. For a
+status `>= 400` or panics (a panic spent the token before celeris v1.6.0,
+[celeris#921](https://github.com/goceleris/celeris/issues/921));
+`SkipSuccessfulRequests` refunds it for status `< 400`. For a
 `Store`, refunds require the store to implement `StoreUndo` (the Redis store
 does). Source: `celeris/middleware/ratelimit/config.go:98-106`.
 
@@ -244,7 +246,7 @@ s.Use(ratelimit.New(ratelimit.Config{Rate: "100-M", SkipFailedRequests: true}))
 | `CleanupInterval` | `time.Duration` | `1m` | How often expired buckets are reaped |
 | `CleanupContext` | `context.Context` | — | Cancel to stop the cleanup goroutine |
 | `DisableHeaders` | `bool` | `false` | Suppress `X-RateLimit-*` headers |
-| `SkipFailedRequests` | `bool` | `false` | Refund token on `>= 400` |
+| `SkipFailedRequests` | `bool` | `false` | Refund token on `>= 400` or a panic |
 | `SkipSuccessfulRequests` | `bool` | `false` | Refund token on `< 400` |
 | `MaxDynamicLimiters` | `int` | `1024` | Cap on cached `RateFunc` rate strings |
 | `Skip` / `SkipPaths` | `func` / `[]string` | — | Bypass certain requests/paths |
@@ -299,6 +301,12 @@ The breaker trips (Closed → Open) when, within the current `WindowSize`, the
 total request count is at least `MinRequests` **and** `failures/total >=
 Threshold`. `MinRequests` stops a tiny sample (2 of 3 requests failing) from
 tripping prematurely. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go:180`.
+
+A handler that panics is a failure, with the same transition as a returned one;
+the panic then continues to your recovery middleware. Before celeris v1.6.0 a
+half-open probe that panicked left the breaker half-open with its probe slot
+spent, so it answered `503` to every request from then on
+([celeris#921](https://github.com/goceleris/celeris/issues/921)).
 
 | Field | Type | Default | Purpose |
 | ----- | ---- | ------- | ------- |
@@ -543,6 +551,9 @@ upstream. CPU stays low while requests queue up. Add `DepthThresholds`
 — whichever signal produces the *highest* stage wins. A depth/latency threshold
 can escalate the stage **beyond** the CPU-driven one, never below it.
 Source: `celeris/middleware/overload/overload.go:159-177`, `overload.go:253-257`.
+A request whose handler panics gives its in-flight count back too; before celeris
+v1.6.0 each panic leaked one, until the depth thresholds rejected every request
+([celeris#921](https://github.com/goceleris/celeris/issues/921)).
 
 ```go
 workers := 12
@@ -758,6 +769,8 @@ that accept different encodings are not coalesced. Whatever the key, a waiter
 whose request differs from the leader's in a header the leader's response names in
 `Vary` (or a response with `Vary: *`) runs its own handler instead of taking the
 leader's response ([celeris#912](https://github.com/goceleris/celeris/issues/912)).
+`c.Respond` and `c.Negotiate` name `Accept` in `Vary`, so a request that asks
+for XML never takes a leader's JSON.
 
 ### `idempotency` — make retries safe
 
