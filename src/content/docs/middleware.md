@@ -383,7 +383,9 @@ A few rules worth internalizing:
 
 Some middleware set the `Vary` response header (`cors` → `Vary: Origin`, `compress`
 → `Vary: Accept-Encoding`). They all use `AddHeader`, not `SetHeader`, so they don't
-clobber each other. If a handler of yours sets `Vary`, it MUST also use `AddHeader`:
+clobber each other. `compress` and `static` add `Accept-Encoding` only when no `Vary`
+line names it yet (`c.AcceptsEncodings` adds it as well), so a response names it once.
+If a handler of yours sets `Vary`, it MUST also use `AddHeader`:
 
 ```go
 c.AddHeader("vary", "Accept-Language") // correct — preserves cors/compress values
