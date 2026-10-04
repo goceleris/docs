@@ -235,7 +235,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `Store`               | `store.KV`                    | `NewMemoryStore()`     | Cache backend. Any `store.KV` works (in-memory, Redis, …).                              |
 | `TTL`                 | `time.Duration`               | `1 * time.Minute`      | Default entry lifetime. Capped by `Cache-Control: max-age` when respected.               |
 | `KeyGenerator`        | `func(*Context) string`       | method+path+query+vary | Derives the cache key. See below.                                                       |
-| `Singleflight`        | `bool`                        | `true`                 | Coalesce concurrent misses for the same key into one handler run.                        |
+| `DisableSingleflight` | `bool`                        | `false`                | Turn off the coalescing of concurrent misses for the same key into one handler run.      |
 | `Methods`             | `[]string`                    | `["GET", "HEAD"]`      | Methods eligible for caching. Others pass through untouched.                             |
 | `StatusFilter`        | `func(int) bool`              | `2xx only`             | Decides whether a computed response is stored. A `206` or `416` is never stored, whatever it says, even when the key includes `Range` (in `VaryHeaders` or a `KeyGenerator`): both answer one request's `Range`, and a replay would skip the handler's `If-Range` check. |
 | `VaryHeaders`         | `[]string`                    | `nil`                  | Request headers folded into the default key.                                            |
@@ -243,7 +243,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `MaxBodyBytes`        | `int`                         | `1 << 20` (1 MiB)      | Bodies larger than this are not cached.                                                  |
 | `IncludeHeaders`      | `[]string`                    | `nil` (all)            | Whitelist of response headers to store. When set, only these are kept.                  |
 | `ExcludeHeaders`      | `[]string`                    | `["set-cookie"]`       | Response headers to drop from the stored set (applied after `IncludeHeaders`).          |
-| `RespectCacheControl` | `bool`                        | `true`                 | Honor `no-store`/`private` (skip) and `max-age=N` (cap TTL).                            |
+| `IgnoreCacheControl`  | `bool`                        | `false`                | Store responses whatever their `Cache-Control` says. By default `no-store`/`private` skip and `max-age=N` caps the TTL. |
 | `Skip`                | `func(*Context) bool`         | `nil`                  | Return `true` to skip caching for a request.                                            |
 | `SkipPaths`           | `[]string`                    | `nil`                  | Exact-match paths to skip.                                                              |
 
@@ -278,20 +278,33 @@ Source: `cache/cache.go:304-347`.
 
 ### Singleflight
 
-With `Singleflight` enabled (the default), if many requests miss on the **same
-key** at once, only one runs the handler — the rest wait and replay the leader's
-response. This is the classic protection against a *cache stampede* when a hot
-entry expires. Disable it only if your handler must run per-request:
+By default, if many requests miss on the **same key** at once, only one runs the
+handler — the rest wait and replay the leader's response. This is the classic
+protection against a *cache stampede* when a hot entry expires. The others wait
+for the handler only: the leader stores the response after they have it, so a slow
+or hung store `Set` holds none of them, and a request that arrives during that
+`Set` gets the response too, within the response's TTL: a `Set` that never returns
+does not keep serving it after that. A waiter waits only as long as its own request
+context lives; on `epoll` and `io_uring` an HTTP/1 request's context has no end of
+its own, so give it one with the `timeout` middleware if a waiter must give up. If
+the handler (or the store's `Set`) panics, the panic stays the
+leader's and each waiter runs its own handler. Disable coalescing only if your
+handler must run per-request:
 
 ```go
-s.Use(cache.New(cache.Config{Singleflight: false}))
+s.Use(cache.New(cache.Config{DisableSingleflight: true}))
 ```
+
+Both of `Config`'s switches are named so that `false`, a field a `Config` literal
+leaves out, is the default: before celeris v1.6.0 a `Config` that did not set
+`Singleflight: true` silently turned coalescing off, and `RespectCacheControl:
+false` had no effect ([celeris#922](https://github.com/goceleris/celeris/issues/922)).
 
 Source: `cache/cache.go:87-124`.
 
 ### Honoring `Cache-Control`
 
-With `RespectCacheControl` on (default), the middleware reads the **response's**
+Unless `IgnoreCacheControl` is set, the middleware reads the **response's**
 `Cache-Control`:
 
 - `no-store` or `private` → the response is **not** cached.
@@ -636,7 +649,8 @@ s.Use(swagger.New(swagger.Config{
             ClientID: "my-public-client",  // public; embedded in HTML
             AppName:  "Acme API Docs",
             Scopes:   []string{"read", "write"},
-            UsePKCE:  true,                 // recommended public-client flow
+            // PKCE (the recommended public-client flow) is on by default;
+            // DisablePKCE: true turns it off.
         },
     },
 }))
@@ -654,14 +668,13 @@ server as a redirect URI (for example `https://api.example.com/swagger/oauth2-re
 or the public URL behind a proxy). Set `OAuth2RedirectURL` only to use a page of
 your own; it is sent as the `redirect_uri`, so it must be an absolute URL on the
 docs page's origin. If your app serves its own page at
-`{BasePath}/oauth2-redirect.html`, list both paths in `SkipPaths`. Otherwise, from
-celeris v1.6.0, both answer: your route still runs after the middleware has, since
-a middleware that returns without calling `Next` does not stop the chain. Its write
-then fails with `celeris.ErrResponseWritten`, or, behind a buffering middleware
-(`etag`, `compress`, `cache`), replaces the middleware's page
-([celeris#927](https://github.com/goceleris/celeris/issues/927)).
+`{BasePath}/oauth2-redirect.html`, list both paths in `SkipPaths`. Otherwise the
+middleware answers them and your route does not run: a handler that answers the
+request ends the chain ([celeris#927](https://github.com/goceleris/celeris/issues/927)).
 
-`OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `UsePKCE`.
+`OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `DisablePKCE`
+(PKCE is on unless it is set; it replaces `UsePKCE`, which an `OAuth2Config`
+literal that left it out turned off).
 Source: `swagger/config.go`, `swagger/swagger.go`, `swagger/assets.go`.
 
 ### Renderer-specific options
@@ -732,13 +745,11 @@ the middleware sees every request under `{BasePath}`, whether or not a route
 matches it: the global middleware also runs for unmatched requests, before the
 404 (since celeris v1.6.0; before it, only when a `NotFound` handler was set,
 [celeris#852](https://github.com/goceleris/celeris/issues/852)). A route of yours
-that also matches one of its paths, such as an SPA's catch-all `/*filepath`, still
-runs after the middleware has answered, because a middleware that returns without
-calling `Next` does not stop the chain: the route's write fails, or, behind a
-buffering middleware (`etag`, `compress`, `cache`), replaces the middleware's
-response ([celeris#927](https://github.com/goceleris/celeris/issues/927)).
+that also matches one of its paths, such as an SPA's catch-all `/*filepath`, does
+not run for the paths the middleware answers: a handler that answers the request
+ends the chain ([celeris#927](https://github.com/goceleris/celeris/issues/927)).
 A group-scoped mount sees only the group's routes, so it needs such a catch-all
-route, `g.GET("/*filepath", …)`, with the same caveat; the bare `/swagger` (no
+route, `g.GET("/*filepath", …)`; the bare `/swagger` (no
 trailing slash) then matches no route, so it answers 404 instead of redirecting to
 `/swagger/`. Prefer `s.Use`. Forward the whole `{BasePath}/` prefix through any proxy
 or ingress rule.
@@ -843,8 +854,8 @@ with a relative `Location` (`./api/` for `BasePath: "/docs/api"`), so the redire
 stays under a reverse proxy's prefix.
 
 **How does `cache` choose what to store from a single concurrent burst?**
-With `Singleflight` (default on), one leader runs the handler and its waiters
-replay the same bytes — preventing a stampede when a hot key expires.
+By default (unless `DisableSingleflight` is set), one leader runs the handler and
+its waiters replay the same bytes — preventing a stampede when a hot key expires.
 
 ## See also
 

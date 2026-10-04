@@ -99,8 +99,8 @@ Guide: [Handling requests](/docs/request-handling).
 | `Body() []byte` | Raw request body. **Must not be modified or retained** past the handler return. |
 | `BodyCopy() []byte` | A fresh heap copy of the body, safe to retain; `nil` if empty. |
 | `BodyReader() io.Reader` | An `io.Reader` over the already-received body bytes. |
-| `AcceptsEncodings(offers ...string) string` | Best match from `Accept-Encoding`, or `""`. |
-| `AcceptsLanguages(offers ...string) string` | Best match from `Accept-Language`, or `""`. |
+| `AcceptsEncodings(offers ...string) string` | Best match from `Accept-Encoding`, or `""`. Adds `Accept-Encoding` to `Vary`. |
+| `AcceptsLanguages(offers ...string) string` | Best match from `Accept-Language`, or `""`. Adds `Accept-Language` to `Vary`. |
 
 ```go
 func logBody(c *celeris.Context) error {
@@ -161,7 +161,7 @@ Who is calling, over what scheme, and on what connection. Guide:
 | `ClientIP() string` | Client IP. Walks `X-Forwarded-For` against `Config.TrustedProxies` (right-to-left) when configured; else leftmost XFF, then `X-Real-Ip`, then `""`. |
 | `SetClientIP(ip string)` | Override the value `ClientIP` returns (proxy middleware). |
 | `RemoteAddr() string` | TCP peer address (`host:port`), e.g. `192.168.1.1:54321`; `""` if unavailable. |
-| `Scheme() string` | `"http"` or `"https"` (override → `:scheme` pseudo-header → `"http"`). |
+| `Scheme() string` | `"http"` or `"https"`: a `SetScheme` override as set; else `"https"` when the `:scheme` pseudo-header is https (any case), otherwise `"http"`, an unknown value included. |
 | `SetScheme(scheme string)` | Override the scheme (proxy middleware applying `X-Forwarded-Proto`). |
 | `IsTLS() bool` | True when `Scheme() == "https"`. |
 | `Host() string` | Request host from `:authority` (HTTP/2) or `Host` (HTTP/1.1), or override. |
@@ -213,8 +213,8 @@ on a second call (and [`ErrDetached`](#error-sentinels) after `Detach`). Guide:
 | `String(code int, format string, args ...any) error` | `fmt.Sprintf`-style plain-text body (formats only when `args` given). |
 | `Blob(code int, contentType string, data []byte) error` | Write raw bytes with an explicit content type. The primitive all the others build on. |
 | `NoContent(code int) error` | Status line + headers, no body. |
-| `Respond(code int, v any) error` | Content-negotiated write: JSON / XML / text by `Accept`, falling back to JSON. |
-| `Negotiate(offers ...string) string` | Best content type for the request `Accept` header (supports `q=`); first offer if no `Accept`. |
+| `Respond(code int, v any) error` | Content-negotiated write: JSON / XML / text by `Accept`, falling back to JSON. Adds `Accept` to `Vary`. |
+| `Negotiate(offers ...string) string` | Best content type for the request `Accept` header (supports `q=`); first offer if no `Accept`. Adds `Accept` to `Vary`. |
 | `Redirect(code int, url string) error` | Send a redirect. [`ErrInvalidRedirectCode`](#error-sentinels) if `code` ∉ 300–308. |
 
 ```go

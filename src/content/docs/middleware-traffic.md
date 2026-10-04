@@ -220,7 +220,9 @@ under concurrent requests across replicas. Source:
 
 Sometimes you don't want a request to *cost* a token if it failed (or
 succeeded). `SkipFailedRequests` refunds the token when the handler returns a
-status `>= 400`; `SkipSuccessfulRequests` refunds it for status `< 400`. For a
+status `>= 400` or panics (a panic spent the token before celeris v1.6.0,
+[celeris#921](https://github.com/goceleris/celeris/issues/921));
+`SkipSuccessfulRequests` refunds it for status `< 400`. For a
 `Store`, refunds require the store to implement `StoreUndo` (the Redis store
 does). Source: `celeris/middleware/ratelimit/config.go:98-106`.
 
@@ -244,7 +246,7 @@ s.Use(ratelimit.New(ratelimit.Config{Rate: "100-M", SkipFailedRequests: true}))
 | `CleanupInterval` | `time.Duration` | `1m` | How often expired buckets are reaped |
 | `CleanupContext` | `context.Context` | — | Cancel to stop the cleanup goroutine |
 | `DisableHeaders` | `bool` | `false` | Suppress `X-RateLimit-*` headers |
-| `SkipFailedRequests` | `bool` | `false` | Refund token on `>= 400` |
+| `SkipFailedRequests` | `bool` | `false` | Refund token on `>= 400` or a panic |
 | `SkipSuccessfulRequests` | `bool` | `false` | Refund token on `< 400` |
 | `MaxDynamicLimiters` | `int` | `1024` | Cap on cached `RateFunc` rate strings |
 | `Skip` / `SkipPaths` | `func` / `[]string` | — | Bypass certain requests/paths |
@@ -299,6 +301,12 @@ The breaker trips (Closed → Open) when, within the current `WindowSize`, the
 total request count is at least `MinRequests` **and** `failures/total >=
 Threshold`. `MinRequests` stops a tiny sample (2 of 3 requests failing) from
 tripping prematurely. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go:180`.
+
+A handler that panics is a failure, with the same transition as a returned one;
+the panic then continues to your recovery middleware. Before celeris v1.6.0 a
+half-open probe that panicked left the breaker half-open with its probe slot
+spent, so it answered `503` to every request from then on
+([celeris#921](https://github.com/goceleris/celeris/issues/921)).
 
 | Field | Type | Default | Purpose |
 | ----- | ---- | ------- | ------- |
@@ -543,6 +551,9 @@ upstream. CPU stays low while requests queue up. Add `DepthThresholds`
 — whichever signal produces the *highest* stage wins. A depth/latency threshold
 can escalate the stage **beyond** the CPU-driven one, never below it.
 Source: `celeris/middleware/overload/overload.go:159-177`, `overload.go:253-257`.
+A request whose handler panics gives its in-flight count back too; before celeris
+v1.6.0 each panic leaked one, until the depth thresholds rejected every request
+([celeris#921](https://github.com/goceleris/celeris/issues/921)).
 
 ```go
 workers := 12
@@ -727,7 +738,8 @@ s.GET("/report/:id", singleflight.New(), buildExpensiveReport)
 ```
 
 > **The key must include user identity.** The default `KeyFunc` is
-> `method + path + sorted-query + Authorization header + Cookie header` —
+> `method + path + sorted-query + Authorization header + Cookie header +
+> Accept-Encoding header` —
 > the auth and cookie components are what stop one user's response from being
 > served to another. **If you supply your own `KeyFunc`, you MUST incorporate
 > user identity** for any endpoint that returns user-specific data, or you will
@@ -747,7 +759,18 @@ fresh. It's purely a stampede guard.
 
 A request with a `Range` header is never coalesced: its response, a
 `206 Partial Content`, answers that range, so it must not be handed to requests
-for the whole resource, and a ranged request must not wait on a full one.
+for the whole resource, and a ranged request must not wait on a full one. A
+conditional request (`If-None-Match`, `If-Modified-Since`, `If-Match`,
+`If-Unmodified-Since`) is not coalesced either: its `304` or `412` answers its own
+validator.
+
+The default key also includes `Accept-Encoding`, so behind `compress` requests
+that accept different encodings are not coalesced. Whatever the key, a waiter
+whose request differs from the leader's in a header the leader's response names in
+`Vary` (or a response with `Vary: *`) runs its own handler instead of taking the
+leader's response ([celeris#912](https://github.com/goceleris/celeris/issues/912)).
+`c.Respond` and `c.Negotiate` name `Accept` in `Vary`, so a request that asks
+for XML never takes a leader's JSON.
 
 ### `idempotency` — make retries safe
 
@@ -822,7 +845,7 @@ rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go:16
 | `Store` | `KVStore` | in-memory | Persists responses + locks; needs `KV` + `SetNXer` |
 | `KeyHeader` | `string` | `Idempotency-Key` | Header carrying the key |
 | `TTL` | `time.Duration` | `24h` | Lifetime of a stored response |
-| `LockTimeout` | `time.Duration` | `30s` | Lock lifetime (recovers crashed handlers) |
+| `LockTimeout` | `time.Duration` | `30s` | Lock lifetime: frees the lock of a process that died holding it. A handler that returns an error or panics releases its lock at once. |
 | `Methods` | `[]string` | `POST,PUT,PATCH,DELETE` | Methods the mw applies to |
 | `OnConflict` | `func(*Context) error` | 409 | Response for an in-flight duplicate |
 | `BodyHash` | `bool` | `false` | Reject key reuse with a different body (`422`) |

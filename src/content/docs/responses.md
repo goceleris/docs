@@ -225,7 +225,10 @@ s.GET("/item/:id", func(c *celeris.Context) error {
 })
 ```
 
-For `text/plain`, `Respond` formats the value with `%v`.
+For `text/plain`, `Respond` formats the value with `%v`. Since celeris v1.6.0 it
+adds `Accept` to the response's `Vary` header, so a shared cache, or the
+`singleflight` middleware, does not hand an XML response to a client that asked
+for JSON ([celeris#912](https://github.com/goceleris/celeris/issues/912)).
 
 ### Negotiate
 
@@ -243,11 +246,13 @@ default:
 }
 ```
 
-> **Accept vs Accept-Encoding/Accept-Language asymmetry.** `Negotiate` and
-> `Respond` only look at the `Accept` header (content type). There are no
-> `AcceptsEncodings` / `AcceptsLanguages` helpers — read the
-> `accept-encoding` / `accept-language` request headers directly with
-> `c.Header(...)` if you need to negotiate compression or language.
+`Negotiate` adds `Accept` to the response's `Vary` header (once), as `Respond`
+does: the response now depends on it.
+
+> **Accept-Encoding and Accept-Language.** `Negotiate` and `Respond` look only at
+> the `Accept` header (content type). `c.AcceptsEncodings(offers...)` and
+> `c.AcceptsLanguages(offers...)` pick from `Accept-Encoding` and
+> `Accept-Language` the same way, and add that header to `Vary`.
 
 ## Response headers
 

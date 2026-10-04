@@ -561,7 +561,21 @@ version, server address, response status/size). The request ID is added as a
 `request.id` span attribute when present (`celeris/middleware/otel/otel.go:235`).
 When metrics are enabled (the default), it also records
 `http.server.request.duration`, `http.server.active_requests`,
-`http.server.request.body.size`, and `http.server.response.body.size`.
+`http.server.request.body.size`, and `http.server.response.body.size`. Their
+attribute sets hold the method (unknown methods as `_OTHER`), the route pattern,
+the scheme (`http` or `https`; any other value as `_OTHER`), the status and, with
+`ServerPort`, `server.port`. The scheme is bounded at the source too: on an h2c
+stream the client chooses the `:scheme` pseudo-header, and since celeris v1.6.0
+`c.Scheme()` returns `https` only when it says https and `http` for anything else,
+where it used to return the client's value, one new series per made-up value. Only
+a `SetScheme` override can give another value, and the metric records that as
+`_OTHER`. `server.address` is
+on the span only: it is the client's `Host` header, so on a metric every made-up
+`Host` would make a new series, and a client could fill an instrument up to the
+SDK's cardinality limit, after which every request lands in one overflow series.
+OTel's HTTP semantic conventions make it Opt-In on these metrics for that reason;
+set `MetricServerAddress` where the `Host` is bounded upstream
+([celeris#924](https://github.com/goceleris/celeris/issues/924)).
 
 ### Reading the active span
 
@@ -592,6 +606,7 @@ func handler(c *celeris.Context) error {
 | `CustomAttributes` | `func(c) []attribute.KeyValue` | — | Extra span attributes per request. |
 | `CustomMetricAttributes` | `func(c) []attribute.KeyValue` | — | Extra metric attributes per request. |
 | `ServerPort` | `int` | `0` | Add `server.port` when `> 0`. |
+| `MetricServerAddress` | `bool` | `false` | Add `server.address` (the client's `Host`) to the metric attribute sets. Spans always carry it. Opt in only where the `Host` is bounded. |
 | `Skip` / `SkipPaths` | — | — | Skip per request / for exact paths. |
 
 > **PII note:** `client.address` is **off by default** (opt in via
