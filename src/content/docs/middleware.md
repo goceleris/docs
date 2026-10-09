@@ -38,7 +38,7 @@ s.Use(Timing)
 
 `Context.Next()` advances to and runs the next handler in the chain, returning the
 **first non-nil error** from anything downstream and short-circuiting the rest
-(`celeris/context.go:311`). A middleware can inspect or swallow that error simply by
+(`celeris/context.go:360-386`). A middleware can inspect or swallow that error simply by
 choosing what to return.
 
 ### Short-circuiting
@@ -48,8 +48,8 @@ There are three ways to stop the chain early:
 | Technique                        | What happens                                                                 |
 | -------------------------------- | --------------------------------------------------------------------------- |
 | **Return without calling `Next`**| Downstream handlers never run; whatever you wrote (or returned) is final.    |
-| **`c.Abort()`**                  | Sets the chain index past the end so no pending handler runs. Writes nothing on its own — write a response first. (`celeris/context.go:325`) |
-| **`c.AbortWithStatus(code)`**    | Calls `Abort()` and sends an empty-body status code. Returns the error for propagation. (`celeris/context.go:332`) |
+| **`c.Abort()`**                  | Sets the chain index past the end so no pending handler runs. Writes nothing on its own — write a response first. (`celeris/context.go:395-400`) |
+| **`c.AbortWithStatus(code)`**    | Calls `Abort()` and sends an empty-body status code. Returns the error for propagation. (`celeris/context.go:402-407`) |
 
 ```go
 // A guard that rejects unauthenticated requests and stops the chain.
@@ -62,7 +62,7 @@ func RequireAuth(c *celeris.Context) error {
 }
 ```
 
-`c.IsAborted()` reports whether the chain was aborted (`celeris/context.go:339`),
+`c.IsAborted()` reports whether the chain was aborted (`celeris/context.go:409-412`),
 which downstream middleware can check before doing expensive work.
 
 > Returning an error and aborting are different things. Returning a non-nil error
@@ -555,9 +555,9 @@ Three `*Server` hooks complete the request lifecycle. All must be set before
 
 | Hook                        | Fires when                                                       | Source                  |
 | --------------------------- | --------------------------------------------------------------- | ----------------------- |
-| `OnError(fn)`               | An unhandled error reaches the safety net after all middleware. | `celeris/server.go:300` |
-| `NotFound(handler)`         | No route matches the request path, and no global middleware answered it. | `celeris/server.go:279` |
-| `MethodNotAllowed(handler)` | The path matches but the method doesn't (`Allow` header is set automatically), and no global middleware answered it. | `celeris/server.go:291` |
+| `OnError(fn)`               | An unhandled error reaches the safety net after all middleware. | `celeris/server.go:302` |
+| `NotFound(handler)`         | No route matches the request path, and no global middleware answered it. | `celeris/server.go:281` |
+| `MethodNotAllowed(handler)` | The path matches but the method doesn't (`Allow` header is set automatically), and no global middleware answered it. | `celeris/server.go:293` |
 
 ```go
 s.OnError(func(c *celeris.Context, err error) {

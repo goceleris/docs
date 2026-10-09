@@ -52,8 +52,8 @@ The mutators these middleware reach for are all on `*Context`:
 | -------------------- | ----------------------------------------------- | ------------------------------ |
 | `SetMethod(m)`       | overrides the HTTP method seen by the router    | `celeris/context_request.go:27`|
 | `SetPath(p)`         | overrides the request path before route lookup  | `celeris/context_request.go:34`|
-| `SetScheme(scheme)`  | overrides `Scheme()` (e.g. from a proxy header) | `celeris/context_request.go:411`|
-| `SetHost(host)`      | overrides `Host()`                              | `celeris/context_request.go:676`|
+| `SetScheme(scheme)`  | overrides `Scheme()` (e.g. from a proxy header) | `celeris/context_request.go:420`|
+| `SetHost(host)`      | overrides `Host()`                              | `celeris/context_request.go:681`|
 
 ### The short-circuit contract
 

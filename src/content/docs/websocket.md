@@ -732,10 +732,10 @@ applications never need them.
 | `c.UpgradeWebSocket(delivery func([]byte)) bool`         | Engine-integrated upgrade; `false` if the engine doesn't support it. |
 
 `Hijack` hands you the raw `net.Conn` and makes you responsible for the
-handshake, framing, and closing it (`celeris/context_response.go:1256`).
+handshake, framing, and closing it (`celeris/context_response.go:1289-1321`).
 `UpgradeWebSocket` installs a data-delivery callback for the native engine path
 and returns `false` on the std engine, where you fall back to `Hijack`
-(`celeris/context_response.go:1290`). Driving these correctly means
+(`celeris/context_response.go:1323-1347`). Driving these correctly means
 re-implementing RFC 6455 yourself — the `websocket` middleware exists precisely so
 you don't have to. For other long-lived response patterns built on the same
 primitives, see [Streaming responses](/docs/streaming).

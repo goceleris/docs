@@ -170,7 +170,7 @@ and let Adaptive/Std resolve automatically.
 | Driver event-loop colocation  | Yes          | Yes   | —   |
 
 Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go:38-99`,
-`celeris/server.go:734-858`, `celeris/context_response.go:1357-1380`.
+`celeris/server.go:736-861`, `celeris/context_response.go:1423-1446`.
 
 ## The adaptive controller
 
@@ -320,7 +320,7 @@ underneath a still-running goroutine.
 Celeris exposes this difference so streaming middleware can adapt rather than break.
 `Context.EngineSupportsAsyncDetach()` reports whether the active engine can keep the
 connection alive after the handler returns
-(`celeris/context_response.go:1357-1380`):
+(`celeris/context_response.go:1423-1446`):
 
 ```go
 func streamHandler(c *celeris.Context) error {
@@ -356,7 +356,7 @@ your own streaming transport.
 > WebSocket has a deeper engine integration than SSE: native engines provide an
 > *engine-integrated* upgrade path (`UpgradeWebSocket`, `WSReadPauser`,
 > `WSRawWriteFn`) with TCP-level backpressure; on Std these return false/nil and the
-> middleware falls back to `Context.Hijack` (`celeris/context_response.go:1252-1344`).
+> middleware falls back to `Context.Hijack` (`celeris/context_response.go:1289-1410`).
 > The middleware handles this fallback transparently.
 
 ## Engine selection in practice
@@ -414,7 +414,7 @@ The running engine exposes a read-only surface for observability and control.
 ### `EngineInfo` and `EngineType`
 
 `Server.EngineInfo()` returns the active engine's type and a metrics snapshot, or
-`nil` before `Start` (`celeris/server.go:799-809`). On Adaptive, `Type` reflects the
+`nil` before `Start` (`celeris/server.go:802-812`). On Adaptive, `Type` reflects the
 engine that is *currently active*, so you can see which sub-engine the controller
 has selected.
 
@@ -481,7 +481,7 @@ if m.RequestCount > 0 {
 
 To stop accepting new connections while continuing to serve existing ones — useful
 for graceful load shedding or coordinated draining — call `Server.PauseAccept()`
-and later `Server.ResumeAccept()` (`celeris/server.go:811-858`). These work on the
+and later `Server.ResumeAccept()` (`celeris/server.go:814-861`). These work on the
 native engines. The **std engine does not support accept control**: both return
 `celeris.ErrAcceptControlNotSupported` (`celeris/errors.go:29-31`), as does calling
 them before `Start`.
@@ -500,7 +500,7 @@ _ = s.ResumeAccept()
 
 `Server.EventLoopProvider()` returns the engine's per-worker event-loop provider,
 or `nil` if the engine does not expose one — which is the case for the **std**
-fallback (`celeris/server.go:734-755`). This is the integration point that lets
+fallback (`celeris/server.go:736-758`). This is the integration point that lets
 Celeris database and cache drivers register their own sockets on the *same* worker
 event loops as the HTTP path, so a DB round-trip is driven by the very thread that
 owns the request's connection — no cross-thread handoff, NUMA-local buffers.
@@ -533,7 +533,7 @@ if p := s.EventLoopProvider(); p != nil {
 > For drivers to pick their fast netpoll-park path, the server's *effective* async
 > state must be on (server `AsyncHandlers: true`, or routes marked `.Async()` /
 > `.UsesDriver()` registered **before** the driver is opened). `Server.AsyncHandlers()`
-> reports the effective state (`celeris/server.go:757-797`). See
+> reports the effective state (`celeris/server.go:760-800`). See
 > [Routing](/docs/routing#dispatch-mode-async-sync-usesdriver) for the ordering rule.
 
 ## Common pitfalls
@@ -556,7 +556,7 @@ if p := s.EventLoopProvider(); p != nil {
   it fails to start.
 - **Forgetting to call `done()` after `Detach`.** The returned function *must* run
   (typically `defer done()` in the streaming goroutine) or the `*Context` leaks from
-  its pool permanently (`celeris/context_response.go:1382-1431`).
+  its pool permanently (`celeris/context_response.go:1448-1505`).
 
 ## FAQ
 

@@ -133,10 +133,10 @@ URL. Celeris gives you two complementary tools to fix this.
 ### `Config.TrustedProxies` — corrects `ClientIP()`
 
 Set `Config.TrustedProxies` to the CIDR ranges (or bare IPs) of your proxies
-(`celeris/config.go:222-226`). When set, `c.ClientIP()` walks the
+(`celeris/config.go:256-260`). When set, `c.ClientIP()` walks the
 `X-Forwarded-For` chain **right-to-left**, skipping hops inside a trusted network,
 and returns the first untrusted address — the real client
-(`celeris/context_request.go:416-484`):
+(`celeris/context_request.go:425-493`):
 
 ```go
 s := celeris.New(celeris.Config{
@@ -154,13 +154,13 @@ s.GET("/whoami", func(c *celeris.Context) error {
 
 Entries accept CIDR notation (`10.0.0.0/8`) or a bare IP (`10.0.0.1`, expanded to
 `/32` or `/128`). An invalid entry is a startup error from `Start` —
-`celeris: invalid TrustedProxies entry: …` (`celeris/server.go:576-591`), so a typo
+`celeris: invalid TrustedProxies entry: …` (`celeris/server.go:909-916`), so a typo
 fails loudly rather than silently mis-attributing traffic.
 
 > **Without `TrustedProxies`, `ClientIP()` falls back to legacy behaviour**: it
 > returns the *leftmost* `X-Forwarded-For` entry, which is attacker-controlled and
 > trivially spoofed. Always set `TrustedProxies` in production
-> (`celeris/context_request.go:416-438`).
+> (`celeris/context_request.go:425-448`).
 
 ### The `proxy` middleware — corrects `Scheme()` and `Host()` too
 
@@ -346,7 +346,7 @@ s := celeris.New(celeris.Config{Addr: ":8080"}) // 0.0.0.0:8080, not 127.0.0.1
 ```
 
 `Addr` follows Go's `net.Listen` syntax. `:0` binds an OS-assigned port — read it
-back with `s.Addr()` after `Start` (`celeris/server.go:431-439`), handy in tests.
+back with `s.Addr()` after `Start` (`celeris/server.go:726-734`), handy in tests.
 
 ### Workers and GOMAXPROCS
 
@@ -501,7 +501,7 @@ across workers — no userspace accept lock. This is internal and automatic; you
 not configure it. The one place it surfaces is zero-downtime restarts (below): when
 you hand a listener to `StartWithListener`, the native engines extract the address
 and rebind their own `SO_REUSEPORT` sockets to it, and **you must not `Accept` on or
-close the passed listener afterward** (`celeris/server.go:681-699`).
+close the passed listener afterward** (`celeris/server.go:1035-1066`).
 
 ### systemd unit
 
@@ -597,7 +597,7 @@ engine. (`atomic.Bool` is in the standard library's `sync/atomic`.)
 
 For true zero-downtime restarts on the same host, inherit the listening socket
 across the exec with `InheritListener` + `StartWithListener`
-(`celeris/server.go:693-758`):
+(`celeris/server.go:1148-1166`, `celeris/server.go:1035-1066`):
 
 ```go
 ln, err := celeris.InheritListener("CELERIS_LISTENER_FD")

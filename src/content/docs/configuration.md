@@ -266,7 +266,7 @@ The maximum **memory** used for multipart form parsing, **per request** (default
 32 MB, the same as `net/http`). Zero applies the default
 (`DefaultMaxFormSize`, `celeris/types.go:10-12`); a negative value (`-1`) disables
 the limit, parsing with no in-memory ceiling (`celeris/config.go:105-107`,
-`celeris/handler.go:58-60`, enforced at `celeris/context_request.go:618-620`). It
+`celeris/handler.go:58-60`, enforced at `celeris/context_request.go:621-623`). It
 bounds the in-memory portion of
 `multipart/form-data` parsing — see [Request handling](/docs/request-handling) for
 form access (`FormValue`, files) and per-context overrides.
@@ -368,7 +368,7 @@ clips the peak-RSS balloon that a connection-ramp burst would otherwise produce.
 
 - **`0` (default)** — Celeris does **not** touch the process GC; the runtime
   default (`GOGC=100`, no limit) stands, and embedders keep full control
-  (`celeris/config.go:166-176`, applied at `celeris/server.go:967-968`).
+  (`celeris/config.go:166-176`, applied at `celeris/server.go:970-971`).
 - **`> 0`** — the GC collects *before* the heap balloons during a connection-ramp
   burst, trading a few extra GC cycles during the ramp for a lower high-water
   mark. Steady-state RSS sits far below the limit, so steady throughput is
@@ -397,7 +397,7 @@ s := celeris.New(cfg)
 
 Built-in metrics are **on by default**. Set `DisableMetrics: true` to turn off the
 collector — `Server.Collector()` then returns `nil` and per-request recording is
-skipped (`celeris/config.go:134-137`, `celeris/server.go:99-101`, `541-545`).
+skipped (`celeris/config.go:178-181`, `celeris/server.go:152-154`, `863-868`).
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU
@@ -478,8 +478,8 @@ celeris.Config{
 ### `TrustedProxies`
 
 A list of trusted proxy CIDR ranges (or bare IPs). It controls how `Context.ClientIP()`
-interprets `X-Forwarded-For` (`celeris/config.go:201-205`, parsed at
-`celeris/server.go:576-591`).
+interprets `X-Forwarded-For` (`celeris/config.go:256-260`, parsed at
+`celeris/server.go:909-924`).
 
 > **Security-critical.** When `TrustedProxies` is **empty**, `ClientIP()` trusts
 > proxy headers from *anyone* (legacy behaviour) — a client can spoof its IP by
@@ -489,7 +489,7 @@ interprets `X-Forwarded-For` (`celeris/config.go:201-205`, parsed at
 
 Entries may be CIDR (`10.0.0.0/8`) or a bare IP (`192.168.1.10`, normalised to a
 `/32` or `/128`). An unparseable entry is a `Start` error
-(`celeris: invalid TrustedProxies entry: …`, `celeris/server.go:576-589`).
+(`celeris: invalid TrustedProxies entry: …`, `celeris/server.go:909-916`).
 
 ```go
 celeris.Config{
@@ -541,7 +541,7 @@ celeris.Config{
 Configuration is validated **at `Start`** (and `StartWithContext` /
 `StartWithListener…`), not at `celeris.New`. `New` never fails; the validation runs
 inside the one-time prepare step and is reported as the error returned by `Start`
-(`celeris/server.go:564-574`). All field errors are collected and joined, so one
+(`celeris/server.go:899-907`). All field errors are collected and joined, so one
 `Start` call surfaces every problem at once, prefixed with `config validation:`.
 
 Common errors under the `config validation:` prefix (`celeris/internal/resource/config.go:148-227`):
@@ -560,7 +560,7 @@ Common errors under the `config validation:` prefix (`celeris/internal/resource/
 
 `TrustedProxies` is parsed *after* validation passes and surfaces its own error
 (not under the `config validation:` prefix): `celeris: invalid TrustedProxies entry: …`
-for an unparseable CIDR/IP (`celeris/server.go:576-589`).
+for an unparseable CIDR/IP (`celeris/server.go:909-916`).
 
 ```go
 s := celeris.New(celeris.Config{Workers: 1, Engine: celeris.IOUring}) // off-Linux

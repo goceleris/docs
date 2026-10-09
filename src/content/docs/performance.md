@@ -484,7 +484,7 @@ defer ctrl.Stop()                                // stop the poll goroutine on s
 How the signals compose: the poll goroutine takes the **higher** of the CPU-derived
 stage and the latency-derived stage, then the hot path folds in **depth**, which can
 only escalate *above* (never below) the polled stage
-(`celeris/middleware/overload/overload.go:159-258`). CPU thresholds default to
+(`celeris/middleware/overload/overload.go:235-245`, `overload.go:137-155`). CPU thresholds default to
 Expand 0.70 / Reap 0.80 / Reorder 0.85 / Backpressure 0.90 / Reject 0.95 with 0.05
 hysteresis on downward transitions (`config.go:48-55`). Depth and latency thresholds
 are **off by default** — a zero-valued field disables that signal for that stage, so
@@ -652,7 +652,7 @@ If you'd rather not poll, the built-in collector stays on by default
 (Prometheus) and `middleware/debug` packages — see
 [Observability](/docs/observability) for the full metrics-export story. Disabling
 metrics (`DisableMetrics: true`) skips per-request recording entirely and makes
-`Collector()` return `nil` (`celeris/server.go:99-100`, `celeris/server.go:543-545`)
+`Collector()` return `nil` (`celeris/server.go:152-154`, `celeris/server.go:863-868`)
 — only do this if you've measured the recording cost and have an external metrics
 path.
 
@@ -685,7 +685,7 @@ at zero (`celeris/middleware/overload/config.go`).
 **Do I need to enable the CPU monitor for `overload`?**
 No — the server wires a platform CPU monitor automatically when it starts, so
 `Snapshot().CPUUtilization` is populated and `overload`'s `CollectorProvider:
-s.Collector` works out of the box (`celeris/server.go:647-653`).
+s.Collector` works out of the box (`celeris/server.go:947-962`, `celeris/server.go:1001-1008`).
 
 ## See also
 

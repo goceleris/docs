@@ -210,7 +210,7 @@ or validating input. Use `c.Bind*` plus your own field checks, as shown above.
 **The package is EXPERIMENTAL.** Its package documentation says so, and it is
 outside the compatibility promise in the Compatibility section of celeris's
 [GOVERNANCE.md](https://github.com/goceleris/celeris/blob/main/GOVERNANCE.md#compatibility)
-(`celeris/validation/doc.go:22-30`): the counter names, the `Counters` fields, the
+(`celeris/validation/doc.go:22-31`): the counter names, the `Counters` fields, the
 socket's JSON and the functions may change or go away in a minor release, and the
 release notes say when they do.
 

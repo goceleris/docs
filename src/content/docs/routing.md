@@ -265,7 +265,7 @@ handler).
 ## Route groups
 
 `Server.Group(prefix, middleware...)` creates a `*RouteGroup` that shares a path
-prefix and a middleware stack across many routes (`celeris/server.go:336`). Group
+prefix and a middleware stack across many routes (`celeris/server.go:431-439`). Group
 middleware runs **after** server-level middleware but **before** the route's own
 handlers.
 
@@ -387,8 +387,8 @@ strings. There are two builders on `*Server`:
 
 | Method                                    | Param substitution               | Source                  |
 | ----------------------------------------- | -------------------------------- | ----------------------- |
-| `URL(name, params...) (string, error)`    | positional, in pattern order     | `celeris/server.go:251` |
-| `URLMap(name, map) (string, error)`       | by parameter name                | `celeris/server.go:281` |
+| `URL(name, params...) (string, error)`    | positional, in pattern order     | `celeris/server.go:348` |
+| `URLMap(name, map) (string, error)`       | by parameter name                | `celeris/server.go:378` |
 
 ```go
 s.GET("/users/:id/posts/:pid", showPost).Name("post")
@@ -427,7 +427,7 @@ if errors.Is(err, celeris.ErrRouteNotFound) {
 ## Introspection
 
 `Server.Routes()` returns a `[]RouteInfo` describing every registered route, sorted
-by method then path for deterministic output (`celeris/server.go:242`). Handy for
+by method then path for deterministic output (`celeris/server.go:337-341`). Handy for
 startup logging, debug endpoints, or generating an API map.
 
 ```go
@@ -475,7 +475,7 @@ has to be unique within a single pattern.
 **How do I serve a directory of files?**
 Use `s.Static(prefix, root)` (or `group.Static`). It registers a catch-all GET route
 with built-in path-traversal protection — you don't manage the `*path` parameter
-yourself (`celeris/server.go:233-238`).
+yourself (`celeris/server.go:326-335`).
 
 **What happens on a path match with the wrong method?**
 The router returns the set of allowed methods; register a handler with

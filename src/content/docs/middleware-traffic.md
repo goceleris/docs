@@ -300,7 +300,7 @@ api.Use(circuitbreaker.New(circuitbreaker.Config{
 The breaker trips (Closed → Open) when, within the current `WindowSize`, the
 total request count is at least `MinRequests` **and** `failures/total >=
 Threshold`. `MinRequests` stops a tiny sample (2 of 3 requests failing) from
-tripping prematurely. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go:180`.
+tripping prematurely. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go:193`.
 
 A handler that panics is a failure, with the same transition as a returned one;
 the panic then continues to your recovery middleware. Before celeris v1.6.0 a
@@ -535,7 +535,7 @@ s.Use(overload.New(overload.Config{
 `s.Collector()` is created eagerly in `New`, so it is **non-nil before `Start`**
 — the `if col := s.Collector(); col != nil` snippet above can attach the CPU
 monitor at setup time. It returns nil only when `Config.DisableMetrics` is true.
-Source: `celeris/server.go:542`.
+Source: `celeris/server.go:863-868`.
 `observe.NewCPUMonitor()` returns a platform-appropriate monitor (Linux reads
 `/proc/stat`; others use `runtime/metrics`) and a non-nil `error`, so check it
 before calling `SetCPUMonitor`. Source: `celeris/observe/cpumon_linux.go:10`,
@@ -550,7 +550,7 @@ upstream. CPU stays low while requests queue up. Add `DepthThresholds`
 (absolute in-flight counts) and/or `LatencyThresholds` (EMA tail-latency targets)
 — whichever signal produces the *highest* stage wins. A depth/latency threshold
 can escalate the stage **beyond** the CPU-driven one, never below it.
-Source: `celeris/middleware/overload/overload.go:159-177`, `overload.go:253-257`.
+Source: `celeris/middleware/overload/overload.go:137-155`, `overload.go:235-245`.
 A request whose handler panics gives its in-flight count back too; before celeris
 v1.6.0 each panic leaked one, until the depth thresholds rejected every request
 ([celeris#921](https://github.com/goceleris/celeris/issues/921)).
@@ -728,7 +728,7 @@ When many identical requests arrive at once (a cache stampede, a dashboard that
 N clients all refresh on the same tick), `singleflight` lets the **first**
 request run the handler and serves every concurrent duplicate a *copy* of that
 one response. Coalesced responses carry an `X-Singleflight: HIT` header.
-Source: `celeris/middleware/singleflight/singleflight.go:59`, `singleflight.go:123`.
+Source: `celeris/middleware/singleflight/singleflight.go:102-149`, `singleflight.go:143`.
 
 ```go
 import "github.com/goceleris/celeris/middleware/singleflight"
@@ -743,7 +743,7 @@ s.GET("/report/:id", singleflight.New(), buildExpensiveReport)
 > the auth and cookie components are what stop one user's response from being
 > served to another. **If you supply your own `KeyFunc`, you MUST incorporate
 > user identity** for any endpoint that returns user-specific data, or you will
-> leak data across users. Source: `celeris/middleware/singleflight/config.go:18-31`.
+> leak data across users. Source: `celeris/middleware/singleflight/config.go:19-38`.
 
 ```go
 s.GET("/me/feed", singleflight.New(singleflight.Config{
@@ -778,7 +778,7 @@ for XML never takes a leader's JSON.
 unique key with a write request, and if it has to retry (network blip, timeout),
 the server *replays the original response* instead of performing the operation
 twice. By default it applies to `POST`, `PUT`, `PATCH`, `DELETE`; other methods
-pass through. Source: `celeris/middleware/idempotency/idempotency.go:1-18`,
+pass through. Source: `celeris/middleware/idempotency/idempotency.go:1-19`,
 `config.go:37-39`.
 
 ```go
@@ -798,7 +798,7 @@ How it behaves for a given key:
 - **Handler crashed mid-flight** — the lock expires after `LockTimeout` (default
   30s) so the next request can retry.
 
-Source: `celeris/middleware/idempotency/idempotency.go:70-200`.
+Source: `celeris/middleware/idempotency/idempotency.go:71-212`.
 
 #### The store needs `SetNX`
 
@@ -810,7 +810,7 @@ when you assign it. The default in-memory store satisfies `KVStore` out of the
 box; a Redis/Postgres store works too as long as it implements both interfaces.
 Source: `celeris/middleware/idempotency/config.go:15-26`. When `Store` is left
 nil, `New` installs the in-memory store. Source:
-`celeris/middleware/idempotency/idempotency.go:47-49`.
+`celeris/middleware/idempotency/idempotency.go:48-50`.
 
 ```go
 s.Use(idempotency.New(idempotency.Config{
@@ -827,7 +827,7 @@ A client that reuses an idempotency key with a *different* body is almost always
 a bug. Set `BodyHash: true` to store a SHA-256 of the request body alongside the
 response; on replay, a body mismatch returns `422 Unprocessable Entity`.
 Source: `celeris/middleware/idempotency/config.go:50-53`,
-`idempotency.go:104-110`.
+`idempotency.go:105-111`.
 
 ```go
 s.Use(idempotency.New(idempotency.Config{BodyHash: true}))
@@ -835,10 +835,10 @@ s.Use(idempotency.New(idempotency.Config{BodyHash: true}))
 
 With `BodyHash` enabled, a request whose body exceeds `MaxBodyBytes` (default
 1 MiB) is rejected with `413` before hashing, since the hash can't be computed
-over a truncated body. Source: `celeris/middleware/idempotency/idempotency.go:89-95`.
+over a truncated body. Source: `celeris/middleware/idempotency/idempotency.go:90-96`.
 On the leader path, a *response* larger than `MaxBodyBytes` is still served, but
 it is not cached — the lock is released and later retries re-run the handler
-rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go:160-170`.
+rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go:172-182`.
 
 | Field | Type | Default | Purpose |
 | ----- | ---- | ------- | ------- |
@@ -855,7 +855,7 @@ rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go:16
 
 > A missing key header just passes the request through — idempotency is opt-in
 > per request. An invalid key (non-printable, or longer than `MaxKeyLength`)
-> returns `400`. Source: `celeris/middleware/idempotency/idempotency.go:77-83`.
+> returns `400`. Source: `celeris/middleware/idempotency/idempotency.go:78-84`.
 
 ### When to use which
 
