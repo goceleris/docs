@@ -304,7 +304,7 @@ The `*StreamWriter` returned by `StreamWriter()` has its own methods:
 | --------- | --------- |
 | `WriteHeader(status int, headers [][2]string) error` | Send status + headers once, before any `Write`. |
 | `Write(data []byte) (int, error)` | Send a body chunk; may be called repeatedly. |
-| `Flush() error` | Push buffered data to the network. |
+| `Flush() error` | Ask the engine to send buffered data. A request, not a guarantee: on HTTP/1.1 on `epoll` and `io_uring` it does nothing, and those engines send each `Write` at once only after `Detach` ([details](/docs/streaming#the-streamwriter-api)). |
 | `Close() error` | End the body and sync the byte count back to the Context. |
 | `BytesWritten() int64` | Total bytes written through this writer (concurrency-safe). |
 
@@ -441,11 +441,11 @@ func handler(c *celeris.Context) error {
 
 > `c.Context()` carries deadlines you attach (via `SetContext`) and is cancelled by
 > an **HTTP/2 stream reset** — but it does **not** fire on a plain HTTP/1.1 client
-> disconnect: `Done()` never closes when an H1 peer goes away. To detect a
-> disconnected client while streaming, check the error returned by
-> `StreamWriter.Write`/`Flush` rather than relying on `ctx.Done()`. Use `Context()`
-> for deadlines and H2 cancellation; use the stream-writer error for H1 disconnect
-> detection. `OnRelease` is for releasing per-request resources (close a
+> disconnect: `Done()` never closes when an H1 peer goes away. On `std`, check the
+> error returned by `StreamWriter.Write`/`Flush` to detect a disconnected client; on
+> `epoll` and `io_uring` over HTTP/1.1 those return `nil` after the client has gone
+> (see [Streaming responses](/docs/streaming#faq)). Use `Context()` for deadlines and
+> H2 cancellation. `OnRelease` is for releasing per-request resources (close a
 > checked-out connection, decrement a gauge) without a `defer` in every handler.
 
 ---
