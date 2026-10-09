@@ -107,8 +107,8 @@ defines: a **supported** variable keeps its name, values and effect within v1; a
 | -------- | ------ | --------- | ------------------------ | ------ |
 | `CELERIS_ADAPTIVE_START` | Adaptive | supported | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
 | `CELERIS_MAX_IOURING_TIER` | io_uring | supported | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable and Adaptive neither starts on io_uring nor switches to it. The detected kernel version is not capped. |
-| `CELERIS_IOURING_SEND_ZC` | io_uring | supported | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). Whether `auto` should keep enabling it is an open measurement ([celeris#585](https://github.com/goceleris/celeris/issues/585)). |
-| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | experimental | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier). Any value other than `1` leaves it off. |
+| `CELERIS_IOURING_SEND_ZC` | io_uring | supported | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). |
+| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | experimental | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier, 5.19+). Any value other than `1` leaves it off. |
 | `CELERIS_IOURING_PBUF_COUNT` | io_uring | experimental | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0`, a negative value or a non-integer keeps the default. |
 | `CELERIS_IOURING_FIXED_FILES` | io_uring | unsupported | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
 
@@ -507,7 +507,7 @@ owns the request's connection — no cross-thread handoff, NUMA-local buffers.
 
 It is for the Celeris drivers: pass the server itself to `redis.WithEngine` or its
 postgres and memcached counterparts. The provider's type is defined in an internal
-package, so code outside the celeris module can pass the result on and call its
+package, so code outside `github.com/goceleris/celeris` can pass the result on and call its
 methods but cannot name the type. That type and its methods are **not supported
 API** until [celeris#453](https://github.com/goceleris/celeris/issues/453) defines a
 public engine interface; they may change in a minor release (the Compatibility

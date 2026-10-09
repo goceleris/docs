@@ -547,8 +547,9 @@ Key APIs in play:
 - **`s.Start() error`** — runs the accept loop; it blocks, so call it in a
   goroutine (`celeris/server.go:445-462`).
 - **`s.Shutdown(ctx) error`** — stops the engine and fires `OnShutdown` hooks, and
-  returns `nil` if the server was never started. On `std` and `adaptive` it waits for
-  in-flight requests; on `epoll` and `io_uring` it returns without waiting for them.
+  returns `nil` if the server was never started. On every engine it waits for the
+  in-flight requests and HTTP/2 streams to drain, bounded by `ctx`, then runs the hooks;
+  if `ctx` is done first the hooks still run, with `ctx`, and it returns `ctx`'s error.
   Always give it a bounded context (`celeris/server.go:546-617`).
 
 > Routes must be registered **before** `Start` — handler chains are baked at

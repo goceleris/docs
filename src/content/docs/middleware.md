@@ -38,7 +38,8 @@ s.Use(Timing)
 
 `Context.Next()` advances to and runs the next handler in the chain, returning the
 **first non-nil error** from anything downstream and short-circuiting the rest
-(`celeris/context.go:360-386`). A middleware can inspect or swallow that error simply by
+(`celeris/context.go:360-386`). It also stops once a handler has answered the request
+(see [Global](#global--serveruse)). A middleware can inspect or swallow that error simply by
 choosing what to return.
 
 ### Short-circuiting
@@ -47,7 +48,7 @@ There are three ways to stop the chain early:
 
 | Technique                        | What happens                                                                 |
 | -------------------------------- | --------------------------------------------------------------------------- |
-| **Return without calling `Next`**| Downstream handlers never run; whatever you wrote (or returned) is final.    |
+| **Return without calling `Next`**| Downstream handlers do not run when you return an error, or when you return `nil` after answering the request (a handler that answers ends the chain, see [Global](#global--serveruse)). Returning `nil` without having answered lets the chain continue. |
 | **`c.Abort()`**                  | Sets the chain index past the end so no pending handler runs. Writes nothing on its own — write a response first. (`celeris/context.go:395-400`) |
 | **`c.AbortWithStatus(code)`**    | Calls `Abort()` and sends an empty-body status code. Returns the error for propagation. (`celeris/context.go:402-407`) |
 
@@ -101,8 +102,8 @@ func listItems(c *celeris.Context) error {
 
 Note `GetString` returns `(string, bool)`, not a bare string — unlike Gin's
 `c.GetString`. For non-string values use `Set` / `Get`, which round-trip an `any`
-you type-assert at the read site (`celeris/context.go:402`, `celeris/context.go:415`,
-`celeris/context.go:485`, `celeris/context.go:501`).
+you type-assert at the read site (`celeris/context.go:577-600` for `GetString`,
+`celeris/context.go:481-485` for `Set`, `celeris/context.go:487-508` for `Get`).
 
 ## Install points
 
