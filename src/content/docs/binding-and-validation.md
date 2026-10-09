@@ -226,6 +226,8 @@ the client's `Accept` header:
   you list, so you can branch yourself. With an empty `Accept` header it returns
   the first offer.
 
+Both add `Accept` to the response's `Vary` header.
+
 These are covered in full on the [Sending responses](/docs/responses) page.
 
 ```go
