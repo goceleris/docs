@@ -117,7 +117,7 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
 If compression itself errors, the middleware degrades gracefully: it flushes the
 original uncompressed body so the client never sees a blank page.
 
-Source: `compress/compress.go:84-198`.
+Source: `compress/compress.go:116-234`.
 
 ### Install order relative to `etag`
 
@@ -247,7 +247,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `Skip`                | `func(*Context) bool`         | `nil`                  | Return `true` to skip caching for a request.                                            |
 | `SkipPaths`           | `[]string`                    | `nil`                  | Exact-match paths to skip.                                                              |
 
-Source: `cache/config.go:11-77`.
+Source: `cache/config.go:11-95`.
 
 ### Cache keys and `VaryHeaders`
 
@@ -274,7 +274,7 @@ s.Use(cache.New(cache.Config{
 }))
 ```
 
-Source: `cache/cache.go:304-347`.
+Source: `cache/cache.go:318-361`.
 
 ### Singleflight
 
@@ -300,7 +300,7 @@ leaves out, is the default: before celeris v1.6.0 a `Config` that did not set
 `Singleflight: true` silently turned coalescing off, and `RespectCacheControl:
 false` had no effect ([celeris#922](https://github.com/goceleris/celeris/issues/922)).
 
-Source: `cache/cache.go:87-124`.
+Source: `cache/cache.go:87-145`.
 
 ### Honoring `Cache-Control`
 
@@ -324,7 +324,7 @@ s.GET("/me", func(c *celeris.Context) error {
 
 `Set-Cookie` is excluded from the stored header set by default, so a cached
 response won't leak one user's session cookie to another. Source:
-`cache/cache.go:191-220`, `cache/config.go:107-109`.
+`cache/cache.go:193-233`, `cache/config.go:125-127`.
 
 ### Invalidation
 
@@ -358,7 +358,7 @@ s.POST("/users/:id", func(c *celeris.Context) error {
 > your invalidation calls. The middleware does not expose the store it created
 > internally, so to invalidate you must own the reference.
 
-Source: `cache/cache.go:398-415`.
+Source: `cache/cache.go:413-429`.
 
 ### Pluggable stores
 
@@ -582,7 +582,7 @@ required (the middleware **panics at construction** if neither is set):
 
 If you don't set `SpecFile`, the content type of an inline spec is sniffed from
 its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
-`swagger/config.go:143-160`, `swagger/config.go:304-328`, `swagger/swagger.go:176-187`.
+`swagger/config.go:145-162`, `swagger/config.go:306-330`, `swagger/swagger.go:176-187`.
 
 ### Config reference
 
@@ -600,7 +600,7 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
-Source: `swagger/config.go:111-236`.
+Source: `swagger/config.go:113-238`.
 
 ### UI options
 
@@ -632,7 +632,7 @@ s.Use(swagger.New(swagger.Config{
 
 `DefaultModelsExpandDepth` is a `*int` so the middleware can tell "unset" (use the
 UI default of 1) from an explicit `0`. Use `swagger.IntPtr` to set it. Source:
-`swagger/config.go:24-87`, `swagger/config.go:238-243`.
+`swagger/config.go:24-86`, `swagger/config.go:240-245`.
 
 ### OAuth2 with PKCE
 
@@ -699,7 +699,7 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-Source: `swagger/config.go:168-186`, `swagger/swagger.go:281-372`.
+Source: `swagger/config.go:170-188`, `swagger/swagger.go:281-372`.
 
 ### Assets: embedded, CDN or self-hosted
 

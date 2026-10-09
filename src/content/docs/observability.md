@@ -52,14 +52,14 @@ affects what they see (see [Ordering](#recommended-ordering)).
 ## Built-in metrics — the Collector
 
 The server creates an `observe.Collector` **eagerly in `New`** unless you set
-`Config.DisableMetrics: true` (`celeris/config.go:133`, `celeris/server.go:99`).
+`Config.DisableMetrics: true` (`celeris/config.go:178-181`, `celeris/server.go:152-154`).
 It uses lock-free, cache-line-padded counters sharded per worker, so recording is
 cheap on the hot path.
 
 ### Getting the Collector
 
 `Server.Collector()` returns the live collector, or `nil` only when metrics are
-disabled via `DisableMetrics` (`celeris/server.go:543`). Because the collector is
+disabled via `DisableMetrics` (`celeris/server.go:863-868`). Because the collector is
 created in `New`, it is non-nil immediately — you do **not** need to wait for
 `Start`. Engine-derived fields (`ActiveConns`, `EngineMetrics`), however, stay
 zero until the server is running and the engine is wired:
@@ -84,7 +84,7 @@ if col != nil {
 ### Reading a Snapshot
 
 `Collector.Snapshot()` returns a point-in-time copy of all counters
-(`celeris/observe/collector.go:187`). All fields are read-only values captured
+(`celeris/observe/collector.go:181`). All fields are read-only values captured
 at the moment of the call.
 
 | Field | Type | Meaning |
@@ -101,7 +101,7 @@ at the moment of the call.
 The histogram is paired: `LatencyBuckets[i]` is the count of requests whose
 latency was `<= BucketBounds[i]` seconds (the final bucket is the overflow).
 The default bounds are `0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 5`
-seconds (`celeris/observe/collector.go:13`).
+seconds (`celeris/observe/collector.go:11`).
 
 ```go
 snap := s.Collector().Snapshot()
@@ -122,7 +122,7 @@ if snap.CPUUtilization >= 0 {
 ### EngineMetrics
 
 `Snapshot.EngineMetrics` (and `Server.EngineInfo().Metrics`) expose the I/O
-engine's own counters (`celeris/engine/engine.go:85`). These are the same
+engine's own counters (`celeris/observe/engine_metrics.go:22`). These are the same
 counters the adaptive controller reads to pick an engine.
 
 | Field | Type | Meaning |
@@ -142,7 +142,7 @@ counters the adaptive controller reads to pick an engine.
 
 If you only want engine-level info (not the request histogram),
 `Server.EngineInfo()` returns the active engine type and its metrics, or `nil`
-if the server isn't started (`celeris/server.go:500`):
+if the server isn't started (`celeris/server.go:802-812`):
 
 ```go
 if info := s.EngineInfo(); info != nil {
@@ -180,7 +180,7 @@ It is intentionally rich and zero-alloc on the steady-state path.
 ### The server-level logger
 
 `Config.Logger` is the server's structured logger; it defaults to
-`slog.Default()` when nil (`celeris/config.go:197`). This logger is used by the
+`slog.Default()` when nil (`celeris/config.go:262-263`). This logger is used by the
 server itself (and is the default sink for several middleware, including
 `recovery` — see [Error handling](/docs/error-handling)). Set it once at
 construction:
@@ -540,7 +540,7 @@ go get github.com/goceleris/celeris/middleware/otel
 
 It creates a server span per request with W3C trace-context propagation and
 (optionally) OTel metrics, exporting to whatever providers you've configured
-globally (`celeris/middleware/otel/otel.go:90`). By default it uses the global
+globally (`celeris/middleware/otel/otel.go:322`). By default it uses the global
 providers, so configure your tracer/meter/propagator once via the OTel SDK and
 just install the middleware:
 
@@ -558,7 +558,7 @@ s.Use(otel.New())
 Each request produces a server-kind span named `"METHOD /route"` with standard
 HTTP semantic-convention attributes (method, route, scheme, path, protocol
 version, server address, response status/size). The request ID is added as a
-`request.id` span attribute when present (`celeris/middleware/otel/otel.go:235`).
+`request.id` span attribute when present (`celeris/middleware/otel/otel.go:484`).
 When metrics are enabled (the default), it also records
 `http.server.request.duration`, `http.server.active_requests`,
 `http.server.request.body.size`, and `http.server.response.body.size`. Their
@@ -580,7 +580,7 @@ set `MetricServerAddress` where the `Host` is bounded upstream
 ### Reading the active span
 
 `otel.SpanFromContext(c)` returns the active span so you can add attributes or
-events from a handler (`celeris/middleware/otel/otel.go:85`):
+events from a handler (`celeris/middleware/otel/otel.go:315-319`):
 
 ```go
 func handler(c *celeris.Context) error {

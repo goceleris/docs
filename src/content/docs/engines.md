@@ -14,7 +14,7 @@ difference between good and exceptional throughput.
 
 You select an engine with one field, `Config.Engine` (`celeris/config.go`). The
 zero value is the right answer on almost every box: **Adaptive on Linux, Std
-everywhere else** (`celeris/resource/config.go:13-19`). This page explains the four
+everywhere else** (`celeris/internal/resource/config.go:13-19`). This page explains the four
 engines, the adaptive controller that picks between them, how the engine relates
 to protocol and to async dispatch, and the introspection surface for observing it
 all at runtime.
@@ -74,14 +74,14 @@ modern Linux (epoll predates all supported kernels) and the safest native choice
 when io_uring is unavailable or you want to pin behaviour. Epoll is at throughput
 parity with io_uring for most request/response workloads — you are not trading
 latency for compatibility by choosing it. Epoll is also the engine that implements
-zero-copy `sendfile(2)` for static-file responses (`celeris/engine/engine.go:46-72`,
-`celeris/engine/capability.go:38-44`).
+zero-copy `sendfile(2)` for static-file responses (`celeris/internal/engine/engine.go:73-99`,
+`celeris/internal/engine/capability.go:38-44`).
 
 ### IOUring
 
 Completion-based asynchronous I/O on Linux **5.10+**. Celeris detects the io_uring
 feature *tier* at startup and enables only what the running kernel supports
-(`celeris/engine/tier.go`):
+(`celeris/internal/engine/tier.go`):
 
 | Tier         | Kernel    | Features enabled                                                                |
 | ------------ | --------- | ------------------------------------------------------------------------------- |
@@ -96,20 +96,27 @@ provided buffers — see [Engine selection in practice](#engine-selection-in-pra
 
 #### Tuning environment variables
 
-The engines read these at startup. None is needed for normal operation.
+The engines read these at startup. None is needed for normal operation. The
+Stability column is the level the Compatibility section of celeris's
+[GOVERNANCE.md](https://github.com/goceleris/celeris/blob/main/GOVERNANCE.md#compatibility)
+defines: a **supported** variable keeps its name, values and effect within v1; an
+**experimental** one may change in a minor release, with a release note; an
+**unsupported** one may change or go away in any release.
 
-| Variable | Engine | Values (default in bold) | Effect |
-| -------- | ------ | ------------------------ | ------ |
-| `CELERIS_ADAPTIVE_START` | Adaptive | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
-| `CELERIS_MAX_IOURING_TIER` | io_uring | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable and Adaptive neither starts on io_uring nor switches to it. |
-| `CELERIS_IOURING_SEND_ZC` | io_uring | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). |
-| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier). Any value other than `1` leaves it off. |
-| `CELERIS_IOURING_PBUF_COUNT` | io_uring | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0` or an invalid value keeps the default. |
-| `CELERIS_IOURING_FIXED_FILES` | io_uring | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
+| Variable | Engine | Stability | Values (default in bold) | Effect |
+| -------- | ------ | --------- | ------------------------ | ------ |
+| `CELERIS_ADAPTIVE_START` | Adaptive | supported | `epoll`, `iouring`, **`auto`** | Chooses the engine Adaptive **starts** on. It does not turn off runtime switching. Unrecognized values mean `auto`. |
+| `CELERIS_MAX_IOURING_TIER` | io_uring | supported | `optional`, `high`, `base`, `none` (**unset: detected tier**) | Caps the tier below what the kernel supports; for exercising fallback paths. Any other value, typos included, counts as `none`, and at `none` the io_uring engine reports io_uring as unavailable and Adaptive neither starts on io_uring nor switches to it. The detected kernel version is not capped. |
+| `CELERIS_IOURING_SEND_ZC` | io_uring | supported | `on`/`1`/`true`, `off`/`0`/`false`, **`auto`** | Zero-copy send. `auto` enables it where the startup probe finds `SEND_ZC` working; `on` cannot enable it where the probe failed. Unrecognized values mean `auto`; one is logged as a warning only where the probe finds `SEND_ZC` working (elsewhere the variable has no effect). |
+| `CELERIS_IOURING_MULTISHOT_RECV` | io_uring | experimental | `1` (**unset: off**) | Multishot receive into a provided buffer ring (`High` tier, 5.19+). Any value other than `1` leaves it off. |
+| `CELERIS_IOURING_PBUF_COUNT` | io_uring | experimental | positive integer (**1024**) | Provided-buffer-ring entries per worker; used only with multishot receive. Rounded up to a power of two and clamped to 1024–32768. `0`, a negative value or a non-integer keeps the default. |
+| `CELERIS_IOURING_FIXED_FILES` | io_uring | unsupported | **do not set** | Development only: fixed-file support is incomplete ([celeris#541](https://github.com/goceleris/celeris/issues/541)), and enabling it makes connections read from unrelated descriptors. |
 
 Variables named `CELERIS_DEBUG_*` and `CELERIS_ADAPTIVE_DEBUG` turn on diagnostic
 logging and measurement probes. They are for investigating a specific problem and
-are not a stable interface.
+are unsupported: not a stable interface. The variables only tests and the build
+read (`CELERIS_REQUIRE_*`, the driver test addresses such as `CELERIS_PG_DSN`, and
+the numbered ones such as `CELERIS_589_*`) are not covered either.
 
 ### Std — the portable fallback
 
@@ -126,11 +133,11 @@ io_uring, epoll, and adaptive depend on Linux kernel facilities, so they cannot 
 elsewhere. The distinction worth internalising:
 
 - **Leaving `Engine` unset off Linux silently selects Std.** The default resolves
-  per-platform (`celeris/resource/config.go:13-19`). This is the intended fallback —
+  per-platform (`celeris/internal/resource/config.go:13-19`). This is the intended fallback —
   your code runs unchanged on a Mac.
 - **Explicitly setting a native engine off Linux is a validation error.** It is
   *not* silently downgraded. `Config.Validate` returns `engine <name> requires
-  Linux` (`celeris/resource/config.go`), and `Start` surfaces it as a
+  Linux` (`celeris/internal/resource/config.go`), and `Start` surfaces it as a
   `config validation` error before binding the socket (`celeris/server.go`).
 
 ```go
@@ -162,14 +169,14 @@ and let Adaptive/Std resolve automatically.
 | Accept control (Pause/Resume) | Yes          | Yes   | —   |
 | Driver event-loop colocation  | Yes          | Yes   | —   |
 
-Sources: `celeris/engine/capability.go`, `celeris/engine/engine.go:46-72`,
-`celeris/server.go:446-539`, `celeris/context_response.go:1357-1380`.
+Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go:38-99`,
+`celeris/server.go:736-861`, `celeris/context_response.go:1423-1446`.
 
 ## The adaptive controller
 
 The adaptive engine does not guess from configuration — it watches the live
 `EngineMetrics` counters and derives load signals from them. The counters it reads
-are documented field-by-field in `celeris/engine/engine.go`; the signals that
+are documented field-by-field in `celeris/observe/engine_metrics.go`; the signals that
 actually drive the decision are:
 
 | Signal                  | Derived from                                  | What it tells the controller                                              |
@@ -198,7 +205,7 @@ Established connections now transplant between engines on a switch (see above), 
 the **start** engine no longer fixes the keep-alive throughput ceiling — but the
 steady-state concurrency is still unknowable when the server binds, and a good
 start avoids an unnecessary early switch. `WorkloadHint`
-(`celeris/config.go:43-60`) is the config-level way to bias that start decision. It
+(`celeris/config.go:45-62`) is the config-level way to bias that start decision. It
 affects **nothing but the Adaptive engine's start choice**; on Epoll, IOUring, and
 Std it is ignored.
 
@@ -228,7 +235,7 @@ Adaptive falls back to starting on epoll.
 Every time the adaptive controller changes strategy it increments a counter you can
 read from the metrics collector. `Server.Collector().Snapshot()` returns a
 `Snapshot` whose `EngineSwitches` field counts the switches since start
-(`celeris/observe/collector.go:40-57`).
+(`celeris/observe/collector.go:34-51`).
 
 ```go
 snap := s.Collector().Snapshot()
@@ -313,7 +320,7 @@ underneath a still-running goroutine.
 Celeris exposes this difference so streaming middleware can adapt rather than break.
 `Context.EngineSupportsAsyncDetach()` reports whether the active engine can keep the
 connection alive after the handler returns
-(`celeris/context_response.go:1357-1380`):
+(`celeris/context_response.go:1423-1446`):
 
 ```go
 func streamHandler(c *celeris.Context) error {
@@ -349,7 +356,7 @@ your own streaming transport.
 > WebSocket has a deeper engine integration than SSE: native engines provide an
 > *engine-integrated* upgrade path (`UpgradeWebSocket`, `WSReadPauser`,
 > `WSRawWriteFn`) with TCP-level backpressure; on Std these return false/nil and the
-> middleware falls back to `Context.Hijack` (`celeris/context_response.go:1252-1344`).
+> middleware falls back to `Context.Hijack` (`celeris/context_response.go:1289-1410`).
 > The middleware handles this fallback transparently.
 
 ## Engine selection in practice
@@ -407,7 +414,7 @@ The running engine exposes a read-only surface for observability and control.
 ### `EngineInfo` and `EngineType`
 
 `Server.EngineInfo()` returns the active engine's type and a metrics snapshot, or
-`nil` before `Start` (`celeris/server.go:499-509`). On Adaptive, `Type` reflects the
+`nil` before `Start` (`celeris/server.go:802-812`). On Adaptive, `Type` reflects the
 engine that is *currently active*, so you can see which sub-engine the controller
 has selected.
 
@@ -426,11 +433,11 @@ if info := s.EngineInfo(); info != nil {
 | `Metrics` | `EngineMetrics` | A point-in-time snapshot of the counters below.    |
 
 `EngineType` has a `String()` method that returns `"io_uring"`, `"epoll"`,
-`"adaptive"`, or `"std"` (`celeris/engine/enginetype.go:20-33`).
+`"adaptive"`, or `"std"` (`celeris/internal/engine/enginetype.go:20-33`).
 
 ### `EngineMetrics` fields
 
-`EngineMetrics` (`celeris/engine/engine.go`) is a snapshot of the engine's
+`EngineMetrics` (`celeris/observe/engine_metrics.go`) is a snapshot of the engine's
 own atomic counters, fetched fresh on each `Metrics()` / `EngineInfo()` call:
 
 | Field                | Type      | Meaning                                                                       |
@@ -452,7 +459,7 @@ These are the counters the adaptive controller reads to derive its load signals 
 error rate (see [The adaptive controller](#the-adaptive-controller)). They are also
 re-exported on the metrics `Snapshot` as `EngineMetrics`, alongside `RequestsTotal`,
 `ErrorsTotal`, `ActiveConns`, `EngineSwitches`, latency buckets, and CPU
-utilisation (`celeris/observe/collector.go:40-57`).
+utilisation (`celeris/observe/collector.go:34-51`).
 
 A request rate is not one of the counters: take two snapshots and divide the
 `RequestCount` difference by the time between them.
@@ -474,7 +481,7 @@ if m.RequestCount > 0 {
 
 To stop accepting new connections while continuing to serve existing ones — useful
 for graceful load shedding or coordinated draining — call `Server.PauseAccept()`
-and later `Server.ResumeAccept()` (`celeris/server.go:511-539`). These work on the
+and later `Server.ResumeAccept()` (`celeris/server.go:814-861`). These work on the
 native engines. The **std engine does not support accept control**: both return
 `celeris.ErrAcceptControlNotSupported` (`celeris/errors.go:29-31`), as does calling
 them before `Start`.
@@ -493,16 +500,27 @@ _ = s.ResumeAccept()
 
 `Server.EventLoopProvider()` returns the engine's per-worker event-loop provider,
 or `nil` if the engine does not expose one — which is the case for the **std**
-fallback (`celeris/server.go:441-455`). This is the integration point that lets
+fallback (`celeris/server.go:736-758`). This is the integration point that lets
 Celeris database and cache drivers register their own sockets on the *same* worker
 event loops as the HTTP path, so a DB round-trip is driven by the very thread that
 owns the request's connection — no cross-thread handoff, NUMA-local buffers.
 
+It is for the Celeris drivers: pass the server itself to `redis.WithEngine` or its
+postgres and memcached counterparts. The provider's type is defined in an internal
+package, so code outside `github.com/goceleris/celeris` can pass the result on and call its
+methods but cannot name the type. That type and its methods are **not supported
+API** until [celeris#453](https://github.com/goceleris/celeris/issues/453) defines a
+public engine interface; they may change in a minor release (the Compatibility
+section of celeris's
+[GOVERNANCE.md](https://github.com/goceleris/celeris/blob/main/GOVERNANCE.md#compatibility)
+lists them as not covered).
+
 The provider exposes `NumWorkers()` and `WorkerLoop(n)`; the per-worker
 `WorkerLoop` surface (`RegisterConn`, `UnregisterConn`, `Write`, `CPUID`) is
-documented in `celeris/engine/provider.go:32-84`. You normally don't call this
+documented in `celeris/internal/engine/provider.go:32-104`. You normally don't call this
 yourself — a Celeris driver opened `WithEngine(srv)` consumes it for you. When the
 provider is `nil` (std engine), drivers fall back to a standalone mini event loop.
+A nil check and a call such as `p.NumWorkers()` need no name for the type:
 
 ```go
 if p := s.EventLoopProvider(); p != nil {
@@ -515,7 +533,7 @@ if p := s.EventLoopProvider(); p != nil {
 > For drivers to pick their fast netpoll-park path, the server's *effective* async
 > state must be on (server `AsyncHandlers: true`, or routes marked `.Async()` /
 > `.UsesDriver()` registered **before** the driver is opened). `Server.AsyncHandlers()`
-> reports the effective state (`celeris/server.go:457-497`). See
+> reports the effective state (`celeris/server.go:760-800`). See
 > [Routing](/docs/routing#dispatch-mode-async-sync-usesdriver) for the ordering rule.
 
 ## Common pitfalls
@@ -538,7 +556,7 @@ if p := s.EventLoopProvider(); p != nil {
   it fails to start.
 - **Forgetting to call `done()` after `Detach`.** The returned function *must* run
   (typically `defer done()` in the streaming goroutine) or the `*Context` leaks from
-  its pool permanently (`celeris/context_response.go:1382-1431`).
+  its pool permanently (`celeris/context_response.go:1448-1505`).
 
 ## FAQ
 

@@ -50,7 +50,7 @@ s.GET("/events", sse.New(sse.Config{
 (see [Routing](/docs/routing)). It works across **all** Celeris engines — std,
 epoll, and io_uring — because the middleware detaches the connection internally;
 you never manage the event-loop lifecycle yourself. Source:
-`celeris/middleware/sse/sse.go:307`.
+`celeris/middleware/sse/sse.go:487`, `celeris/middleware/sse/sse.go:700-705`.
 
 ## Basic usage
 
@@ -116,7 +116,7 @@ The return contract for `Send` is worth internalising:
 - **nil error (queued mode)** — the event was *enqueued or dropped* per your
   slow-client policy; check `DroppedEvents()` to detect drops.
 
-Source: `celeris/middleware/sse/sse.go:48-75`.
+Source: `celeris/middleware/sse/sse.go:64-99`.
 
 > Always check the error from `Send` and bail out on non-nil. A failed write
 > cancels the client's context, so the next loop iteration would otherwise spin.
@@ -174,8 +174,8 @@ sse.Config{
 ```
 
 Setting `HeartbeatInterval` to `0` keeps the default of 15 seconds; only a
-**negative** value disables it. Source: `celeris/middleware/sse/config.go:47-50`,
-`celeris/middleware/sse/sse.go:516`.
+**negative** value disables it. Source: `celeris/middleware/sse/config.go:51-58`,
+`celeris/middleware/sse/sse.go:667-695`.
 
 ### Reconnect delay
 
@@ -208,7 +208,7 @@ sse.New(sse.Config{
 })
 ```
 
-Source: `celeris/middleware/sse/sse.go:358-364`, `:433-435`.
+Source: `celeris/middleware/sse/sse.go:428-439`, `:560-562`.
 
 **`HEAD` requests.** A `HEAD` to an SSE route is answered by its `GET` route
 (see [Routing](/docs/routing#head-and-options-are-answered-for-you)) and gets the
@@ -276,7 +276,7 @@ sse.Config{
 //   if client.QueueDepth() > 100 { ...degrade gracefully... }
 ```
 
-Source: `celeris/middleware/sse/sse.go:191-205`.
+Source: `celeris/middleware/sse/sse.go:229-243`.
 
 ## Fan-out with a Broker
 
@@ -308,7 +308,7 @@ s.POST("/announce", func(c *celeris.Context) error {
 `Subscribe` returns an `unsubscribe` function that the handler **must** defer —
 it removes the subscriber and joins its drain goroutine. Calling it twice is safe.
 Subscribing to a closed broker is a no-op. Source:
-`celeris/middleware/sse/broker.go:145-171`.
+`celeris/middleware/sse/broker.go:139-175`.
 
 ### Broker API
 
@@ -326,7 +326,7 @@ Source: `celeris/middleware/sse/broker.go`.
 
 ### `BrokerConfig`
 
-All fields are optional. Source: `celeris/middleware/sse/broker.go:33-57`.
+All fields are optional. Source: `celeris/middleware/sse/broker.go:32-58`.
 
 | Field                       | Type                                       | Default                | Purpose                                                              |
 | --------------------------- | ------------------------------------------ | ---------------------- | ------------------------------------------------------------------ |
@@ -334,7 +334,7 @@ All fields are optional. Source: `celeris/middleware/sse/broker.go:33-57`.
 | `OnSlowSubscriber`          | `func(*Client, *PreparedEvent) BrokerPolicy` | `BrokerPolicyDrop`   | Policy when a subscriber's queue is full at publish time.          |
 | `SlowSubscriberConcurrency` | `int`                                      | `GOMAXPROCS*4`         | Caps in-flight slow-path goroutines. Negative opts out (benchmarks only). |
 
-`BrokerPolicy` mirrors `ClientPolicy` (source: `celeris/middleware/sse/broker.go:14-29`):
+`BrokerPolicy` mirrors `ClientPolicy` (source: `celeris/middleware/sse/broker.go:10-30`):
 
 | Policy                | Effect on a slow subscriber                                         |
 | --------------------- | ------------------------------------------------------------------ |
@@ -373,7 +373,7 @@ safe for concurrent reads once constructed.
 Per subscriber, events arrive in publish order (each drains a FIFO channel).
 **Across** subscribers there is no global ordering — fan-out is concurrent, so a
 fast subscriber may see event N before a slow one sees event N-1. Source:
-`celeris/middleware/sse/broker.go:185-198`.
+`celeris/middleware/sse/broker.go:177-204`, `celeris/middleware/sse/broker.go:221-255`.
 
 ## Resumable streams (`Last-Event-ID`)
 
@@ -405,7 +405,7 @@ Handler: func(client *sse.Client) {
   field with the store-assigned canonical ID** (so you don't manage IDs at all);
 - on an unknown cursor, falls through to a fresh start (details below).
 
-Source: `celeris/middleware/sse/config.go:71-92`, `celeris/middleware/sse/sse.go:466-502`.
+Source: `celeris/middleware/sse/config.go:79-100`, `celeris/middleware/sse/sse.go:617-653`.
 
 ### In-memory ring buffer
 
@@ -505,7 +505,7 @@ middleware treats this as a **fresh start**: it writes no replay events but stil
 runs your `Handler`, and the original header value stays visible via
 `client.LastEventID()` so your handler can react (for example, send a "you may have
 missed messages" marker). Source: `celeris/middleware/sse/replay.go:8-14`,
-`celeris/middleware/sse/sse.go:484-488`.
+`celeris/middleware/sse/sse.go:623-639`.
 
 ```go
 Handler: func(client *sse.Client) {
@@ -553,7 +553,7 @@ handler immediately; on the std engine it runs the stream inline (returning woul
 tell `net/http` the response is done). You don't have to think about any of this —
 the middleware calls `Context.Detach` and picks the right path internally. This is
 why the same `sse.Config` runs unchanged on all engines. Source:
-`celeris/middleware/sse/sse.go:366-554`. For the underlying detach mechanics, see
+`celeris/middleware/sse/sse.go:346-707`. For the underlying detach mechanics, see
 [Streaming](/docs/streaming).
 
 ## Common pitfalls
@@ -564,7 +564,7 @@ why the same `sse.Config` runs unchanged on all engines. Source:
   flow while the handler is on the stack. If you publish into a `Client` from a
   spawned goroutine, join that goroutine **before** the handler returns. (The
   middleware guards against a panic, returning `ErrClientClosed`, but the
-  ownership is yours.) Source: `celeris/middleware/sse/sse.go:64-69`.
+  ownership is yours.) Source: `celeris/middleware/sse/sse.go:64-99`.
 - **Not deferring the broker's `unsubscribe`.** It both removes the subscriber and
   joins its drain goroutine; skipping it leaks a goroutine per connection.
 - **Treating `HeartbeatInterval: 0` as "disabled".** Zero means the 15s default;

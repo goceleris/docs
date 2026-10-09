@@ -148,7 +148,7 @@ single-instance app needs zero store configuration:
 | Middleware    | Config field | Type | Capabilities required | Default |
 | ------------- | ------------ | ---- | --------------------- | ------- |
 | Session       | `Store` | `store.KV` | `Scanner` for `Reset` (else no-op) | in-memory (`session.NewMemoryStore`) — `middleware/session/config.go:63-66,205-206` |
-| Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `middleware/cache/config.go:12-13,89-90` |
+| Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `middleware/cache/config.go:12-13,107-108` |
 | CSRF          | `Storage` | `store.KV` | `GetAndDeleter` for single-use tokens | **nil** — pure double-submit cookie mode (`middleware/csrf/config.go:73-82`) |
 | Idempotency   | `Store` | `idempotency.KVStore` (`store.KV` + `store.SetNXer`) | **`SetNXer` is mandatory** | in-memory — `middleware/idempotency/config.go:15-24` |
 | SSE replay    | `KV` | `store.KV` | `Counter` for cross-process IDs (else per-process) | none — you supply it — `middleware/sse/replay_kv.go:32-34` |
@@ -269,8 +269,8 @@ CPU's cache and saves an epoll/io_uring syscall per round trip.
 
 In practice you pass the `*celeris.Server` itself to `WithEngine` — the server
 satisfies the small provider interface the drivers consume by exposing
-`EventLoopProvider()` (`server.go:447`) and `AsyncHandlers()`
-(`server.go:479`). The driver pulls the event loop from the first and its
+`EventLoopProvider()` (`server.go:749`) and `AsyncHandlers()`
+(`server.go:781`). The driver pulls the event loop from the first and its
 effective async state from the second.
 
 ### Redis
@@ -291,7 +291,7 @@ defer rdb.Close()
 v, err := rdb.Get(ctx, "key")
 ```
 
-`redis.NewClient(addr, opts...)` (`driver/redis/client.go:22`) dials a lazy pool.
+`redis.NewClient(addr, opts...)` (`driver/redis/client.go:20`) dials a lazy pool.
 The typed surface covers strings, hashes, lists, sets, sorted sets, key ops,
 pub/sub, scripting, pipelines, and `MULTI`/`EXEC` transactions; anything not typed
 is reachable via `rdb.Do(ctx, args...)`. Common options
@@ -309,7 +309,7 @@ is reachable via `rdb.Do(ctx, args...)`. Common options
 
 > TLS (`rediss://`) is **not** supported — `NewClient` rejects the scheme with a
 > clear error. Deploy over a VPC, loopback, or a sidecar TLS terminator
-> (`driver/redis/client.go:23-24`).
+> (`driver/redis/client.go:21-22`).
 
 ### PostgreSQL
 
@@ -395,7 +395,7 @@ if err != nil {
 defer mc.Close()
 ```
 
-`memcached.NewClient(addr, opts...)` (`driver/memcached/client.go:34`) follows the
+`memcached.NewClient(addr, opts...)` (`driver/memcached/client.go:33`) follows the
 same shape as the Redis client and accepts `WithEngine` to colocate. TLS is not
 supported.
 
@@ -489,7 +489,7 @@ The verified driver signatures used above (`driver/redis/commands.go`,
 ### How colocation works
 
 When you pass `WithEngine(srv)`, the driver pulls the server's `EventLoopProvider`
-(`server.go:447`) and registers its connection FDs on it. Concretely:
+(`server.go:749`) and registers its connection FDs on it. Concretely:
 
 - Without `WithEngine`, each driver resolves a **standalone** event loop, shared
   and reference-counted across all drivers that omit `WithEngine`.
@@ -516,14 +516,14 @@ at dial time and pick their I/O path accordingly:
 
 - **Async dispatch on** — the handler runs on a spawned, unlocked goroutine, so a
   blocking driver call parks that goroutine on Go's netpoll without stalling an I/O
-  worker. The drivers detect this (`server.go:479`, `AsyncHandlers`) and select
+  worker. The drivers detect this (`server.go:781`, `AsyncHandlers`) and select
   their direct net-conn fast path.
 - **Async dispatch off** — the handler runs inline on a `LockOSThread`'d worker. A
   blocking call there would stall the worker, so a different (mini-loop) path is used.
 
 The key detail: `Server.AsyncHandlers()` reports the **effective** state — it
 returns `true` if the server-level `Config.AsyncHandlers` is set **or** any route
-opted in via `.Async()` / `.UsesDriver()` (`server.go:479-497`). So you have two
+opted in via `.Async()` / `.UsesDriver()` (`server.go:781-800`). So you have two
 ways to put a driver route on the fast path:
 
 ```go
@@ -534,7 +534,7 @@ srv := celeris.New(celeris.Config{Addr: ":8080", AsyncHandlers: true})
 srv.GET("/users/:id", getUser).UsesDriver()
 ```
 
-`.UsesDriver()` (`router.go:244-258`) is exactly equivalent to `.Async()` but reads
+`.UsesDriver()` (`router.go:261-275`) is exactly equivalent to `.Async()` but reads
 as intent at the call site — it marks a route whose handler performs a blocking
 backend round trip via a Celeris driver. It is the recommended way to flag driver
 routes:
@@ -547,12 +547,12 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
 > (`Config.AsyncHandlers = true` alone) only auto-promotes handlers slower than
 > ~300µs. A fast localhost driver call (sub-300µs) would otherwise keep blocking a
 > worker on every request. Mark such routes explicitly with `.UsesDriver()`
-> (`router.go:253-255`).
+> (`router.go:261-275`).
 
 > **Ordering footgun.** `AsyncHandlers()` reflects routes registered *so far*. If
 > you rely on per-route `.UsesDriver()` (rather than the server-wide flag), open
 > your `WithEngine` drivers **after** registering those routes — or just set
-> `Config.AsyncHandlers = true` to be order-independent (`server.go:486-488`).
+> `Config.AsyncHandlers = true` to be order-independent (`server.go:788-790`).
 
 ## Common pitfalls
 
@@ -569,7 +569,7 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
   interface; use `middleware/ratelimit/redisstore` for distributed rate limiting.
 - **`WithEngine` without a native engine.** Colocation needs an event-loop engine.
   On the `std` (net/http) fallback engine, `EventLoopProvider()` returns `nil`
-  (`server.go:447-456`) — the driver transparently falls back to a standalone loop,
+  (`server.go:749-758`) — the driver transparently falls back to a standalone loop,
   so you lose the colocation benefit (correctness is unaffected).
 - **Forgetting to mark fast driver routes.** A sub-300µs driver call on a route
   that isn't `.Async()`/`.UsesDriver()` (and without server-wide `AsyncHandlers`)

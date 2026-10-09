@@ -24,9 +24,9 @@ s := celeris.New(celeris.Config{
 })
 ```
 
-The `Config` struct is defined in `celeris/config.go:71-233`. Defaults are filled in
-at `Start` by `celeris/resource/config.go:167` (`WithDefaults`) and validated by
-`celeris/resource/config.go:89` (`Validate`).
+The `Config` struct is defined in `celeris/config.go:73-277`. Defaults are filled in
+at `Start` by `celeris/internal/resource/config.go:239` (`WithDefaults`) and validated by
+`celeris/internal/resource/config.go:148` (`Validate`).
 
 ## The zero / `-1` convention
 
@@ -56,10 +56,10 @@ celeris.Config{
 }
 ```
 
-The mapping happens in `WithDefaults` (`celeris/resource/config.go:222-251`):
+The mapping happens in `WithDefaults` (`celeris/internal/resource/config.go:279-284`, `294-303`, `317-326`):
 `0` falls through to the default branch; a negative value is normalised to `0`,
 which internally means "off". Validation rejects anything below `-1`
-(`celeris/resource/config.go:128-136`), so `-2`, `-5s`, etc. are config errors.
+(`celeris/internal/resource/config.go:191-199`), so `-2`, `-5s`, etc. are config errors.
 
 ## Network, protocol, and engine
 
@@ -75,13 +75,13 @@ celeris.Config{Addr: "127.0.0.1:9000"} // bind to loopback only
 | ------ | -------- | --------- | -------------------------------------------------- |
 | `Addr` | `string` | `":8080"` | TCP address in `host:port` form. Empty → `:8080`.  |
 
-- An empty `Addr` becomes `:8080` (`celeris/resource/config.go:168-170`).
+- An empty `Addr` becomes `:8080` (`celeris/internal/resource/config.go:240-242`).
 - `:0` binds an OS-assigned ephemeral port — handy for tests and for letting a
   process manager pick the port. Retrieve the chosen address from the server after
   it starts if you need it.
 - Validation parses the `host:port` split and requires the port to be `0–65535`;
   a malformed address or out-of-range port is a config error
-  (`celeris/resource/config.go:92-102`).
+  (`celeris/internal/resource/config.go:151-161`).
 
 ### `Protocol`
 
@@ -95,8 +95,8 @@ in front of it — see [Deployment](/docs/deployment).
 | `celeris.HTTP1`   | HTTP/1.1 only                                             |
 | `celeris.H2C`     | HTTP/2 cleartext (h2c) only                               |
 
-Defined in `celeris/config.go:14-21`. The zero value resolves to `Auto`
-(`celeris/resource/config.go:179-182`). `Protocol` interacts with `EnableH2Upgrade`
+Defined in `celeris/config.go:15-22`. The zero value resolves to `Auto`
+(`celeris/internal/resource/config.go:252-254`). `Protocol` interacts with `EnableH2Upgrade`
 (see [below](#enableh2upgrade)).
 
 ### `Engine`
@@ -111,13 +111,13 @@ The I/O engine that drives the accept/read/write loop. The native engines are
 | `celeris.IOUring`   | Linux 5.10+   | io_uring async I/O                                   |
 | `celeris.Std`       | any platform  | **Default off-Linux.** Go `net/http` server         |
 
-Defined in `celeris/config.go:29-38`. The zero value resolves to `Adaptive` on
-Linux and `Std` everywhere else (`celeris/resource/config.go:13-19`,
-`167-173`).
+Defined in `celeris/config.go:30-40`. The zero value resolves to `Adaptive` on
+Linux and `Std` everywhere else (`celeris/internal/resource/config.go:13-19`,
+`243-245`).
 
 **Off-Linux hard error.** If you explicitly request `Adaptive`, `Epoll`, or
 `IOUring` on macOS, Windows, or any non-Linux OS, `Start` fails validation with an
-error like `engine epoll requires Linux` (`celeris/resource/config.go:138-145`).
+error like `engine epoll requires Linux` (`celeris/internal/resource/config.go:201-208`).
 Leave `Engine` zero and you transparently get `Std` off-Linux, so the same code
 runs everywhere — only override `Engine` when you know you are on Linux.
 
@@ -143,7 +143,7 @@ the `Std`/`Epoll`/`IOUring` engines.
 | `celeris.WorkloadLowConcurrency`   | Thin/latency-sensitive traffic — start and stay on epoll |
 | `celeris.WorkloadHighConcurrency`  | Many H1 keep-alive conns/worker — start on io_uring (when kernel + `RLIMIT_MEMLOCK` allow) |
 
-Defined in `celeris/config.go:43-60` and `celeris/resource/resource.go:1-25`.
+Defined in `celeris/config.go:45-62` and `celeris/internal/resource/resource.go:1-25`.
 Since v1.5.6 established connections **transplant** between epoll and io_uring when
 Adaptive switches (both directions), so the *start* engine no longer fixes
 keep-alive throughput — but concurrency is unknowable when the server binds (no
@@ -170,9 +170,9 @@ celeris.Config{Workers: 8} // 8 I/O worker goroutines
 | `Workers` | `int` | `GOMAXPROCS` | `>= 2` if set (`MinWorkers`) |
 
 The number of I/O worker goroutines. Zero means `GOMAXPROCS`
-(`celeris/resource/resource.go:18-24`, `66-90`). If you set it, it must be `>= 2`;
+(`celeris/internal/resource/preset.go:17-23`, `celeris/internal/resource/resource.go:92-117`). If you set it, it must be `>= 2`;
 `Workers: 1` is a config error (`workers must be >= 2 if set`,
-`celeris/resource/config.go:120-122`, `celeris/resource/preset.go:8-9`).
+`celeris/internal/resource/config.go:179-181`, `celeris/internal/resource/preset.go:7-8`).
 
 ## Timeouts
 
@@ -186,7 +186,7 @@ All timeouts follow the [zero / `-1` convention](#the-zero---1-convention).
 | `IdleTimeout`       | `time.Duration` | `600s`  | no idle timeout | Max idle time on a keep-alive connection            |
 | `ShutdownTimeout`   | `time.Duration` | `30s`   | —               | Drain deadline on graceful shutdown                 |
 
-Sources: `celeris/config.go:80-102`, defaults at `celeris/resource/config.go:222-251`.
+Sources: `celeris/config.go:91-115`, defaults at `celeris/internal/resource/config.go:288-303`.
 
 ### `ReadHeaderTimeout` is your slow-loris defence
 
@@ -198,8 +198,8 @@ worker and a listener-backlog slot for the full `ReadTimeout` window. The defaul
 of 10s defeats slow-loris while still letting legitimate proxies and high-latency
 (satellite) clients finish their headers. The std engine wires this to
 `http.Server.ReadHeaderTimeout`; the io_uring/epoll engines enforce the same budget
-inside their H1 header read loop (`celeris/config.go:83-93`,
-`celeris/resource/config.go:42-57`).
+inside their H1 header read loop (`celeris/config.go:94-104`,
+`celeris/internal/resource/config.go:45-61`).
 
 ### Streaming and SSE need `-1`
 
@@ -253,7 +253,7 @@ if err := s.StartWithContext(ctx); err != nil {
 
 The maximum request body, enforced uniformly across all protocols (H1, H2, and the
 std bridge). Zero applies the 100 MB default; `-1` disables the limit
-(`celeris/config.go:108-111`, `celeris/resource/config.go:207-212`).
+(`celeris/config.go:121-124`, `celeris/internal/resource/config.go:279-284`).
 
 ```go
 celeris.Config{MaxRequestBodySize: 10 << 20}  // cap uploads at 10 MiB
@@ -265,8 +265,8 @@ celeris.Config{MaxRequestBodySize: -1}        // no limit (use with care)
 The maximum **memory** used for multipart form parsing, **per request** (default
 32 MB, the same as `net/http`). Zero applies the default
 (`DefaultMaxFormSize`, `celeris/types.go:10-12`); a negative value (`-1`) disables
-the limit, parsing with no in-memory ceiling (`celeris/config.go:104-106`,
-`celeris/handler.go:58-60`, enforced at `celeris/context_request.go:618-620`). It
+the limit, parsing with no in-memory ceiling (`celeris/config.go:117-119`,
+`celeris/handler.go:160-162`, enforced at `celeris/context_request.go:621-623`). It
 bounds the in-memory portion of
 `multipart/form-data` parsing — see [Request handling](/docs/request-handling) for
 form access (`FormValue`, files) and per-context overrides.
@@ -279,8 +279,8 @@ celeris.Config{MaxFormSize: 8 << 20}  // 8 MiB of in-memory form data per reques
 
 The maximum size of a request's header block (default 16 MB). If you set it, it
 must be **at least 4096**; a smaller positive value is a config error
-(`maxHeaderBytes must be >= 4096 if set`, `celeris/config.go:119-120`,
-`celeris/resource/config.go:116-118`, `204-206`).
+(`maxHeaderBytes must be >= 4096 if set`, `celeris/config.go:132-133`,
+`celeris/internal/resource/config.go:175-177`, `276-278`).
 
 ```go
 celeris.Config{MaxHeaderBytes: 64 << 10}  // 64 KiB
@@ -297,11 +297,11 @@ These apply when HTTP/2 (h2c) is in play — via `Protocol: H2C`, an h2c upgrade
 | `MaxFrameSize`         | `uint32` | `1 MiB` (`1 << 20`) | `16384 – 16777215` if set |
 | `InitialWindowSize`    | `uint32` | `1 MiB` (`1 << 20`) | `<= 2147483647`           |
 
-Sources: `celeris/config.go:113-118`, defaults at `celeris/resource/config.go:186-203`,
-validation at `celeris/resource/config.go:104-114`.
+Sources: `celeris/config.go:126-131`, defaults at `celeris/internal/resource/config.go:258-275`,
+validation at `celeris/internal/resource/config.go:163-173`.
 
 The real defaults for both `MaxFrameSize` and `InitialWindowSize` are **1 MiB**
-(`1 << 20`), as set by `WithDefaults` (`celeris/resource/config.go:186-200`).
+(`1 << 20`), as set by `WithDefaults` (`celeris/internal/resource/config.go:258-272`).
 
 ```go
 celeris.Config{
@@ -325,23 +325,23 @@ the floor.
 | `SocketSendBuf`    | `int`  | OS default (0) | —                       | `SO_SNDBUF` for accepted connections           |
 | `MaxConns`         | `int`  | unlimited (0)  | —                       | Max simultaneous connections **per worker**    |
 
-Sources: `celeris/config.go:122-131`, `celeris/resource/resource.go:27-43`,
-`celeris/resource/preset.go:10-14`.
+Sources: `celeris/config.go:135-164`, `celeris/internal/resource/resource.go:27-54`,
+`celeris/internal/resource/preset.go:11-14`.
 
 - **`DisableKeepAlive`** — when `true`, each request runs on its own connection and
   the connection closes after the response. Leave `false` (the default) for
   performance; keep-alive is what makes the engine fast.
 - **`BufferSize`** — the per-connection I/O buffer. Zero uses the engine default
-  (8192 bytes, `celeris/resource/preset.go:26`). If you set it, a value below 4096 is
+  (8192 bytes, `celeris/internal/resource/preset.go:26`). If you set it, a value below 4096 is
   a config error (`bufferSize must be >= 4096 if set`,
-  `celeris/resource/config.go:124-126`), while a value above 262144 is silently
-  clamped down to that ceiling (`MaxBufferSize`, `celeris/resource/resource.go:88`).
+  `celeris/internal/resource/config.go:183-185`), while a value above 262144 is silently
+  clamped down to that ceiling (`MaxBufferSize`, `celeris/internal/resource/resource.go:114`).
 - **`SocketRecvBuf` / `SocketSendBuf`** — set `SO_RCVBUF` / `SO_SNDBUF` on accepted
   sockets. **Leave them at 0** unless you have a measured reason: 0 lets the kernel's
   TCP auto-tuning own buffer sizing (up to `net.ipv4.tcp_rmem`/`tcp_wmem` maxima),
   which is usually better. Forcing a fixed size can cap the receive window and
   *throttle* large-body POSTs on hosts where `net.core.rmem_max` is small
-  (`celeris/resource/resource.go:28-37`).
+  (`celeris/internal/resource/preset.go:29-36`).
 - **`MaxConns`** — the cap is **per worker**, not server-wide. With `Workers: 8` and
   `MaxConns: 1000`, the server tolerates up to ~8000 connections. Zero means
   unlimited.
@@ -368,19 +368,19 @@ clips the peak-RSS balloon that a connection-ramp burst would otherwise produce.
 
 - **`0` (default)** — Celeris does **not** touch the process GC; the runtime
   default (`GOGC=100`, no limit) stands, and embedders keep full control
-  (`celeris/config.go:142-152`, applied at `celeris/server.go:647-648`).
+  (`celeris/config.go:166-176`, applied at `celeris/server.go:970-971`).
 - **`> 0`** — the GC collects *before* the heap balloons during a connection-ramp
   burst, trading a few extra GC cycles during the ramp for a lower high-water
   mark. Steady-state RSS sits far below the limit, so steady throughput is
   unaffected. A negative value is a config error
-  (`memoryLimitBytes must be >= 0`, `celeris/resource/config.go:128-130`).
+  (`memoryLimitBytes must be >= 0`, `celeris/internal/resource/config.go:187-189`).
 
 > **`SetMemoryLimit` is process-global.** Set this only when Celeris owns the
 > process (e.g. a dedicated server binary), never when Celeris is embedded
 > alongside other heap-sensitive code that manages its own GC target.
 
 `celeris.DeriveMemoryLimit(workers)` returns a generous, ready-to-use ceiling —
-`max(256 MiB, workers*32 MiB)` (`celeris/config.go:62-69`). It is sized **high**
+`max(256 MiB, workers*32 MiB)` (`celeris/config.go:63-70`). It is sized **high**
 on purpose: the goal is to clip the ramp balloon, not to run the heap tight (a
 too-tight limit GC-thrashes under load). It is never applied implicitly — you
 must pass it explicitly.
@@ -397,7 +397,7 @@ s := celeris.New(cfg)
 
 Built-in metrics are **on by default**. Set `DisableMetrics: true` to turn off the
 collector — `Server.Collector()` then returns `nil` and per-request recording is
-skipped (`celeris/config.go:133-136`, `celeris/server.go:99-101`, `541-545`).
+skipped (`celeris/config.go:178-181`, `celeris/server.go:152-154`, `863-868`).
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU
@@ -410,7 +410,7 @@ s := celeris.New(celeris.Config{DisableMetrics: true})
 The **server-level default** for how handlers are dispatched. When `false` (the
 default) handlers run inline on the I/O worker — best for CPU/cache-bound work. When
 `true`, handlers run on spawned goroutines so blocking I/O (DB drivers, upstream
-HTTP, file reads) does not stall the event loop (`celeris/config.go:138-177`).
+HTTP, file reads) does not stall the event loop (`celeris/config.go:183-239`).
 
 Individual routes and groups override this with `Route.Async()` / `RouteGroup.Async()`
 (most-specific wins: route > group > server default). The common pattern is to keep
@@ -436,7 +436,7 @@ celeris.Config{AsyncHandlers: true}             // default async; mark hot CPU r
 > **Driver fast path keys off the *effective* async state.** Celeris drivers opened
 > `WithEngine(srv)` pick their netpoll-park fast path from whether the server is
 > *effectively* async — i.e. `AsyncHandlers: true` **or** any route opted in via
-> `.Async()` / `.UsesDriver()` (`celeris/config.go:187-195`). The effective state is
+> `.Async()` / `.UsesDriver()` (`celeris/config.go:224-236`). The effective state is
 > read at driver construction, so if you keep `AsyncHandlers: false` and rely on
 > per-route `.Async()` / `.UsesDriver()`, **open the driver *after* registering those
 > routes** — or set `AsyncHandlers: true` to be order-independent. See
@@ -447,7 +447,7 @@ celeris.Config{AsyncHandlers: true}             // default async; mark hot CPU r
 Called when an H1 request carries `Expect: 100-continue`. Return `false` to respond
 `417 Expectation Failed` and skip reading the body; return `true` (or leave the
 callback `nil`) to send `100 Continue` and read the body
-(`celeris/config.go:179-182`).
+(`celeris/config.go:241-247`).
 
 ```go
 celeris.Config{
@@ -460,7 +460,7 @@ celeris.Config{
 ### `OnConnect` / `OnDisconnect`
 
 Connection lifecycle callbacks, invoked with the remote peer address when a
-connection is accepted and closed (`celeris/config.go:184-189`).
+connection is accepted and closed (`celeris/config.go:249-254`).
 
 > **These run on the event loop — they must not block.** A slow `OnConnect` /
 > `OnDisconnect` stalls the I/O worker and degrades every connection it handles. Do
@@ -478,8 +478,8 @@ celeris.Config{
 ### `TrustedProxies`
 
 A list of trusted proxy CIDR ranges (or bare IPs). It controls how `Context.ClientIP()`
-interprets `X-Forwarded-For` (`celeris/config.go:191-195`, parsed at
-`celeris/server.go:576-591`).
+interprets `X-Forwarded-For` (`celeris/config.go:256-260`, parsed at
+`celeris/server.go:909-924`).
 
 > **Security-critical.** When `TrustedProxies` is **empty**, `ClientIP()` trusts
 > proxy headers from *anyone* (legacy behaviour) — a client can spoof its IP by
@@ -489,7 +489,7 @@ interprets `X-Forwarded-For` (`celeris/config.go:191-195`, parsed at
 
 Entries may be CIDR (`10.0.0.0/8`) or a bare IP (`192.168.1.10`, normalised to a
 `/32` or `/128`). An unparseable entry is a `Start` error
-(`celeris: invalid TrustedProxies entry: …`, `celeris/server.go:576-589`).
+(`celeris: invalid TrustedProxies entry: …`, `celeris/server.go:909-916`).
 
 ```go
 celeris.Config{
@@ -504,7 +504,7 @@ celeris.Config{
 ### `Logger`
 
 The structured logger for server diagnostics. Defaults to `slog.Default()` when
-`nil` (`celeris/config.go:197-198`, `celeris/resource/config.go:213-215`).
+`nil` (`celeris/config.go:262-263`, `celeris/internal/resource/config.go:285-287`).
 
 ```go
 celeris.Config{
@@ -517,7 +517,7 @@ celeris.Config{
 A **`*bool`** (three-state) controlling whether the server honours RFC 7540 §3.2
 `Upgrade: h2c` requests — promoting an HTTP/1 connection to cleartext HTTP/2. Being
 a pointer lets Celeris distinguish "not set" from "explicitly false"
-(`celeris/config.go:200-211`, resolved at `celeris/config.go:265-272`):
+(`celeris/config.go:265-276`, resolved at `celeris/config.go:332-341`):
 
 | Value         | Behaviour                                                             |
 | ------------- | -------------------------------------------------------------------- |
@@ -541,10 +541,10 @@ celeris.Config{
 Configuration is validated **at `Start`** (and `StartWithContext` /
 `StartWithListener…`), not at `celeris.New`. `New` never fails; the validation runs
 inside the one-time prepare step and is reported as the error returned by `Start`
-(`celeris/server.go:564-574`). All field errors are collected and joined, so one
+(`celeris/server.go:899-907`). All field errors are collected and joined, so one
 `Start` call surfaces every problem at once, prefixed with `config validation:`.
 
-Common errors under the `config validation:` prefix (`celeris/resource/config.go:89-164`):
+Common errors under the `config validation:` prefix (`celeris/internal/resource/config.go:148-227`):
 
 | Error message (substring)                          | Cause                                            |
 | -------------------------------------------------- | ------------------------------------------------ |
@@ -560,7 +560,7 @@ Common errors under the `config validation:` prefix (`celeris/resource/config.go
 
 `TrustedProxies` is parsed *after* validation passes and surfaces its own error
 (not under the `config validation:` prefix): `celeris: invalid TrustedProxies entry: …`
-for an unparseable CIDR/IP (`celeris/server.go:576-589`).
+for an unparseable CIDR/IP (`celeris/server.go:909-916`).
 
 ```go
 s := celeris.New(celeris.Config{Workers: 1, Engine: celeris.IOUring}) // off-Linux
@@ -594,7 +594,7 @@ if err := s.Start(); err != nil {
 Set the field to `-1`. Zero gives the default.
 
 **Where do defaults get applied?**
-In `WithDefaults` (`celeris/resource/config.go:167`), called by the server's prepare
+In `WithDefaults` (`celeris/internal/resource/config.go:239`), called by the server's prepare
 step at `Start`. You can read the source to see every default value.
 
 **Does `Start()` use `ShutdownTimeout`?**

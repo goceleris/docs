@@ -14,10 +14,10 @@ a context, shape the request, invoke handlers and middleware chains, assert on
 errors and status codes, and — when you genuinely need the wire — stand up a real
 server on an ephemeral port for integration tests.
 
-`celeristest` is the **only** supported entry point for constructing a `Context`
-in tests. The lower-level helpers it calls (`AcquireTestContext`, `AddTestParam`,
-and friends) are deliberately undocumented plumbing; see
-[What not to use](#what-not-to-use) below.
+`celeristest` is the **only** entry point for constructing a `Context` in tests.
+The lower-level hooks that earlier releases exported from the `celeris` package
+(`AcquireTestContext`, `AddTestParam`, and friends) were removed in v1.6.0; see
+[Removed test hooks](#removed-test-hooks) below.
 
 ## The `celeristest` package
 
@@ -29,8 +29,8 @@ There are two constructors. Both build a `*celeris.Context` and return a
 | `NewContext(method, path string, opts ...Option)`       | `(*celeris.Context, *ResponseRecorder)` | You must `defer celeristest.ReleaseContext(ctx)`        |
 | `NewContextT(t *testing.T, method, path, opts ...Option)` | `(*celeris.Context, *ResponseRecorder)` | Registers `t.Cleanup` automatically — no defer needed   |
 
-Source: `celeris/celeristest/celeristest.go:254` (`NewContextT`) and
-`celeris/celeristest/celeristest.go:264` (`NewContext`).
+Source: `celeris/celeristest/celeristest.go:261` (`NewContextT`) and
+`celeris/celeristest/celeristest.go:271` (`NewContext`).
 
 `NewContextT` is the one to reach for in almost every test — it registers the
 release with `t.Cleanup`, so you can't forget it and you won't leak a pooled
@@ -80,7 +80,7 @@ func TestHelloManual(t *testing.T) {
 ### The `ResponseRecorder`
 
 The recorder is a plain struct with three fields and two convenience methods
-(`celeris/celeristest/celeristest.go:26`). It captures exactly one response — the
+(`celeris/celeristest/celeristest.go:27`). It captures exactly one response — the
 last one the handler wrote.
 
 | Field / method            | Type           | Description                                                        |
@@ -125,7 +125,7 @@ Everything about the simulated request — body, headers, query string, path
 params, auth, cookies, client address, protocol — is configured through `Option`
 values passed to the constructor. Each `With*` helper returns an `Option`; pass as
 many as you need, in any order. They are defined in
-`celeris/celeristest/celeristest.go:129-216`.
+`celeris/celeristest/celeristest.go:134-228`.
 
 | Option                                   | Effect on the test request                                                                                   |
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -218,7 +218,7 @@ func TestSession(t *testing.T) {
 > `WithCookie` does **not** escape `;` or CR/LF inside the value — pass
 > well-formed values only. To exercise your server's handling of a *malformed*
 > cookie header, set the raw header yourself with `WithHeader("cookie", …)`.
-> Source: `celeris/celeristest/celeristest.go:159-169`.
+> Source: `celeris/celeristest/celeristest.go:160-170`.
 
 ### Client IP behind a proxy
 
@@ -226,7 +226,7 @@ func TestSession(t *testing.T) {
 configured, it walks the chain right-to-left, skips entries inside those networks,
 and returns the first untrusted IP; without them it returns the **leftmost** XFF
 entry (legacy behaviour). It falls back to `X-Real-Ip`, then `""`
-(`celeris/context_request.go:422`). To test the trusted-proxy path, combine
+(`celeris/context_request.go:425-448`). To test the trusted-proxy path, combine
 `WithHeader` for the forwarded chain with `WithTrustedProxies`:
 
 ```go
@@ -306,7 +306,7 @@ There are two independent things to assert on, and a well-rounded test checks bo
 ### Cleanup
 
 With `NewContextT` cleanup is automatic. With `NewContext` you are responsible for
-calling `ReleaseContext` (`celeris/celeristest/celeristest.go:220`), which returns
+calling `ReleaseContext` (`celeris/celeristest/celeristest.go:230-257`), which returns
 the context, its stream, and the recorder to their pools:
 
 ```go
@@ -321,7 +321,7 @@ handler panics. Do not access `ctx` or `rec` after release.
 ## Testing middleware
 
 Middleware is a handler that calls `c.Next()` to invoke the rest of the chain
-(`celeris/context.go:324`). To test that interaction you need a real chain, which
+(`celeris/context.go:372`). To test that interaction you need a real chain, which
 is exactly what `WithHandlers` builds. List the handlers in execution order; the
 last one is the terminal handler:
 
@@ -450,28 +450,32 @@ if !errors.Is(err, ErrUserNotFound) {
 }
 ```
 
-## What not to use
+## Removed test hooks
 
 `NewContext`, `NewContextT`, the `With*` options, `ResponseRecorder`, and
-`ReleaseContext` are the entire supported testing surface. You may notice other
-exported functions on the `celeris` package such as `AcquireTestContext`,
-`AddTestParam`, `SetTestHandlers`, `SetTestScheme`, and `ReleaseTestContext`.
+`ReleaseContext` are the entire testing surface. Before v1.6.0 the `celeris`
+package also exported nine low-level hooks that `celeristest` used to assemble a
+context from a stream: `AcquireTestContext`, `ReleaseTestContext`, `TestStream`,
+`SetTestStartTime`, `SetTestFullPath`, `SetTestTrustedNets`, `AddTestParam`,
+`SetTestHandlers`, and `SetTestScheme`. They took internal types and bypassed the
+pooling and reset logic in `NewContext`/`ReleaseContext`.
 
-**Do not call these directly.** They are low-level plumbing that `celeristest`
-uses internally to assemble a context from a stream
-(`celeris/celeristest/celeristest.go:318-354`); they are exported only so the
-`celeristest` package — which lives in a separate package to avoid an import
-cycle — can reach them. They take internal types, have no stability guarantees,
-and bypass the pooling and reset logic in `NewContext`/`ReleaseContext`. Always
-go through the `celeristest` `With*` options:
+**They were removed in v1.6.0; use `celeristest`.** Code that calls them no longer
+compiles. `celeristest` now reaches the same logic through an internal package
+(`celeris/celeristest/celeristest.go:325-359`), and its own API did not change.
+Each removed hook maps to a `celeristest` call:
 
-| Instead of…                       | Use…                                |
+| Removed in v1.6.0                 | Use…                                |
 | --------------------------------- | ----------------------------------- |
+| `celeris.AcquireTestContext`      | `celeristest.NewContext` / `NewContextT` |
+| `celeris.ReleaseTestContext`      | `celeristest.ReleaseContext`        |
 | `celeris.AddTestParam`            | `celeristest.WithParam`             |
 | `celeris.SetTestHandlers`         | `celeristest.WithHandlers`          |
 | `celeris.SetTestScheme`           | `celeristest.WithScheme`            |
-| `celeris.AcquireTestContext`      | `celeristest.NewContext` / `NewContextT` |
-| `celeris.ReleaseTestContext`      | `celeristest.ReleaseContext`        |
+| `celeris.SetTestFullPath`         | `celeristest.WithFullPath`          |
+| `celeris.SetTestTrustedNets`      | `celeristest.WithTrustedProxies`    |
+| `celeris.SetTestStartTime`        | nothing: `NewContext` sets the start time |
+| `celeris.TestStream`              | nothing: `ReleaseContext` releases the stream |
 
 ## Integration-style testing
 
@@ -536,16 +540,17 @@ func TestServerIntegration(t *testing.T) {
 Key APIs in play:
 
 - **`celeris.New(Config{Addr: ":0"})`** — `:0` asks the OS for any free port,
-  which keeps parallel tests from colliding on a fixed port (`celeris/config.go:74`).
+  which keeps parallel tests from colliding on a fixed port (`celeris/config.go:75`).
 - **`s.Addr() net.Addr`** — returns the listener's bound address, or `nil` if the
   server hasn't started yet. Use it to discover the OS-assigned port
-  (`celeris/server.go:434`).
+  (`celeris/server.go:726-734`).
 - **`s.Start() error`** — runs the accept loop; it blocks, so call it in a
-  goroutine (`celeris/server.go:354`).
+  goroutine (`celeris/server.go:445-462`).
 - **`s.Shutdown(ctx) error`** — stops the engine and fires `OnShutdown` hooks, and
-  returns `nil` if the server was never started. On `std` and `adaptive` it waits for
-  in-flight requests; on `epoll` and `io_uring` it returns without waiting for them.
-  Always give it a bounded context (`celeris/server.go:367`).
+  returns `nil` if the server was never started. On every engine it waits for the
+  in-flight requests and HTTP/2 streams to drain, bounded by `ctx`, then runs the hooks;
+  if `ctx` is done first the hooks still run, with `ctx`, and it returns `ctx`'s error.
+  Always give it a bounded context (`celeris/server.go:546-617`).
 
 > Routes must be registered **before** `Start` — handler chains are baked at
 > registration time, and the `*Server` is only safe for concurrent use after
@@ -590,8 +595,9 @@ above.
   render the error response.
 - **Calling `Start` without a goroutine.** `Start` blocks on the accept loop. Run
   it in `go func(){…}()` and poll `Addr()` for readiness.
-- **Reaching for `AddTestParam` / `AcquireTestContext`.** These are internal;
-  always use the `celeristest` options.
+- **Porting tests that call `AddTestParam` / `AcquireTestContext`.** These hooks
+  were removed in v1.6.0; use the `celeristest` options instead (see
+  [Removed test hooks](#removed-test-hooks)).
 
 ## FAQ
 

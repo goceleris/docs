@@ -40,7 +40,7 @@ never stash a `*celeris.Context` in a struct, a closure, or a goroutine. From
 body as a slice over the engine's buffer — fast, zero-copy, but invalid the instant
 the handler returns and **must not be modified**. If the bytes have to outlive the
 request (you pass them to a goroutine, an async pipeline, or a log sink), take a
-copy with `c.BodyCopy()` (`celeris/context_request.go:279-296`):
+copy with `c.BodyCopy()` (`celeris/context_request.go:291-302`):
 
 ```go
 s.POST("/ingest", func(c *celeris.Context) error {
@@ -61,7 +61,7 @@ deliberately, not by reflex.
 
 **Prefer `FullPath()` for metric and log labels.** `c.FullPath()` returns the
 **matched route pattern** (`/users/:id`), not the concrete request path
-(`/users/42`) — see `celeris/context_request.go:38`. Using the raw path as a metric
+(`/users/42`) — see `celeris/context_request.go:36-44`. Using the raw path as a metric
 label explodes cardinality (one time series per id); the pattern keeps it bounded:
 
 ```go
@@ -88,7 +88,7 @@ to be fast.
 
 **Lowercase your header keys when you set them.** Programmatic header writes hit an
 inline fast path when the key is already lowercase
-(`celeris/context_response.go:637`). Writing `c.SetHeader("content-type", …)`
+(`celeris/context_response.go:637-666`). Writing `c.SetHeader("content-type", …)`
 avoids a normalization step that `c.SetHeader("Content-Type", …)` would incur.
 
 ### Common pitfalls
@@ -116,7 +116,7 @@ so the worker returns to `epoll_wait` / `io_uring_enter` while the handler waits
 ### The three levers
 
 The dispatch mode is resolved **route > group > server default**, where the server
-default is `Config.AsyncHandlers` (`celeris/config.go:159-198`, `celeris/router.go:205-302`):
+default is `Config.AsyncHandlers` (`celeris/config.go:183-239`, `celeris/router.go:222-319`):
 
 | Lever | Where | Effect |
 | --- | --- | --- |
@@ -138,18 +138,18 @@ api.GET("/cached", cachedHandler).Sync()      // …opt this one back to inline
 
 `.UsesDriver()` is exactly `.Async()`, but it documents intent at the call site:
 *this route calls a Celeris postgres/redis/memcached driver*
-(`celeris/router.go:244-258`). On the `Std` (net/http) engine the per-route flag is
+(`celeris/router.go:261-275`). On the `Std` (net/http) engine the per-route flag is
 a no-op — net/http already runs a goroutine per request.
 
 > **Safety.** Never call `.Sync()` (or `.Async(false)`) on a handler that hijacks
 > or detaches the connection — WebSocket upgrades and SSE streams run async by
-> construction and the flag cannot downgrade them (`celeris/router.go:236-242`).
+> construction and the flag cannot downgrade them (`celeris/router.go:245-259`).
 
 ### The ~3–5% async overhead, and when to pay it
 
 Async dispatch costs a goroutine spawn per request (~100 ns) plus scheduler
 overhead. On a pure-CPU static-response benchmark that measures as a **~3–5%
-regression** (`celeris/config.go:174`). So the rule is simple:
+regression** (`celeris/config.go:196-199`). So the rule is simple:
 
 - **CPU-only, latency-critical routes** → keep them inline (`Sync`, the default).
 - **Anything that touches a DB, cache, or upstream service** → mark it async, so
@@ -157,38 +157,38 @@ regression** (`celeris/config.go:174`). So the rule is simple:
 
 When `AsyncHandlers` is `true`, the per-worker serialization ceiling
 (`NumWorkers × 1/RTT`) is replaced by goroutine-per-connection parallelism that
-matches net/http's concurrency model (`celeris/config.go:159-166`).
+matches net/http's concurrency model (`celeris/config.go:183-189`).
 
 ### Adaptive auto-promotion (and why fast driver calls need `UsesDriver`)
 
 Setting `Config.AsyncHandlers = true` also turns on an **adaptive safety net**: any
 *unmarked* handler that runs slower than **~300 µs** is auto-promoted to the
 goroutine path, while routes that stay fast settle back to a zero-cost inline path
-after a short learning phase (`celeris/config.go:193-196`,
-`celeris/router.go:253-255`).
+after a short learning phase (`celeris/config.go:230-236`,
+`celeris/router.go:222-243`).
 
 This is why a **fast localhost driver call needs an explicit `.UsesDriver()` /
 `.Async()`**: a colocated Redis or Postgres round-trip on the loopback can complete
 in *under* 300 µs, so the adaptive net never promotes it — and it would block a
 worker on every request. Mark driver routes explicitly and you guarantee they're
 dispatched off the worker regardless of how fast the backend answers
-(`celeris/router.go:253-258`).
+(`celeris/router.go:261-275`).
 
 > **Driver fast path.** Celeris drivers opened `WithEngine(srv)` pick their
 > netpoll-park fast path from the server's *effective* async state — true when
 > `AsyncHandlers` is set **or** any route is `.Async()`. If you keep
 > `AsyncHandlers` false and rely on per-route marks, **open the driver after those
 > routes are registered** (the effective state is read at driver construction);
-> otherwise set `AsyncHandlers = true` (`celeris/config.go:167-178`). See
+> otherwise set `AsyncHandlers = true` (`celeris/config.go:224-236`). See
 > [Stores and database drivers](/docs/data-stores).
 
 ### Watching the handoff: `AsyncPromotedConns`
 
 The engine exposes how often the inline → goroutine handoff actually fires.
 `EngineMetrics.AsyncPromotedConns` is the cumulative count of connections promoted
-to the per-conn dispatch goroutine (`celeris/engine/engine.go:101-108`), and
+to the per-conn dispatch goroutine (`celeris/observe/engine_metrics.go:115-122`), and
 `EngineMetrics.AsyncRoutes` reports how many routes are registered async
-(`celeris/engine/engine.go:94-100`). Read them off the running server:
+(`celeris/observe/engine_metrics.go:108-114`). Read them off the running server:
 
 ```go
 info := s.EngineInfo()                       // nil before Start
@@ -211,7 +211,7 @@ For the full dispatch model see [Engines and the I/O model](/docs/engines) and
 On Linux you choose the I/O engine via `Config.Engine`; the default is **Adaptive**
 (`Std` on non-Linux). Adaptive starts on epoll — best for ramp-from-zero,
 low-concurrency, and latency-sensitive traffic — and promotes individual
-connections to io_uring under sustained high load (`celeris/config.go:43-60`).
+connections to io_uring under sustained high load (`celeris/config.go:45-62`).
 
 ### Letting Adaptive decide vs forcing an engine
 
@@ -226,7 +226,7 @@ As of v1.5.6 Adaptive **transplants** established keep-alive connections between
 epoll and io_uring on a switch (both directions), so the *starting* engine no
 longer fixes keep-alive throughput. Concurrency is still unknowable at bind time,
 though, so `Config.WorkloadHint` is the lever that biases Adaptive's start choice
-without hard-pinning the engine (`celeris/config.go:43-78`):
+without hard-pinning the engine (`celeris/config.go:45-62`):
 
 ```go
 s := celeris.New(celeris.Config{
@@ -271,7 +271,7 @@ A few tuning notes grounded in the engine signals:
   `MaxConns: 10_000` your ceiling is ~80k connections. It's an admission bound, not
   a tuning knob — use it to fail fast rather than thrash when a flood arrives.
 - **The bytes-per-request signal.** The engine tracks `BytesRead` and
-  `BytesWritten` alongside `RequestCount` (`celeris/engine/engine.go:123-131`).
+  `BytesWritten` alongside `RequestCount` (`celeris/observe/engine_metrics.go:141-149`).
   Large average payloads (link-bound workloads) make epoll and io_uring tie, so the
   adaptive controller *suppresses* io_uring selection for them — there's nothing for
   you to set, but it explains why a large-response service may stay on epoll under
@@ -287,7 +287,7 @@ that high-water mark back to the OS. `Config.MemoryLimitBytes` is an **optional
 soft heap ceiling** (applied via `runtime/debug.SetMemoryLimit` at `Start`) that
 makes the GC collect before the heap balloons during that ramp, trading a few
 extra ramp-phase GC cycles for a lower peak. Steady RSS sits far below the limit,
-so steady-state throughput is unaffected (`celeris/config.go:142-152`):
+so steady-state throughput is unaffected (`celeris/config.go:166-176`):
 
 ```go
 cfg := celeris.Config{Addr: ":8080", Workers: 8}
@@ -296,7 +296,7 @@ s := celeris.New(cfg)
 ```
 
 `celeris.DeriveMemoryLimit(workers)` returns `max(256 MiB, workers × 32 MiB)`
-(`celeris/config.go:62-69`) — sized **high** on purpose: the goal is to clip the
+(`celeris/config.go:63-70`) — sized **high** on purpose: the goal is to clip the
 ramp spike, not run the heap tight. Two caveats: `0` (the default) means celeris
 **does not touch** the process GC, so embedders keep full control; and
 `SetMemoryLimit` is **process-global**, so only set this when celeris owns the
@@ -309,7 +309,7 @@ See [Configuration reference](/docs/configuration) for the full field list and
 
 Keep-alive is on by default — reusing a TCP connection across requests is the
 single biggest throughput win on a benchmark and a real workload alike. The
-relevant `Config` fields (`celeris/config.go:80-131`):
+relevant `Config` fields (`celeris/config.go:91-136`):
 
 | Field | Default | Notes |
 | --- | --- | --- |
@@ -397,7 +397,7 @@ s := celeris.New(celeris.Config{
 })
 ```
 
-(`celeris/config.go:108-111`, `celeris/middleware/bodylimit/doc.go`.) Enable
+(`celeris/config.go:121-124`, `celeris/middleware/bodylimit/doc.go`.) Enable
 `ContentLengthRequired` to reject bodies that don't declare their size up-front
 (411 Length Required).
 
@@ -484,7 +484,7 @@ defer ctrl.Stop()                                // stop the poll goroutine on s
 How the signals compose: the poll goroutine takes the **higher** of the CPU-derived
 stage and the latency-derived stage, then the hot path folds in **depth**, which can
 only escalate *above* (never below) the polled stage
-(`celeris/middleware/overload/overload.go:159-258`). CPU thresholds default to
+(`celeris/middleware/overload/overload.go:235-245`, `overload.go:137-155`). CPU thresholds default to
 Expand 0.70 / Reap 0.80 / Reorder 0.85 / Backpressure 0.90 / Reject 0.95 with 0.05
 hysteresis on downward transitions (`config.go:48-55`). Depth and latency thresholds
 are **off by default** — a zero-valued field disables that signal for that stage, so
@@ -542,7 +542,7 @@ A slow-loris attacker dribbles request headers one byte at a time to pin a worke
 and a listener-backlog slot for the *entire* `ReadTimeout` window.
 `Config.ReadHeaderTimeout` caps the read of **just the request line + headers**
 separately from the body, killing such clients in seconds. It defaults to **10 s**;
-`-1` disables it (`celeris/config.go:83-93`):
+`-1` disables it (`celeris/config.go:94-104`):
 
 ```go
 s := celeris.New(celeris.Config{
@@ -611,7 +611,7 @@ fmt.Printf("requests=%d errors=%d active=%d cpu=%.2f\n",
     snap.RequestsTotal, snap.ErrorsTotal, snap.ActiveConns, snap.CPUUtilization)
 ```
 
-`Snapshot` fields you'll watch most (`celeris/observe/collector.go:40-57`):
+`Snapshot` fields you'll watch most (`celeris/observe/collector.go:34-51`):
 
 | Field | Meaning |
 | --- | --- |
@@ -624,11 +624,11 @@ fmt.Printf("requests=%d errors=%d active=%d cpu=%.2f\n",
 | `EngineSwitches` | How many times the adaptive engine changed strategy. |
 
 The latency buckets use fixed bounds of 1 ms, 5 ms, 10 ms, 25 ms, 50 ms, 100 ms,
-250 ms, 500 ms, 1 s, 5 s (`celeris/observe/collector.go:13-15`). Track the fraction
+250 ms, 500 ms, 1 s, 5 s (`celeris/observe/collector.go:11-13`). Track the fraction
 of requests in the high buckets to watch your tail without a full histogram backend.
 
 `snap.EngineMetrics` carries the engine-level counters that drive tuning decisions
-(`celeris/engine/engine.go:85-132`): `RequestCount` (sample it twice for a rate), `ActiveConnections`,
+(`celeris/observe/engine_metrics.go:22-149`): `RequestCount` (sample it twice for a rate), `ActiveConnections`,
 `AcceptCount` / `CloseCount` (a high close-to-accept ratio means short-lived churn
 connections), `BytesRead` / `BytesWritten` (the bytes-per-request signal), `Workers`,
 and the `AsyncRoutes` / `AsyncPromotedConns` dispatch counters from earlier.
@@ -652,7 +652,7 @@ If you'd rather not poll, the built-in collector stays on by default
 (Prometheus) and `middleware/debug` packages — see
 [Observability](/docs/observability) for the full metrics-export story. Disabling
 metrics (`DisableMetrics: true`) skips per-request recording entirely and makes
-`Collector()` return `nil` (`celeris/server.go:99-100`, `celeris/server.go:543-545`)
+`Collector()` return `nil` (`celeris/server.go:152-154`, `celeris/server.go:863-868`)
 — only do this if you've measured the recording cost and have an external metrics
 path.
 
@@ -667,7 +667,7 @@ CPU routes `.Sync()`.
 **Why is my fast Redis route still blocking a worker?**
 Because a sub-300 µs localhost driver call is below the adaptive auto-promotion
 threshold. Mark the route `.UsesDriver()` (or `.Async()`) explicitly — the adaptive
-net only promotes handlers slower than ~300 µs (`celeris/router.go:253-258`).
+net only promotes handlers slower than ~300 µs (`celeris/router.go:261-275`).
 
 **Does `bodylimit` protect me from a DoS?**
 Not on its own — it runs *after* the body is buffered. The hard ceiling is
@@ -685,7 +685,7 @@ at zero (`celeris/middleware/overload/config.go`).
 **Do I need to enable the CPU monitor for `overload`?**
 No — the server wires a platform CPU monitor automatically when it starts, so
 `Snapshot().CPUUtilization` is populated and `overload`'s `CollectorProvider:
-s.Collector` works out of the box (`celeris/server.go:647-653`).
+s.Collector` works out of the box (`celeris/server.go:947-962`, `celeris/server.go:1001-1008`).
 
 ## See also
 
