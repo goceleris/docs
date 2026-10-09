@@ -51,7 +51,7 @@ if sw == nil {
 }
 ```
 
-Source: `celeris/context_response.go:1694-1741`.
+Source: `celeris/context_response.go:1695-1742`.
 
 `StreamWriter()` returns `nil` in two situations:
 
@@ -66,13 +66,13 @@ Source: `celeris/context_response.go:1694-1741`.
 ### The StreamWriter API
 
 Once you hold a non-nil `*StreamWriter`, you drive the response with these methods.
-Source: `celeris/context_response.go:1625-1692`.
+Source: `celeris/context_response.go:1625-1693`.
 
 | Method                                  | Returns          | Purpose                                                                 |
 | --------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
 | `WriteHeader(status int, headers [][2]string)` | `error`   | Send the status line and headers. Call **once**, before the first `Write`. |
 | `Write(data []byte)`                    | `(int, error)`   | Send one chunk of the body. Call as many times as you like.              |
-| `Flush()`                               | `error`          | Ask the engine to send buffered bytes. A request, not a guarantee: on HTTP/1.1 on `epoll` and `io_uring` it does nothing (see below). |
+| `Flush()`                               | `error`          | Ask the engine to send buffered bytes. A request, not a guarantee: on HTTP/1.1 on `epoll`, `io_uring` and `adaptive` it does nothing (see below). |
 | `Close()`                               | `error`          | Signal end of body; syncs the byte count back to the `Context`.         |
 | `BytesWritten()`                        | `int64`          | Total bytes written through this writer. Safe for concurrent use.       |
 
@@ -87,7 +87,8 @@ Key rules:
 - **`Flush` is a request, not a guarantee.** What reaches the client, and when, is
   decided by `Write` and by the engine:
   - `std`: `Flush` calls `http.Flusher`, so a flushed chunk goes out at once.
-  - `epoll` and `io_uring` over HTTP/1.1: `Flush` does nothing. Until you call
+  - `epoll`, `io_uring` and `adaptive` (the default engine on Linux, which runs on the
+    first two) over HTTP/1.1: `Flush` does nothing. Until you call
     [`Detach`](#detach), these engines only append each `Write` to the connection's
     send buffer and send it when the handler returns. Everything you have written
     stays in memory until then, however often you call `Flush`, and the client sees
@@ -101,7 +102,7 @@ Key rules:
   counter on the `Context`. Defer it.
 
 A minimal NDJSON stream with no `Detach`. On `std` each row leaves as it is
-flushed. On `epoll` and `io_uring` the rows pile up in memory and go out when the
+flushed. On `epoll`, `io_uring` and `adaptive` the rows pile up in memory and go out when the
 handler returns, so use this shape only for an export that fits in memory and that
 the client may receive all at once; for anything larger, or anything the client
 should see as it is produced, use the detach pattern in the next section:
@@ -128,7 +129,7 @@ s.GET("/export", func(c *celeris.Context) error {
         if err := enc.Encode(&r); err != nil { // one JSON object + newline
             return err
         }
-        if err := sw.Flush(); err != nil { // std: sends the row now. epoll, io_uring (HTTP/1.1): no effect
+        if err := sw.Flush(); err != nil { // std: sends the row now. epoll, io_uring, adaptive (HTTP/1.1): no effect
             return err
         }
     }
@@ -212,7 +213,7 @@ s.GET("/feed", func(c *celeris.Context) error {
         defer sw.Close()  // finish the response body
         for event := range events {
             if _, err := sw.Write([]byte("data: " + event + "\n\n")); err != nil {
-                return // client gone or write failed
+                return // std: client gone or write failed. Native H1: Write does not report a gone client
             }
             if err := sw.Flush(); err != nil { // std: sends the event now. Native: Write already did
                 return
@@ -353,7 +354,7 @@ func transform(c *celeris.Context) error {
 ### StreamWriter is incompatible with buffering
 
 This is the crucial interaction for middleware authors. **While buffering is active,
-`Context.StreamWriter()` returns `nil`.** Source: `celeris/context_response.go:1717-1722`.
+`Context.StreamWriter()` returns `nil`.** Source: `celeris/context_response.go:1718-1723`.
 
 Streaming writes bytes directly and irrevocably to the wire; buffering holds a response
 in memory so it can be discarded or rewritten. The two cannot coexist — a buffered
@@ -396,7 +397,7 @@ buffering when the handler intends to stream.
 **Do I always need `Detach()` to stream?**
 No, but without it the client may see nothing until the handler returns. For a small,
 *bounded* response you can call `StreamWriter()`, write, `Close()`, and return — without
-detaching — and it works on every engine. On `epoll` and `io_uring` (HTTP/1.1) the bytes
+detaching — and it works on every engine. On `epoll`, `io_uring` and `adaptive` (HTTP/1.1) the bytes
 are then held in memory and sent when the handler returns, however often you call `Flush`.
 `Detach` is what makes a native engine send as you write, and it is required for
 *long-lived* streams there, where you must return from the handler to free the
@@ -412,25 +413,36 @@ Almost always because a middleware upstream is buffering the response
 route off the buffering middleware, or stop buffering it.
 
 **How do I detect when the client disconnects?**
-It depends on the engine, and on `epoll` and `io_uring` over HTTP/1.1 a raw
-`StreamWriter` gives you no signal.
+It depends on the engine, and on `epoll`, `io_uring` and `adaptive` over HTTP/1.1 the
+error from a raw `StreamWriter` is not the signal.
 
 - `std`: a `Write` (or `Flush`) on the `StreamWriter` returns an error once the peer
   has gone away. Check the error from each and stop the loop when it fails — the
   examples above do exactly this.
-- `epoll` and `io_uring`, HTTP/1.1: `Write` and `Flush` return `nil` after the client
-  has gone, and the bytes are dropped, so a loop that stops on a write error never
-  stops. The [SSE](/docs/sse) middleware does not rely on write errors there: it
-  watches the connection through the engine and cancels the client's context when the
-  peer leaves. For your own protocol, bound the stream yourself (a deadline, or the end
-  of the producer).
+- `epoll`, `io_uring` and `adaptive` (the default on Linux), HTTP/1.1: `Write` and
+  `Flush` return `nil` after the client has gone, and the bytes are dropped, so a loop
+  that stops on a write error never stops. The signal there comes from the engine
+  instead. [`Context.SetWSDetachClose(fn)`](/docs/context-api-reference) is called
+  when the engine closes the detached connection (the client went away, a timeout,
+  shutdown), and `Context.SetWSErrorHandler(fn)` when an I/O error happens on it. The
+  [SSE](/docs/sse) middleware uses both this way over a raw `StreamWriter` and cancels
+  the client's context from them. They need no WebSocket upgrade, despite the names.
+  Install them **before** `Detach`, and keep the callback tiny: it runs on the engine
+  thread under the connection's lock, so it must not block, take your own locks, or
+  call back into the `StreamWriter`. Cancelling a `context.CancelFunc` or closing a
+  channel is the shape to follow. They apply to a detached HTTP/1.1 connection on the
+  native engines. On `std` `SetWSErrorHandler` does nothing (use the write error;
+  `SetWSDetachClose` is backed by the request context there), and on HTTP/2 both do
+  nothing (use `c.Context()`).
 - **`c.Context().Done()` does not fire when an HTTP/1.1 client disconnects**, so do not
   block a stream on it waiting for the client to leave — you will wait forever.
   Cancellation through `c.Context()` is only delivered on HTTP/2, where a stream reset
   (e.g. `RST_STREAM`) cancels the request context.
 
 Cleanup that must run when the client goes away (cancelling a database cursor, stopping
-a producer goroutine) cannot depend on a `StreamWriter` error on the native engines.
+a producer goroutine) cannot depend on a `StreamWriter` error on the native engines;
+drive it from one of the two hooks above, or bound the stream yourself (a deadline, or
+the end of the producer).
 
 **Should I use `StreamWriter` directly for SSE or WebSocket?**
 Usually no. The [SSE](/docs/sse) and [WebSocket](/docs/websocket) middleware build the

@@ -304,7 +304,7 @@ The `*StreamWriter` returned by `StreamWriter()` has its own methods:
 | --------- | --------- |
 | `WriteHeader(status int, headers [][2]string) error` | Send status + headers once, before any `Write`. |
 | `Write(data []byte) (int, error)` | Send a body chunk; may be called repeatedly. |
-| `Flush() error` | Ask the engine to send buffered data. A request, not a guarantee: on HTTP/1.1 on `epoll` and `io_uring` it does nothing, and those engines send each `Write` at once only after `Detach` ([details](/docs/streaming#the-streamwriter-api)). |
+| `Flush() error` | Ask the engine to send buffered data. A request, not a guarantee: on HTTP/1.1 on `epoll`, `io_uring` and `adaptive` it does nothing, and those engines send each `Write` at once only after `Detach` ([details](/docs/streaming#the-streamwriter-api)). |
 | `Close() error` | End the body and sync the byte count back to the Context. |
 | `BytesWritten() int64` | Total bytes written through this writer (concurrency-safe). |
 
@@ -351,8 +351,8 @@ WebSocket middleware rather than these directly; install all `SetWS*` callbacks
 | `UpgradeWebSocket(delivery func(data []byte)) bool` | Install the inbound-data callback; `false` if the engine has no integrated WS (fall back to `Hijack`). |
 | `WSRawWriteFn() func([]byte)` | Raw frame-write fn (bypasses chunking); `nil` before `Detach` or on std. Call **after** `Detach`. |
 | `WSReadPauser() (pause, resume func())` | Engine TCP backpressure callbacks; `(nil, nil)` if unsupported. Call **after** `Detach`. |
-| `SetWSErrorHandler(fn func(error))` | Surface engine-side I/O errors to the next user Read/Write. |
-| `SetWSDetachClose(fn func())` | Called when the engine closes the detached connection (timeout/error/shutdown). |
+| `SetWSErrorHandler(fn func(error))` | Surface engine-side I/O errors to the next user Read/Write. On native HTTP/1.1 it is also how a raw `StreamWriter` learns the client has gone (see [Streaming responses](/docs/streaming#faq)). Install before `Detach`; the callback must not block. No-op on `std` and H2. |
+| `SetWSDetachClose(fn func())` | Called when the engine closes the detached connection (timeout/error/shutdown, client gone). Install before `Detach`; the callback must not block. No-op on H2. |
 | `SetWSIdleDeadline(ns int64)` | Absolute idle deadline (Unix ns) for the detached connection; `0` clears. |
 
 ---
@@ -443,9 +443,10 @@ func handler(c *celeris.Context) error {
 > an **HTTP/2 stream reset** — but it does **not** fire on a plain HTTP/1.1 client
 > disconnect: `Done()` never closes when an H1 peer goes away. On `std`, check the
 > error returned by `StreamWriter.Write`/`Flush` to detect a disconnected client; on
-> `epoll` and `io_uring` over HTTP/1.1 those return `nil` after the client has gone
-> (see [Streaming responses](/docs/streaming#faq)). Use `Context()` for deadlines and
-> H2 cancellation. `OnRelease` is for releasing per-request resources (close a
+> `epoll`, `io_uring` and `adaptive` over HTTP/1.1 those return `nil` after the client
+> has gone, and the signal is `SetWSDetachClose` / `SetWSErrorHandler` on a detached
+> connection (see [Streaming responses](/docs/streaming#faq)). Use `Context()` for
+> deadlines and H2 cancellation. `OnRelease` is for releasing per-request resources (close a
 > checked-out connection, decrement a gauge) without a `defer` in every handler.
 
 ---

@@ -112,7 +112,12 @@ The return contract for `Send` is worth internalising:
   return. A `Close()`'d client returns `sse.ErrClientClosed`; a connection whose
   context was already cancelled returns that context error (e.g. `context.Canceled`).
   Don't switch on the specific error — any non-nil value means "stop".
-- **nil error (default mode)** — the event was written to the wire and flushed.
+- **nil error (default mode)** — the event was written and flushed. On `std` that means
+  it went to the connection. On `epoll`, `io_uring` and `adaptive` over HTTP/1.1 it means
+  the engine accepted it for sending: a write does not report a client that has already
+  gone, and the bytes are dropped. The middleware learns of the disconnect from the
+  engine instead and cancels the client's context, so the next `Send` returns that
+  context error.
 - **nil error (queued mode)** — the event was *enqueued or dropped* per your
   slow-client policy; check `DroppedEvents()` to detect drops.
 
