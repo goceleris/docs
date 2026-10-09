@@ -268,11 +268,20 @@ s.Use(static.New(static.Config{
 
 ### Caching and conditional requests
 
-The middleware sets `Last-Modified` and a weak `ETag` (derived from mtime and
-size) on every file response, and honours `If-None-Match` / `If-Modified-Since`,
-returning **`304 Not Modified`** when the client's copy is fresh. Set `MaxAge`
-to add `Cache-Control: public, max-age=N`. See [Configuration](/docs/configuration)
+The middleware sets `Last-Modified` and an `ETag` on every file response, and
+honours `If-None-Match` / `If-Modified-Since`, returning **`304 Not Modified`**
+when the client's copy is fresh. Set `MaxAge` to add
+`Cache-Control: public, max-age=N`. See [Configuration](/docs/configuration)
 and the `etag` middleware in [Middleware](/docs/middleware) for related options.
+
+| Source | `ETag` | Taken from |
+| --- | --- | --- |
+| `Root` | weak, derived from mtime and size | the file as it is opened for serving, so the validators describe the bytes sent even when the path is replaced meanwhile |
+| `FS` | **strong**, a hash of the file's bytes (SHA-256, truncated to 128 bits) | the file's bytes, read once and cached: a request for a file not yet read, a `304` included, reads it first. A file whose `ModTime` is zero, as in an `embed.FS`, gets neither `ETag` nor `Last-Modified` |
+
+A strong tag is stable across processes, restarts and replicas serving the same
+bytes, and unlike a date it changes with the bytes whatever the files' mtimes
+are, so an `If-Range` carrying it holds only for the version it came from.
 
 ### Single-page apps
 
@@ -324,6 +333,17 @@ when a client sends `Accept-Encoding: br, gzip` the middleware serves the
 `Vary: Accept-Encoding`. If no acceptable variant exists it serves the plain
 file. This works with both `Root` and `FS`.
 
+The variant is the representation the client downloads, keeps and resumes, so
+it is the variant, not the original file, that supplies the `Last-Modified` and
+`ETag` (a variant of an `FS` has the weak mtime-and-size tag, since it is read
+per request and not cached), the `304`, the `Range` and `If-Range` decision, and
+the size in `Content-Range`. Rebuilding only the `.br`/`.gz` therefore changes
+its validators, and a client holding the old one gets the whole new file, not a
+`304` and not a `206` spliced onto the old bytes. The `304` carries
+`Vary: Accept-Encoding`. The variant is served with the original file's
+`Content-Type`, not the one its `.br`/`.gz` extension maps to. A `416` carries
+no `Content-Encoding`: its body is empty, not an encoded stream.
+
 ### Directory listings
 
 ```go
@@ -370,7 +390,7 @@ understood, and only a single range is served.
 
 | Request | Response |
 | --- | --- |
-| `GET` with one satisfiable range, e.g. `Range: bytes=1000-` | `206 Partial Content`, `Content-Range: bytes 1000-65535/65536`, those bytes. A last position past the end, or a suffix longer than the file (`bytes=-100000`), is cut to the file. Exception: with `FS` and `Compress`, a pre-compressed `.br`/`.gz` variant is always sent whole as a `200`. |
+| `GET` with one satisfiable range, e.g. `Range: bytes=1000-` | `206 Partial Content`, `Content-Range: bytes 1000-65535/65536`, those bytes. A last position past the end, or a suffix longer than the file (`bytes=-100000`), is cut to the file. With `Compress`, a pre-compressed `.br`/`.gz` variant is the file: the range is cut from the variant's bytes and counted in its size. |
 | `GET` with a range no byte of the file satisfies, e.g. `bytes=70000-` on a 64 KiB file | `416 Range Not Satisfiable`, `Content-Range: bytes */65536`, no body. |
 | `If-Range` whose validator still matches | The range, as above. |
 | `If-Range` whose validator no longer matches | `200 OK` with the whole file. |
@@ -387,8 +407,11 @@ response's `Last-Modified`. What it is compared against:
   response headers already set when `File` is called. `File` sets neither
   itself, so set them in the handler if clients should resume with `If-Range`;
   without them `If-Range` never matches and the whole file is sent.
-- **Static middleware**: its own `Last-Modified` and `ETag`. Its `ETag` is
-  weak (mtime and size), so only the `Last-Modified` date can match.
+- **Static middleware**: its own `Last-Modified` and `ETag`, those of the
+  pre-compressed variant when one is served. With `Root` the `ETag` is weak
+  (mtime and size), so only the `Last-Modified` date can match. With `FS` the
+  `ETag` is strong (a content hash), so it can, and it does not depend on the
+  files' mtimes.
 
 ```go
 // Opened once at startup: os.Root keeps every lookup inside ./files,
@@ -417,10 +440,12 @@ s.GET("/downloads/:name", func(c *celeris.Context) error {
 mtimes, and it has one-second precision. Two versions with the same
 `Last-Modified` (written within the same second, or built with normalized
 mtimes such as `SOURCE_DATE_EPOCH`) let the old `If-Range` match the new file,
-and the resumed download splices two versions. In the example and on the static
-middleware's `Root` path the validators are also read before the file is
-opened, so a file replaced in between is served under the old date. The static
-middleware's only usable `If-Range` validator is its `Last-Modified`
+and the resumed download splices two versions. In the example the validators are
+also read before the file is opened, so a file replaced in between is served
+under the old date; the static middleware reads them from the file it serves.
+With the static middleware's `Root`, `Last-Modified` is the only usable
+`If-Range` validator, so it is only as reliable as the files' mtimes; with `FS`
+the content-hash `ETag` is not subject to this
 ([celeris#846](https://github.com/goceleris/celeris/issues/846)). A resume is
 safe only when the validator changes with the bytes served.
 
@@ -471,10 +496,9 @@ a download resumed after the file changed restarts with the new file instead of
 splicing two versions, provided the validator (`ETag` or `Last-Modified`)
 changed with the bytes. See
 [Range requests and resumable downloads](#range-requests-and-resumable-downloads)
-for when a date does not. One more exception: with `Compress`, a pre-compressed
-`.br`/`.gz` variant served from `Root` is checked against the original file's
-validators, so rebuilding only the variant can still splice two versions
-([celeris#846](https://github.com/goceleris/celeris/issues/846)).
+for when a date does not. With `Compress`, a pre-compressed `.br`/`.gz` variant
+is checked against its own validators, so rebuilding only the variant restarts
+the download instead of splicing two versions.
 
 **Can I serve a single-binary app with no files on disk?**
 Yes — `go:embed` your assets and serve them with `FileFromFS` (fixed paths) or
