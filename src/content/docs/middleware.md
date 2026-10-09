@@ -122,7 +122,7 @@ is fixed, so install order in your setup code matters.
 
 `Pre` registers middleware that runs **before the router matches the request**, so
 it can mutate the request method, path, scheme, host, or client IP before the
-handler is even chosen (`celeris/server.go:141`). This is the only layer that can
+handler is even chosen (`celeris/server.go:211`). This is the only layer that can
 rewrite *what gets routed*.
 
 ```go
@@ -140,7 +140,7 @@ s.Pre(redirect.HTTPSRedirect())
 ### Global — `Server.Use`
 
 `Use` registers global middleware that runs for every matched route, in registration
-order, outermost first (`celeris/server.go:128`).
+order, outermost first (`celeris/server.go:196`).
 
 A handler that answers the request ends the chain: once it has written the
 response, had it captured by a buffering middleware (`etag`, `compress`, `cache`)
@@ -186,7 +186,7 @@ hold an engine worker for one, and with `AsyncHandlers: false` they always run i
 > route is registered, so calling `Use` after a `GET`/`POST`/etc. would silently
 > give some routes the middleware and others not. Celeris panics to surface this:
 > *"Server.Use called after routes were registered…"*. Put all `s.Use` calls above
-> your first route. (Source: `celeris/server.go:128-134`.)
+> your first route. (Source: `celeris/server.go:197-199`.)
 
 ### Per-group — `Group.Use`
 
@@ -210,7 +210,7 @@ Sub-groups inherit a **copy** of the parent's middleware plus their own. See
 
 Every registration method is variadic; the **last** handler is the terminal handler
 and any **leading** handlers are per-route middleware that run in order before it
-(`celeris/server.go:105`).
+(`celeris/server.go:158-164`).
 
 ```go
 // auditLog and requireAdmin run before deleteUser, in that order.
@@ -221,7 +221,7 @@ s.DELETE("/users/:id", auditLog, requireAdmin, deleteUser)
 
 `Route.Use` prepends middleware to a single route's chain, inserting it **just
 before** the terminal handler. It panics if the route has no handlers
-(`celeris/router.go:179`).
+(`celeris/router.go:196-220`).
 
 ```go
 r := s.GET("/admin", adminDashboard)

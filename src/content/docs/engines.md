@@ -205,7 +205,7 @@ Established connections now transplant between engines on a switch (see above), 
 the **start** engine no longer fixes the keep-alive throughput ceiling — but the
 steady-state concurrency is still unknowable when the server binds, and a good
 start avoids an unnecessary early switch. `WorkloadHint`
-(`celeris/config.go:44-61`) is the config-level way to bias that start decision. It
+(`celeris/config.go:45-62`) is the config-level way to bias that start decision. It
 affects **nothing but the Adaptive engine's start choice**; on Epoll, IOUring, and
 Std it is ignored.
 

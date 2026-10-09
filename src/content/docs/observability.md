@@ -180,7 +180,7 @@ It is intentionally rich and zero-alloc on the steady-state path.
 ### The server-level logger
 
 `Config.Logger` is the server's structured logger; it defaults to
-`slog.Default()` when nil (`celeris/config.go:207`). This logger is used by the
+`slog.Default()` when nil (`celeris/config.go:262-263`). This logger is used by the
 server itself (and is the default sink for several middleware, including
 `recovery` — see [Error handling](/docs/error-handling)). Set it once at
 construction:

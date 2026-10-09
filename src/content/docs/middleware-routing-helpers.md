@@ -24,13 +24,13 @@ everything on this page.
 
 | Hook                 | Runs                              | Can mutate before routing?                | Source                  |
 | -------------------- | --------------------------------- | ----------------------------------------- | ----------------------- |
-| `Server.Pre(mw...)`  | **before** route lookup           | yes — method, path, scheme, host          | `celeris/server.go:141` |
-| `Server.Use(mw...)`  | after lookup, before the handler  | no — the route is already chosen          | `celeris/server.go:128` |
+| `Server.Pre(mw...)`  | **before** route lookup           | yes — method, path, scheme, host          | `celeris/server.go:211` |
+| `Server.Use(mw...)`  | after lookup, before the handler  | no — the route is already chosen          | `celeris/server.go:196` |
 
 `Server.Pre` registers **pre-routing** middleware. It executes before the router
 resolves the handler chain, so a `Pre` handler may rewrite the request method or
 path and the router will then match against the *modified* values
-(`celeris/server.go:136-144`). This is exactly what `redirect`, `rewrite`, and
+(`celeris/server.go:204-214`). This is exactly what `redirect`, `rewrite`, and
 `methodoverride` need: they reshape the request and let routing happen
 afterwards.
 
@@ -63,7 +63,7 @@ A `Pre` handler has a binary choice on every request:
   handler) proceeds. It may have mutated the method/path first.
 - **Short-circuit** — write a response (e.g. `c.Redirect(...)`) and return
   **without** calling `c.Next()`. No routing occurs and the request is
-  considered handled (`celeris/server.go:138-140`).
+  considered handled (`celeris/server.go:207-209`).
 
 > The rule of thumb: **if a `Pre` handler writes to the response, it must not
 > call `Next`.** The redirect middleware follows this exactly — when it issues a

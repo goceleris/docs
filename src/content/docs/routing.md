@@ -36,7 +36,7 @@ s.OPTIONS("/users", optionsUser)
 
 The seven standard HTTP verbs each have a dedicated method on `*Server` (and on
 `*RouteGroup`): `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`.
-Source: `celeris/server.go:154-186`.
+Source: `celeris/server.go:223-264`.
 
 ### `HEAD` and `OPTIONS` are answered for you
 
@@ -101,7 +101,7 @@ for _, r := range routes {
 }
 ```
 
-Source: `celeris/server.go:189-196`.
+Source: `celeris/server.go:266-274`.
 
 ### `Handle` — custom and runtime-chosen methods
 
@@ -116,7 +116,7 @@ method := resolveMethodFromConfig()
 s.Handle(method, "/rpc", rpcHandler)
 ```
 
-Source: `celeris/server.go:150-152`.
+Source: `celeris/server.go:216-221`.
 
 > The standard verb methods are just thin wrappers over `Handle`, so there is no
 > behavioural difference for `GET`/`POST`/etc. versus `Handle("GET", …)`.
@@ -216,12 +216,12 @@ loudly at startup rather than silently mis-routing. Registration **panics** when
 | A catch-all name is empty                | `/files/*`         | `path contains empty catchAll name`                 |
 | A catch-all is not the last segment      | `/files/*p/more`   | `catchAll parameter must be the last path segment`  |
 
-Source: `celeris/router_tree.go:265-288` and `celeris/router.go:412-416`.
+Source: `celeris/router_tree.go:265-288` and `celeris/router.go:510-513`.
 
 ## Reading path parameters
 
 Inside a handler, read captured parameters off the `*Context`. All accessors are in
-`celeris/context_request.go:94-126`.
+`celeris/context_request.go:99-132`.
 
 | Method                                | Returns                | Behaviour                                                   |
 | ------------------------------------- | ---------------------- | ---------------------------------------------------------- |
@@ -248,7 +248,7 @@ s.GET("/posts/:slug", func(c *celeris.Context) error {
 ### `FullPath` — the matched pattern
 
 `c.FullPath()` returns the **route pattern** that matched (e.g. `/users/:id`), not
-the concrete request path (`celeris/context_request.go:38`). This is exactly what
+the concrete request path (`celeris/context_request.go:36-44`). This is exactly what
 you want for low-cardinality metric labels and structured-log fields — using the
 raw path would explode your label cardinality with one series per `id`.
 
@@ -311,7 +311,7 @@ api.GET("/items", listItems)
 > At the **server** level the same rule is enforced more strictly: `s.Use(...)`
 > **panics** if called after any route is registered, to surface the silent
 > inconsistency where some routes get the middleware and others don't
-> (`celeris/server.go:129-135`). On a group it does not panic — it simply applies
+> (`celeris/server.go:197-199`). On a group it does not panic — it simply applies
 > only going forward — so be deliberate about ordering.
 
 ## The `*Route` handle
@@ -323,8 +323,8 @@ methods must be called before `Start`.
 
 | Method                    | On duplicate name                         | Source                  |
 | ------------------------- | ----------------------------------------- | ----------------------- |
-| `Name(name) *Route`       | **panics**: `duplicate route name: …`     | `celeris/router.go:148` |
-| `TryName(name) error`     | returns `ErrDuplicateRouteName`           | `celeris/router.go:164` |
+| `Name(name) *Route`       | **panics**: `duplicate route name: …`     | `celeris/router.go:163-177` |
+| `TryName(name) error`     | returns `ErrDuplicateRouteName`           | `celeris/router.go:179-194` |
 
 Use `Name` when a duplicate is a programming error you want to catch at startup; use
 `TryName` when names may legitimately collide (e.g. plugin-registered routes) and
@@ -343,7 +343,7 @@ if err := s.GET("/posts/:id", showPost).TryName("post"); err != nil {
 ### Route-level middleware after registration
 
 `Route.Use` prepends middleware to a single route's chain, inserting it just before
-the terminal handler (`celeris/router.go:181`). It panics if the route has no
+the terminal handler (`celeris/router.go:196-220`). It panics if the route has no
 handlers:
 
 ```go
@@ -376,7 +376,7 @@ api.GET("/cached", cachedHandler).Sync()           // …opt this one back to in
 `UsesDriver` is the recommended marker for routes that call a Celeris
 postgres/redis/memcached driver opened `WithEngine(srv)`: such drivers may complete
 faster than the adaptive promotion threshold, so an explicit mark guarantees the
-handler is dispatched off the worker. Source: `celeris/router.go:205-258`.
+handler is dispatched off the worker. Source: `celeris/router.go:222-275`.
 
 For the full dispatch model and `Config.AsyncHandlers`, see [Engines](/docs/engines).
 
@@ -449,11 +449,11 @@ for _, r := range s.Routes() {
 - **Duplicate method + path silently overwrites.** Registering the same method and
   path twice keeps only the last handler and emits a `WARN` log
   (`celeris: duplicate route registration; previous handler overwritten`). It does
-  not panic, so it's easy to miss — watch your logs (`celeris/router.go:520-528`).
+  not panic, so it's easy to miss — watch your logs (`celeris/router.go:638-646`).
 - **Never `Sync()` a WebSocket or SSE route.** Handlers that hijack/detach the
   connection are async by construction; forcing them inline breaks them. The same
   warning applies to `Group.Sync()` over such routes
-  (`celeris/router.go:236-242`, `celeris/group.go:54-65`).
+  (`celeris/router.go:245-259`, `celeris/group.go:54-65`).
 - **`s.Use(...)` after a route panics.** Move all server-level `Use` calls above
   your first route registration. (Group `Use` does not panic but silently applies
   only going forward.)

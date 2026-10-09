@@ -65,7 +65,7 @@ s := celeris.New(celeris.Config{
 ```
 
 How `Auto` handles the HTTP/1.1 `Upgrade: h2c` handshake is controlled by
-`Config.EnableH2Upgrade` (`celeris/config.go:231-242`), a `*bool`:
+`Config.EnableH2Upgrade` (`celeris/config.go:265-276`), a `*bool`:
 
 | `EnableH2Upgrade`  | Effect                                                            |
 | ------------------ | ---------------------------------------------------------------- |
@@ -351,7 +351,7 @@ back with `s.Addr()` after `Start` (`celeris/server.go:726-734`), handy in tests
 ### Workers and GOMAXPROCS
 
 `Config.Workers` sets the number of I/O worker goroutines and **defaults to
-`GOMAXPROCS`** (`celeris/config.go:81-82`). In a container, `GOMAXPROCS` defaults to
+`GOMAXPROCS`** (`celeris/config.go:82-83`). In a container, `GOMAXPROCS` defaults to
 the *node's* CPU count unless you constrain it, which over-subscribes a pod with a
 CPU limit. On Go 1.25+ the runtime reads the cgroup CPU quota automatically;
 otherwise set `GOMAXPROCS` to match the pod's CPU limit (or pin `Workers`
@@ -649,7 +649,7 @@ engine selection and the feature matrix, see [Engines](/docs/engines).
 ## Logging and observability in production
 
 Pass a structured `*slog.Logger` via `Config.Logger` (defaults to `slog.Default()`,
-`celeris/config.go:228-229`); use a JSON handler so your log pipeline can parse it:
+`celeris/config.go:262-263`); use a JSON handler so your log pipeline can parse it:
 
 ```go
 logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -660,7 +660,7 @@ s := celeris.New(celeris.Config{Addr: ":8080", Logger: logger})
 
 Built-in metrics are on by default; read a snapshot from the collector for a
 `/metrics`-style endpoint, or disable with `Config.DisableMetrics`
-(`celeris/config.go:164-167`):
+(`celeris/config.go:178-181`):
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU

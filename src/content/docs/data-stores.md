@@ -534,7 +534,7 @@ srv := celeris.New(celeris.Config{Addr: ":8080", AsyncHandlers: true})
 srv.GET("/users/:id", getUser).UsesDriver()
 ```
 
-`.UsesDriver()` (`router.go:244-258`) is exactly equivalent to `.Async()` but reads
+`.UsesDriver()` (`router.go:261-275`) is exactly equivalent to `.Async()` but reads
 as intent at the call site — it marks a route whose handler performs a blocking
 backend round trip via a Celeris driver. It is the recommended way to flag driver
 routes:
@@ -547,7 +547,7 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
 > (`Config.AsyncHandlers = true` alone) only auto-promotes handlers slower than
 > ~300µs. A fast localhost driver call (sub-300µs) would otherwise keep blocking a
 > worker on every request. Mark such routes explicitly with `.UsesDriver()`
-> (`router.go:253-255`).
+> (`router.go:261-275`).
 
 > **Ordering footgun.** `AsyncHandlers()` reflects routes registered *so far*. If
 > you rely on per-route `.UsesDriver()` (rather than the server-wide flag), open
