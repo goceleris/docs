@@ -277,7 +277,7 @@ and the `etag` middleware in [Middleware](/docs/middleware) for related options.
 | Source | `ETag` | Taken from |
 | --- | --- | --- |
 | `Root` | weak, derived from mtime and size | the file as it is opened for serving, so the validators describe the bytes sent even when the path is replaced meanwhile |
-| `FS` | **strong**, a hash of the file's bytes (SHA-256, truncated to 128 bits) | the file's bytes, read once and cached: a request for a file not yet read, a `304` included, reads it first. A file whose `ModTime` is zero, as in an `embed.FS`, gets neither `ETag` nor `Last-Modified` |
+| `FS` | **strong** for the identity file, a hash of the file's bytes (SHA-256, truncated to 128 bits); a pre-compressed variant keeps the weak mtime-and-size tag | the file's bytes, read once and cached: a request for a file not yet read, a `304` included, reads it first. A file whose `ModTime` is zero, as in an `embed.FS`, gets neither `ETag` nor `Last-Modified` |
 
 A strong tag is stable across processes, restarts and replicas serving the same
 bytes, and unlike a date it changes with the bytes whatever the files' mtimes
@@ -343,6 +343,9 @@ its validators, and a client holding the old one gets the whole new file, not a
 `Vary: Accept-Encoding`. The variant is served with the original file's
 `Content-Type`, not the one its `.br`/`.gz` extension maps to. A `416` carries
 no `Content-Encoding`: its body is empty, not an encoded stream.
+
+A request for a directory (`/docs/`) is answered with its index file, and with
+the index file's own variant (`docs/index.html.gz`), on `Root` as on `FS`.
 
 ### Directory listings
 
@@ -410,8 +413,9 @@ response's `Last-Modified`. What it is compared against:
 - **Static middleware**: its own `Last-Modified` and `ETag`, those of the
   pre-compressed variant when one is served. With `Root` the `ETag` is weak
   (mtime and size), so only the `Last-Modified` date can match. With `FS` the
-  `ETag` is strong (a content hash), so it can, and it does not depend on the
-  files' mtimes.
+  `ETag` of the identity file is strong (a content hash), so it can, and it
+  does not depend on the files' mtimes; that of a pre-compressed variant is
+  weak, so only its date can match.
 
 ```go
 // Opened once at startup: os.Root keeps every lookup inside ./files,
