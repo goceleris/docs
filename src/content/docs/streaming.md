@@ -191,7 +191,9 @@ the returned `done` is what releases it.
 A detached stream is also exempt from the server's `ReadTimeout` and `WriteTimeout` on
 every engine ([celeris#855](https://github.com/goceleris/celeris/issues/855)): `epoll`,
 `io_uring` and `adaptive` apply neither to a detached connection, and on `std` `Detach`
-clears the read and write deadlines `net/http` armed for the request. An undetached
+clears the read and write deadlines `net/http` armed for the request and bounds each
+write of the stream by `WriteTimeout` instead (a client that reads nothing ends the
+stream; a shutdown whose budget runs out fails the writes). An undetached
 `StreamWriter` is still a response with a `WriteTimeout`. See
 [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
 
