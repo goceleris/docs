@@ -565,14 +565,17 @@ why the same `sse.Config` runs unchanged on all engines. Source:
 
 An SSE stream is detached, so the server's `ReadTimeout` and `WriteTimeout` do not end
 it on any engine: leave them at their defaults and do not set `WriteTimeout: -1` for
-SSE. On `std` the `Detach` clears the deadlines `net/http` armed for the request (before
-[celeris#855](https://github.com/goceleris/celeris/issues/855) the write deadline cut
-the stream at `WriteTimeout`); the native engines apply neither to a detached
-connection. On `std` each write of the stream gets its own `WriteTimeout` (none at `-1`),
-so a client that stays connected and reads nothing ends its stream after one
-`WriteTimeout`, and a shutdown whose budget runs out fails the writes of the streams
-still running. A stream is ended by its handler returning, the client closing the
-connection, or a shutdown. See [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
+SSE. On `std` the `Detach` clears the write deadline `net/http` armed for the request
+(before [celeris#855](https://github.com/goceleris/celeris/issues/855) it cut the stream
+at `WriteTimeout`; `ReadTimeout` never did); the native engines apply neither to a
+detached connection. On `std` each write of the stream must make progress within
+`WriteTimeout` (no bound at `-1`), so a client that stays connected and reads nothing
+ends its stream after one `WriteTimeout` (the handler is parked in the write until
+then), and a shutdown whose budget runs out fails the writes of the streams still
+running. On the native engines `Send` does not wait for such a client; the handler
+returning or a shutdown ends the stream, `WriteTimeout` and `ClientPolicyClose` do not
+yet (celeris#884, celeris#885). A stream is ended by its handler returning, the client
+closing the connection, or a shutdown. See [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
 
 ## Common pitfalls
 

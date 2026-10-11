@@ -212,7 +212,7 @@ end a stream:
 
 | Engine | What a detached stream (SSE) sees |
 | ------ | --------------------------------- |
-| `std` | `net/http` arms a read and a write deadline for each request, and `Detach` clears both for that request. Before celeris#855 the write deadline stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut it on Go 1.27: `net/http` clears the read deadline when the handler starts. After `Detach`, each write of the stream (a `Write` or `Flush`) gets its own `WriteTimeout` and none when it returns, so an idle stream is not cut; `-1` sets no such bound. |
+| `std` | `net/http` arms one write deadline for the whole response, and `Detach` clears it for that request. Before celeris#855 it stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut a stream on Go 1.27: `net/http` has stopped it by the time the handler runs. In its place each write of the detached stream (a `Write` or `Flush`) must make progress within `WriteTimeout`, or it fails; a stream that is idle between events is not cut, and `-1` sets no such bound. |
 | `epoll`, `io_uring`, `adaptive` | Neither timeout is applied to a detached connection. |
 
 What bounds a detached stream is what its owner sets: the handler returning, the
@@ -220,9 +220,11 @@ client closing the connection, a shutdown. On `std` a client that stays connecte
 stops reading ends its stream too: a write that the client does not take for
 `WriteTimeout` fails (the handler, or the queue's drain goroutine, is parked in it, so
 returning or `ClientPolicyClose` cannot end the stream sooner), and when
-`ShutdownTimeout` runs out the writes of the streams still running fail. The native
-engines do not park the handler in a write; a client that reads nothing there is ended
-by the handler returning (`ClientPolicyClose` does not end it yet, see celeris#888).
+`ShutdownTimeout` runs out the writes of the streams still running fail. On the native
+engines `Send` was measured not to wait for a client that reads nothing, so the handler
+returning ends the stream, and a shutdown does; neither `WriteTimeout` nor
+`ClientPolicyClose` ends the connection of such a client yet (known gap, celeris#884 and
+celeris#885).
 
 A response that is **not** detached is still under `WriteTimeout`: a slow large
 download, or a chunked body written with `StreamWriter` without `Detach`. On `std` the
