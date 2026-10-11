@@ -51,7 +51,7 @@ walks through.
 ```go
 celeris.Config{
     ReadTimeout:  0,             // → 60s default (NOT unlimited)
-    WriteTimeout: -1,            // → no write timeout (e.g. for SSE/streaming)
+    WriteTimeout: -1,            // → no write timeout (e.g. for a large download)
     IdleTimeout:  90 * time.Second, // → exactly 90s
 }
 ```
@@ -201,22 +201,42 @@ of 10s defeats slow-loris while still letting legitimate proxies and high-latenc
 inside their H1 header read loop (`celeris/config.go:94-104`,
 `celeris/internal/resource/config.go:45-61`).
 
-### Streaming and SSE need `-1`
+### SSE needs no `-1`; other long-lived responses do
 
-A long-lived response — Server-Sent Events, a chunked stream, a slow large
-download — will be cut off by `WriteTimeout` (default 60s). Disable it on the
-server for streaming workloads:
+An SSE stream is a **detached** stream (the middleware calls
+[`Context.Detach`](/docs/streaming#detach)), and a detached stream is not subject to
+`ReadTimeout` or `WriteTimeout` on any engine
+([celeris#855](https://github.com/goceleris/celeris/issues/855)). You do not need
+`WriteTimeout: -1` for SSE, and a server-wide `WriteTimeout` of 30s or 60s does not
+end a stream:
+
+| Engine | What a detached stream (SSE) sees |
+| ------ | --------------------------------- |
+| `std` | `net/http` arms a read and a write deadline for each request, and `Detach` clears both for that request. Before celeris#855 the write deadline stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut it on Go 1.27: `net/http` clears the read deadline when the handler starts. |
+| `epoll`, `io_uring`, `adaptive` | Neither timeout is applied to a detached connection. |
+
+What does bound a detached stream is what its owner sets: the handler returning, the
+client closing the connection, a shutdown. A client that stays connected but stops
+reading is not ended by these timeouts either.
+
+A response that is **not** detached is still under `WriteTimeout`: a slow large
+download, or a chunked body written with `StreamWriter` without `Detach`. On `std` the
+deadline is absolute for the whole response, so a response that takes longer than
+`WriteTimeout` ends however steadily the client reads (measured: a streaming body that
+sends every 200 ms is cut at `WriteTimeout`). On HTTP/2 over `epoll`, `io_uring` and
+`adaptive` a write that waits for the client's flow-control window is bounded by
+`WriteTimeout` ([HTTP/2 response writes](/docs/core-concepts)). Raise the timeout for
+those routes, or disable it server-wide only when such responses dominate:
 
 ```go
 celeris.Config{
-    WriteTimeout: -1, // never time out the write side
+    WriteTimeout: -1, // never time out the write side of a non-detached response
 }
 ```
 
-If only *some* of your routes stream, prefer disabling the write timeout server-wide
-only when streaming dominates; otherwise keep the 60s default for normal routes and
-reach for [Streaming](/docs/streaming) / [SSE](/docs/sse) which manage long-lived
-responses at the handler level.
+If only *some* of your routes are long-lived, prefer keeping the 60s default for
+normal routes and make the long-lived ones SSE or [Streaming](/docs/streaming)
+routes that `Detach`.
 
 ### `ShutdownTimeout` only applies to context-based start
 
@@ -575,8 +595,9 @@ if err := s.Start(); err != nil {
 - **Zero is the default, not "off".** Leaving `ReadTimeout`/`WriteTimeout`/
   `MaxRequestBodySize` at zero gives you the *default*, not unlimited. Use `-1` to
   disable. (See [the convention](#the-zero---1-convention).)
-- **SSE/streaming cut off at 60s.** A long-lived response hits the default
-  `WriteTimeout`. Set `WriteTimeout: -1` for streaming workloads.
+- **A long non-SSE response is cut off at 60s.** SSE is detached and is not subject to
+  `WriteTimeout` on any engine, but a slow large download or an undetached
+  `StreamWriter` body hits the default. Raise or disable `WriteTimeout` for those.
 - **Native engine off-Linux fails at `Start`.** Don't hardcode `Engine: Adaptive`
   in portable code — leave it zero and you get `Std` off-Linux automatically.
 - **`MaxConns` is per worker.** Multiply by `Workers` to reason about the total.
@@ -620,5 +641,6 @@ So Celeris can tell "unset" (infer from `Protocol`) apart from an explicit
   `MaxRequestBodySize` / `MaxFormSize` bite.
 - [Routing](/docs/routing) — per-route `Async` / `Sync` / `UsesDriver` overrides of
   `AsyncHandlers`.
-- [Streaming](/docs/streaming) and [SSE](/docs/sse) — long-lived responses that need
-  `WriteTimeout: -1`.
+- [Streaming](/docs/streaming) and [SSE](/docs/sse) — long-lived responses: a detached
+  stream such as SSE is not subject to `ReadTimeout` or `WriteTimeout`; other
+  long-lived responses are.

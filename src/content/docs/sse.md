@@ -561,6 +561,16 @@ why the same `sse.Config` runs unchanged on all engines. Source:
 `celeris/middleware/sse/sse.go:346-707`. For the underlying detach mechanics, see
 [Streaming](/docs/streaming).
 
+### Server timeouts
+
+An SSE stream is detached, so the server's `ReadTimeout` and `WriteTimeout` do not end
+it on any engine: leave them at their defaults and do not set `WriteTimeout: -1` for
+SSE. On `std` the `Detach` clears the deadlines `net/http` armed for the request (before
+[celeris#855](https://github.com/goceleris/celeris/issues/855) the write deadline cut
+the stream at `WriteTimeout`); the native engines apply neither to a detached
+connection. A stream is ended by its handler returning, the client closing the
+connection, or a shutdown. See [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
+
 ## Common pitfalls
 
 - **Forgetting to check `Send`'s error.** A failed write cancels the context; if
