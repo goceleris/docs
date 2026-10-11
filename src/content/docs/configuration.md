@@ -212,12 +212,12 @@ end a stream:
 
 | Engine | What a detached stream (SSE) sees |
 | ------ | --------------------------------- |
-| `std` | `net/http` arms one write deadline for the whole response, and `Detach` clears it for that request. Before celeris#855 it stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut a stream on Go 1.27: `net/http` has stopped it by the time the handler runs. In its place each write of the detached stream (a `Write` or `Flush`) must make progress within `WriteTimeout`, or it fails; a stream that is idle between events is not cut, and `-1` sets no such bound. |
+| `std` | `net/http` arms one write deadline for the whole response, and `Detach` clears it for that request. Before celeris#855 it stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut a stream on Go 1.27: `net/http` has stopped it by the time the handler runs. In its place each write of the detached stream (a `Write` or `Flush`) is bounded by `WriteTimeout`: one that has not finished within it fails. For an SSE event, which is small, that means the client has stopped reading; a stream that is idle between events is not cut, and `-1` sets no such bound. |
 | `epoll`, `io_uring`, `adaptive` | Neither timeout is applied to a detached connection. |
 
 What bounds a detached stream is what its owner sets: the handler returning, the
 client closing the connection, a shutdown. On `std` a client that stays connected but
-stops reading ends its stream too: a write that the client does not take for
+stops reading ends its stream too: a write that has not finished within
 `WriteTimeout` fails (the handler, or the queue's drain goroutine, is parked in it, so
 returning or `ClientPolicyClose` cannot end the stream sooner), and when
 `ShutdownTimeout` runs out the writes of the streams still running fail. On the native

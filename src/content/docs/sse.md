@@ -568,8 +568,8 @@ it on any engine: leave them at their defaults and do not set `WriteTimeout: -1`
 SSE. On `std` the `Detach` clears the write deadline `net/http` armed for the request
 (before [celeris#855](https://github.com/goceleris/celeris/issues/855) it cut the stream
 at `WriteTimeout`; `ReadTimeout` never did); the native engines apply neither to a
-detached connection. On `std` each write of the stream must make progress within
-`WriteTimeout` (no bound at `-1`), so a client that stays connected and reads nothing
+detached connection. On `std` a write of the stream that has not finished within
+`WriteTimeout` fails (no bound at `-1`), so a client that stays connected and reads nothing
 ends its stream after one `WriteTimeout` (the handler is parked in the write until
 then), and a shutdown whose budget runs out fails the writes of the streams still
 running. On the native engines `Send` does not wait for such a client; the handler
