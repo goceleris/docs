@@ -188,6 +188,16 @@ returns a `done func()`. Source: `celeris/context_response.go:1471`.
 After `Detach`, the framework will not recycle the `Context` when the handler returns;
 the returned `done` is what releases it.
 
+A detached stream is also exempt from the server's `ReadTimeout` and `WriteTimeout` on
+every engine ([celeris#855](https://github.com/goceleris/celeris/issues/855)): `epoll`,
+`io_uring` and `adaptive` apply neither to a detached connection, and on `std` `Detach`
+clears the write deadline `net/http` armed for the request and bounds each write of the
+stream by `WriteTimeout` instead (a write that has not finished within `WriteTimeout`
+fails, so a client that reads nothing ends the stream; a shutdown whose budget runs out
+fails the writes). An undetached
+`StreamWriter` is still a response with a `WriteTimeout`. See
+[Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
+
 ### The canonical pattern
 
 Write one handler that works on both native and `std` engines by branching on
@@ -381,6 +391,9 @@ buffering when the handler intends to stream.
 - **Returning before the goroutine finishes on `std`.** If `EngineSupportsAsyncDetach()`
   is `false` and you spawn a goroutine and return, `net/http` closes the connection out
   from under it. Block until the stream finishes instead.
+- **Streaming without `Detach` on `std` past `WriteTimeout`.** An undetached
+  `StreamWriter` body ends at `WriteTimeout` (absolute for the whole response), where a
+  detached stream does not. `Detach` it, or raise `WriteTimeout`.
 - **Not calling `Close()`.** The response framing is finalised by `sw.Close()`. Defer
   it alongside `done()`.
 - **Expecting `Stream`/`StreamReader` to be incremental.** They buffer the whole
