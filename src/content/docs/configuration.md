@@ -283,12 +283,13 @@ std bridge). Zero applies the **4 MiB** default; `-1` disables the limit
 (`celeris/config.go`, `celeris/internal/resource/config.go`).
 
 The whole body is buffered in memory before your handler runs, so this limit times
-the number of concurrent connections is what clients can make the server hold. The
-limit is server-wide: set it to the largest body any route accepts, and cap the
-other routes lower with [`bodylimit`](/docs/middleware-traffic#body-limits). A body
-over the limit is refused before your handler runs: with `413` on HTTP/1.1 and on
-HTTP/2 under the `Std` engine, and with `RST_STREAM` on HTTP/2 under the `Epoll`,
-`IOUring` and `Adaptive` engines, which then also close the connection.
+the number of requests in flight is what clients can make the server hold (each
+HTTP/2 stream is a request, up to `MaxConcurrentStreams` per connection). The limit
+is server-wide: set it to the largest body any route accepts, and cap the other
+routes lower with [`bodylimit`](/docs/middleware-traffic#body-limits). A body over
+the limit is refused before your handler runs: with `413` on HTTP/1.1 and on HTTP/2
+under the `Std` engine, and with `RST_STREAM` on HTTP/2 under the `Epoll`, `IOUring`
+and `Adaptive` engines (which currently also end the connection).
 
 > **Upgrading to v1.6.0.** The default was `100 MB` before v1.6.0. An app that
 > accepts uploads larger than 4 MiB must set `MaxRequestBodySize` explicitly
