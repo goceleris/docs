@@ -221,7 +221,7 @@ Setting cookies on the response is a separate API — see
 The request body is **fully buffered before your handler runs**, so reading it
 is a synchronous, in-memory operation — there is no streaming read to drain and
 no I/O error to handle at read time. The maximum buffered size is governed by
-`Config.MaxRequestBodySize` (default 100 MB; see
+`Config.MaxRequestBodySize` (default 4 MiB, 100 MB before v1.6.0; see
 [Configuration](/docs/configuration)); requests exceeding it are rejected before
 they reach your handler.
 
@@ -350,7 +350,9 @@ s.POST("/gallery", func(c *celeris.Context) error {
 Multipart parsing is capped by `Config.MaxFormSize` (default `32 MB`, the value
 of `celeris.DefaultMaxFormSize`). Set it to `-1` to disable the in-memory limit.
 This is the memory budget for multipart parsing specifically; the overall body
-ceiling is `MaxRequestBodySize`. Both are described in
+ceiling is `MaxRequestBodySize` (default 4 MiB), so a multipart body over it is
+refused before parsing and the default `MaxFormSize` is never reached; raise both
+for larger multipart uploads. Both are described in
 [Configuration](/docs/configuration).
 
 ## Common pitfalls

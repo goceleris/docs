@@ -19,7 +19,7 @@ s := celeris.New(celeris.Config{
     WriteTimeout:       60 * time.Second,
     IdleTimeout:        600 * time.Second,
     ShutdownTimeout:    30 * time.Second,
-    MaxRequestBodySize: 50 << 20,         // 50 MiB (default 100 MiB; -1 = unlimited)
+    MaxRequestBodySize: 50 << 20,         // 50 MiB (default 4 MiB; -1 = unlimited)
     Logger:             slog.Default(),
 })
 ```
@@ -272,15 +272,29 @@ if err := s.StartWithContext(ctx); err != nil {
 
 | Field                | Type    | Default        | `-1` means | Constraint            |
 | -------------------- | ------- | -------------- | ---------- | --------------------- |
-| `MaxRequestBodySize` | `int64` | `100 MB` (`100 << 20`) | unlimited  | —                     |
+| `MaxRequestBodySize` | `int64` | `4 MiB` (`4 << 20`)    | unlimited  | —                     |
 | `MaxFormSize`        | `int64` | `32 MB` (`32 << 20`)   | unlimited  | per-request           |
 | `MaxHeaderBytes`     | `int`   | `16 MB` (`16 << 20`)   | —          | `>= 4096` if set      |
 
 ### `MaxRequestBodySize`
 
 The maximum request body, enforced uniformly across all protocols (H1, H2, and the
-std bridge). Zero applies the 100 MB default; `-1` disables the limit
-(`celeris/config.go:121-124`, `celeris/internal/resource/config.go:279-284`).
+std bridge). Zero applies the **4 MiB** default; `-1` disables the limit
+(`celeris/config.go`, `celeris/internal/resource/config.go`).
+
+The whole body is buffered in memory before your handler runs, so this limit times
+the number of concurrent connections is what clients can make the server hold. The
+limit is server-wide: set it to the largest body any route accepts, and cap the
+other routes lower with [`bodylimit`](/docs/middleware-traffic#body-limits). A body
+over the limit is refused before your handler runs: with `413` on HTTP/1.1 and on
+HTTP/2 under the `Std` engine, and with `RST_STREAM` on HTTP/2 under the `Epoll`,
+`IOUring` and `Adaptive` engines, which then also close the connection.
+
+> **Upgrading to v1.6.0.** The default was `100 MB` before v1.6.0. An app that
+> accepts uploads larger than 4 MiB must set `MaxRequestBodySize` explicitly
+> (`-1` disables the limit). A multipart body is a request body like any other,
+> so with the default limit the default `MaxFormSize` (32 MB) is never reached:
+> raise both for larger multipart uploads.
 
 ```go
 celeris.Config{MaxRequestBodySize: 10 << 20}  // cap uploads at 10 MiB
