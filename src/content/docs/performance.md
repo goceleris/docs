@@ -387,13 +387,13 @@ comments.Use(bodylimit.New(bodylimit.Config{Limit: "64KB"})) // tighter per-rout
 `MaxBytes` (`celeris/middleware/bodylimit/doc.go`). **Crucial layering note**: this
 middleware runs *after* the engine has already buffered the body, so it is a
 **per-route refinement**, not the DoS ceiling. The real ceiling is
-`Config.MaxRequestBodySize` (default 100 MB), enforced at the engine read layer
+`Config.MaxRequestBodySize` (default 4 MiB), enforced at the engine read layer
 *before* any buffering — set it to your true maximum at construction:
 
 ```go
 s := celeris.New(celeris.Config{
     Addr:               ":8080",
-    MaxRequestBodySize: 8 << 20, // 8 MB hard ceiling; -1 disables, 0 = 100 MB default
+    MaxRequestBodySize: 8 << 20, // 8 MB hard ceiling; -1 disables, 0 = 4 MiB default
 })
 ```
 

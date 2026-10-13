@@ -687,7 +687,9 @@ reject), then the actual buffered body length (catches a lying or absent
 > **Important architectural note.** Celeris buffers the full request body
 > *before* middleware runs, so `bodylimit` cannot stop an oversized payload from
 > entering memory when `Content-Length` is absent or dishonest — the framework's
-> own `maxRequestBodySize` (100 MB) is the hard ceiling. To force clients to
+> own `Config.MaxRequestBodySize` (4 MiB by default, 100 MB before v1.6.0) is the
+> hard ceiling, and a `MaxBytes` above it never triggers: raise the `Config` value
+> too for a route that accepts larger uploads. To force clients to
 > declare body size up front, set `ContentLengthRequired: true`; requests without
 > a `Content-Length` header are then rejected with `411 Length Required` before
 > the body check. Source: `celeris/middleware/bodylimit/bodylimit.go:12-23`,

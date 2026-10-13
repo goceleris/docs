@@ -633,7 +633,7 @@ The timeout and limit fields most relevant in production (full list in
 | `WriteTimeout`       | `60s`   | Caps response write time (`celeris/config.go:105-107`)                      |
 | `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`celeris/config.go:108-110`) |
 | `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`celeris/config.go:111-115`)           |
-| `MaxRequestBodySize` | `100MB` | Reject oversized bodies; `-1` disables (`celeris/config.go:121-124`)      |
+| `MaxRequestBodySize` | `4MiB`  | Reject oversized bodies; `-1` disables (was `100MB` before v1.6.0)        |
 | `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`celeris/config.go:163-164`)  |
 
 Set `IdleTimeout` *below* your load balancer's upstream idle timeout so Celeris
