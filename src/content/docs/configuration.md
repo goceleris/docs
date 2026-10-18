@@ -213,11 +213,11 @@ end a stream:
 | Engine | What a detached stream (SSE) sees |
 | ------ | --------------------------------- |
 | `std` | `net/http` arms one write deadline for the whole response, and `Detach` clears it for that request. Before celeris#855 it stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut a stream on Go 1.27: `net/http` has stopped it by the time the handler runs. In its place each write of the detached stream (a `Write` or `Flush`) is bounded by `WriteTimeout`: one that has not finished within it fails. For an SSE event, which is small, that means the client has stopped reading; a stream that is idle between events is not cut, and `-1` sets no such bound. |
-| `epoll`, `io_uring`, `adaptive` | `ReadTimeout` and `IdleTimeout` are not applied to a detached connection. `WriteTimeout` is, as "no progress for `WriteTimeout`": a detached connection with bytes queued for its peer, which takes none of them for `WriteTimeout`, is closed (the stream's context ends and `OnDisconnect` runs), whatever the middleware's idle deadline or the last read of the connection says. A peer that reads, however slowly, and a connection with nothing queued are not closed; `-1` sets no such bound ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 36 and 37). |
+| `epoll`, `io_uring`, `adaptive` | `ReadTimeout` and `IdleTimeout` are not applied to a detached connection. `WriteTimeout` is, as "no progress for `WriteTimeout`": a detached connection with bytes queued for its peer, which takes none of them for `WriteTimeout`, is closed (the stream's context ends and `OnDisconnect` runs), whatever the middleware's idle deadline or the last read of the connection says. A peer that reads, however slowly (there is no minimum rate), and a connection with nothing queued are not closed; `-1` sets no such bound ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). |
 
 What bounds a detached stream is what its owner sets: the handler returning, the
 client closing the connection, a shutdown. A client that stays connected but stops
-reading ends its stream too, on every engine. On `std` a write that has not finished
+reading ends its stream too, on HTTP/1.1 on every engine (an h2c stream is not covered yet). On `std` a write that has not finished
 within `WriteTimeout` fails (the handler, or the queue's drain goroutine, is parked in
 it, so returning or `ClientPolicyClose` cannot end the stream sooner), and when
 `ShutdownTimeout` runs out the writes of the streams still running fail. On the native

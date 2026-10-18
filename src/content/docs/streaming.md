@@ -193,7 +193,7 @@ whole on every engine ([celeris#855](https://github.com/goceleris/celeris/issues
 `epoll`, `io_uring` and `adaptive` apply `ReadTimeout` and `IdleTimeout` to a detached
 connection not at all, and `WriteTimeout` as "no progress for `WriteTimeout`" (a connection
 with bytes queued for a peer that takes none of them for `WriteTimeout` is closed;
-[celeris#888](https://github.com/goceleris/celeris/issues/888) items 36 and 37), and on
+[celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39), and on
 `std` `Detach` clears the write deadline `net/http` armed for the request and bounds each
 write of the stream by `WriteTimeout` instead (a write that has not finished within
 `WriteTimeout` fails, so a client that reads nothing ends the stream; a shutdown whose

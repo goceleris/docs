@@ -575,17 +575,19 @@ reading is dealt with per engine:
   parked in the write until then), and a shutdown whose budget runs out fails the writes
   of the streams still running.
 - **`epoll`, `io_uring`, `adaptive`**: `Send` does not wait for such a client (the write
-  only queues the event in the engine), so a write error and `ClientPolicyClose` are not
-  what ends its stream. `WriteTimeout` does, as "no progress for `WriteTimeout`": a client
+  only queues the event in the engine), so a write error is not what ends its stream, and
+  `ClientPolicyClose` ends it only earlier, when the queue overflows (a drain goroutine
+  that lags behind the producer). `WriteTimeout` is the bound when it does not, as "no
+  progress for `WriteTimeout`": a client
   that takes none of the bytes the engine has queued for it for `WriteTimeout` is
   disconnected, its context is cancelled and `OnDisconnect` runs
-  ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 36 and 37). A client
-  that keeps reading, however slowly, is not disconnected, and neither is one with nothing
+  ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). A client
+  that keeps reading, however slowly (there is no minimum rate), is not disconnected, and neither is one with nothing
   queued for it; `-1` sets no such bound. The handler returning or a shutdown ends the
   stream sooner.
 
 A stream is ended by its handler returning, the client closing the connection, a shutdown,
-or, on every engine, a client that stops reading. See
+or a client that stops reading (HTTP/1.1 on every engine; an h2c stream is not covered yet). See
 [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
 
 ## Common pitfalls
