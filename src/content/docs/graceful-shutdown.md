@@ -247,14 +247,16 @@ finish within `ctx`, or `nil`. Note that hook panics are swallowed (recovered) â
 do not surface in the return value â€” so do your own error logging inside the hook.
 
 **Overlapping calls.** Several `Shutdown` calls can share one drain, for example a second
-signal. What each one gets back depends on the engine. On `std` there is one drain and the
-shortest budget governs: a call whose own ctx has expired returns that ctx's error, and a call
+signal that calls `Shutdown` again. What each one gets back depends on the engine. On `std`
+there is one drain and the shortest budget governs: a call whose own ctx has expired returns that ctx's error, and a call
 whose ctx is still live, when another call's budget ended the drain while handlers may still be
 running, returns an error that says so and wraps that other call's context error. On `epoll` and
-`io_uring` the last Shutdown call governs: the drain's budget is that call's ctx, and the call
-returns `nil`, so a caller whose ctx is still live gets `nil` (a caller whose own ctx ends first
-gets that ctx's error). `adaptive` passes its ctx to both of its engines, so each follows that
-rule. The last call to reach the engine is the one that counts, not the one with the earliest
+`io_uring` the last Shutdown call that reaches the engine governs: the drain's budget is that
+call's ctx, and the call returns `nil`, so a caller whose ctx is still live gets `nil` (a caller
+whose own ctx ends first gets that ctx's error). A call that only waits for a shutdown that a
+cancel of `StartWithContext`'s context started never reaches the engine, so it does not govern:
+it returns that shutdown's result, or its own ctx's error if that is done first. `adaptive`
+passes its ctx to both of its engines, so each follows that rule. The last call to reach the engine is the one that counts, not the one with the earliest
 deadline, so an earlier call with a shorter budget does not end the drain on these engines.
 
 ### What the drain waits for
@@ -309,9 +311,11 @@ or the `ctx` of a direct `Shutdown`), or, for a `ctx` with no deadline such as
 to send, and, while `Config.WriteTimeout` is set (60 s by default), no longer than that.
 A `WriteTimeout` below 250 ms does not shorten the drain: the 250 ms floor wins, because
 the drain ends at the later of the two ends. A client that never reads therefore holds
-the shutdown for up to `WriteTimeout` and no longer, even under a
-`Shutdown(context.Background())`. With `WriteTimeout: -1` (no timeout) only the context
-bounds it, and a `Shutdown(context.Background())` waits for as long as such a client
+the shutdown for `WriteTimeout` (250 ms when that is shorter), even under a
+`Shutdown(context.Background())`; a `ctx` deadline can end it sooner. On `io_uring` the
+HTTP/2 handlers' wait and the send drain that follows each take their own `WriteTimeout`, so
+a server with HTTP/2 stream handlers still running can be held up to twice that. With
+`WriteTimeout: -1` (no timeout) only the context bounds it, and a `Shutdown(context.Background())` waits for as long as such a client
 does not read. Before celeris v1.6.0 `epoll` closed each connection as soon as the
 handlers had returned, and such a response lost its tail
 ([celeris#760](https://github.com/goceleris/celeris/issues/760)).
@@ -321,7 +325,7 @@ it the worker stops accepting. Before [celeris#978](https://github.com/goceleris
 its send drain was a fixed 250 ms whatever the budget, so a client slower than that could
 lose the tail. `std` drains through net/http.
 
-(Maintainer-measured on each engine, not reproduced by a committed test, with one request in
+(Maintainer-measured on each engine, with one request in
 flight at the shutdown. An h2c request, on an `.Async()` route or not, got its response on
 every engine, with the hooks run after the handler; before v1.6.0 it got `unexpected EOF` on
 an `.Async()` route on `epoll`, `io_uring` and `adaptive`, and on `std` the hooks ran before
@@ -728,7 +732,7 @@ When the `Start*` call returns differs by engine:
   *cancel* did not stop at `ShutdownTimeout` at all: the hooks, and the call, waited
   for the handler ([celeris#753](https://github.com/goceleris/celeris/issues/753)).
 
-(Maintainer-measured, not reproduced by a committed test, with a 500 ms deadline, a 100 ms
+(Maintainer-measured, with a 500 ms deadline, a 100 ms
 hook and a request held 2 s, reading each
 call's return as it happens:
 
