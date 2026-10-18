@@ -617,12 +617,16 @@ In Kubernetes, the rolling-update pattern is: container receives `SIGTERM` →
 your `SIGTERM` handler flips readiness so `/readyz` returns 503 → LB stops new
 traffic → the context is cancelled → in-flight requests drain until
 `ShutdownTimeout`, and then Celeris stops waiting for them (it does not finish them,
-and their handlers keep running) → the `OnShutdown` hooks run → process exits.
+and their handlers keep running) → the `OnShutdown` hooks run → the `Start*` call
+returns and the process exits. On `epoll`, `io_uring` and `adaptive` the `Start*` call
+returns only after the last handler has returned, so a handler that overruns holds the
+process up until `SIGKILL` cuts it.
 Set `terminationGracePeriodSeconds` to more than the readiness delay plus
 `ShutdownTimeout`, plus a margin. The sum holds only when every `OnShutdown` hook
 returns once its `ctx` is done, because the hooks share the drain's deadline; the
 margin covers the hooks that overrun and the process exit, since Kubernetes sends
-`SIGKILL` when the period ends.
+`SIGKILL` when the period ends. On the native engines the sum does not bound the
+exit when a handler overruns: that handler is what `SIGKILL` ends.
 
 ## Capacity and timeout tuning
 
@@ -697,7 +701,7 @@ Prometheus/OpenTelemetry export, and the full collector snapshot surface, see
   awareness).
 - **`Config.ShutdownTimeout` longer than the orchestrator's grace period.** The
   process gets `SIGKILL`'d mid-drain. Make `terminationGracePeriodSeconds` /
-  `TimeoutStopSec` larger than `ShutdownTimeout`.
+  `TimeoutStopSec` larger than `ShutdownTimeout` plus a margin (and, on Kubernetes, the readiness delay).
 
 ## FAQ
 

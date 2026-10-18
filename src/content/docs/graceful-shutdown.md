@@ -248,16 +248,23 @@ do not surface in the return value — so do your own error logging inside the h
 
 **Overlapping calls.** Several `Shutdown` calls can share one drain, for example a second
 signal that calls `Shutdown` again. What each one gets back depends on the engine. On `std`
-there is one drain and the shortest budget governs: a call whose own ctx has expired returns that ctx's error, and a call
-whose ctx is still live, when another call's budget ended the drain while handlers may still be
-running, returns an error that says so and wraps that other call's context error. On `epoll` and
-`io_uring` the last Shutdown call that reaches the engine governs: the drain's budget is that
-call's ctx, and the call returns `nil`, so a caller whose ctx is still live gets `nil` (a caller
-whose own ctx ends first gets that ctx's error). A call that only waits for a shutdown that a
-cancel of `StartWithContext`'s context started never reaches the engine, so it does not govern:
+there is one drain and the shortest budget governs: a call whose own ctx has expired returns
+that ctx's error, and a call whose ctx is still live, when another call's budget ended the
+drain while handlers may still be running, returns an error that says so and wraps that other
+call's context error. On `epoll` and `io_uring` the last Shutdown call that reaches the engine governs:
+the drain's budget is that call's ctx, and the call returns `nil`, so a caller whose ctx is
+still live gets `nil` (a caller whose own ctx ends first gets that ctx's error). A call that
+only waits for a shutdown that a cancel of `StartWithContext`'s context started never reaches the engine, so it does not govern:
 it returns that shutdown's result, or its own ctx's error if that is done first. `adaptive`
-passes its ctx to both of its engines, so each follows that rule. The last call to reach the engine is the one that counts, not the one with the earliest
-deadline, so an earlier call with a shorter budget does not end the drain on these engines.
+passes its ctx to both of its engines, so each follows that rule. The last call to reach the
+engine is the one that counts, not the one with the earliest deadline, so an earlier call with
+a shorter budget does not end the drain on these engines.
+
+Whatever the engine, each direct `Shutdown` call that reaches the engine
+runs the `OnShutdown` hooks itself: only a call that merely waits on a `StartWithContext`-cancel
+shutdown is deduplicated. Two overlapping direct calls therefore run the hooks twice. On `epoll`,
+`io_uring` and `adaptive`, a call whose ctx ends before the drain does returns that ctx's error
+and runs its hooks then.
 
 ### What the drain waits for
 
@@ -277,8 +284,8 @@ The drain waits for:
   their responses have gone out, response data waiting for the client's
   `WINDOW_UPDATE` included. It does so while the shutdown's context is live (until its
   deadline or, for a `ctx` with no deadline, until it is done, and, while
-  `Config.WriteTimeout` is set, no longer than that), and for at least 250 ms from its start, even
-  with a shorter `WriteTimeout`. A handler waiting for the client's window gives
+  `Config.WriteTimeout` is set, no longer than that), and, only while work is still pending, for at least 250 ms from its start,
+  even with a shorter `WriteTimeout`; it ends as soon as nothing is left. A handler waiting for the client's window gives
   up at `WriteTimeout` from its write. With `WriteTimeout: -1` it waits until the
   client grants window or closes, and if a sync handler waiting on it (a lock it holds
   across the write) blocks the worker that would see either, nothing ends the wait

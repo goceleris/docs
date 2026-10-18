@@ -459,7 +459,9 @@ so do some libraries. What it costs depends on where the handler runs:
   already holds 4 MiB of response data it could not send for the peer's window: its streams then
   run on the HTTP/2 worker pool, where a Goexit ends them silently, as it does for an `.Async()`
   route.
-- **Other callbacks run on the loop too.** The global middleware; the `NotFound` and
+- **Other callbacks run on the loop too.** The global middleware, for a request that matches no
+  route (for a request that matches a route it runs in that route's chain, on the goroutine the
+  route's handler runs on, which is off the loop for an `.Async()` route); the `NotFound` and
   `MethodNotAllowed` handlers of a request that matches no route (run inline whatever the routes
   are marked, until a blocking run promotes them when `Config.AsyncHandlers` is set); the
   `OnConnect` and `OnDisconnect` callbacks; and `OnExpectContinue`, unless its connection was
