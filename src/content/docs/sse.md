@@ -583,9 +583,11 @@ reading is dealt with per engine:
   disconnected, its context is cancelled and `OnDisconnect` runs
   ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). A client
   that keeps reading, however slowly (there is no minimum rate), is not disconnected, and neither is one with nothing
-  queued for it; `-1` sets no such bound. The disconnect comes `WriteTimeout` after the
-  client last took a byte, plus the engine's sweep interval (about 50 ms on `epoll`, up to
-  2 s on `io_uring`; a `WriteTimeout` shorter than that can double). The handler returning or a shutdown ends the
+  queued for it; `-1` sets no such bound. The disconnect comes between about 3/4
+  and 5/4 of `WriteTimeout` after the client last took a byte (its progress is sampled every
+  quarter of `WriteTimeout`; a send completion restarts the clock at once), plus the
+  engine's sweep interval (up to about 0.1 s on `epoll`, up to 2 s on `io_uring`; a
+  `WriteTimeout` shorter than that can double). The handler returning or a shutdown ends the
   stream sooner.
 
 A stream is ended by its handler returning, the client closing the connection, a shutdown,
