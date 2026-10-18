@@ -564,18 +564,29 @@ why the same `sse.Config` runs unchanged on all engines. Source:
 ### Server timeouts
 
 An SSE stream is detached, so the server's `ReadTimeout` and `WriteTimeout` do not end
-it on any engine: leave them at their defaults and do not set `WriteTimeout: -1` for
+it as a whole on any engine: leave them at their defaults and do not set `WriteTimeout: -1` for
 SSE. On `std` the `Detach` clears the write deadline `net/http` armed for the request
 (before [celeris#855](https://github.com/goceleris/celeris/issues/855) it cut the stream
-at `WriteTimeout`; `ReadTimeout` never did); the native engines apply neither to a
-detached connection. On `std` a write of the stream that has not finished within
-`WriteTimeout` fails (no bound at `-1`), so a client that stays connected and reads nothing
-ends its stream after one `WriteTimeout` (the handler is parked in the write until
-then), and a shutdown whose budget runs out fails the writes of the streams still
-running. On the native engines `Send` does not wait for such a client; the handler
-returning or a shutdown ends the stream, `WriteTimeout` and `ClientPolicyClose` do not
-yet (celeris#884, celeris#885). A stream is ended by its handler returning, the client
-closing the connection, or a shutdown. See [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
+at `WriteTimeout`; `ReadTimeout` never did). A client that stays connected and stops
+reading is dealt with per engine:
+
+- **`std`**: a write of the stream that has not finished within `WriteTimeout` fails (no
+  bound at `-1`), so the client's stream ends after one `WriteTimeout` (the handler is
+  parked in the write until then), and a shutdown whose budget runs out fails the writes
+  of the streams still running.
+- **`epoll`, `io_uring`, `adaptive`**: `Send` does not wait for such a client (the write
+  only queues the event in the engine), so a write error and `ClientPolicyClose` are not
+  what ends its stream. `WriteTimeout` does, as "no progress for `WriteTimeout`": a client
+  that takes none of the bytes the engine has queued for it for `WriteTimeout` is
+  disconnected, its context is cancelled and `OnDisconnect` runs
+  ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 36 and 37). A client
+  that keeps reading, however slowly, is not disconnected, and neither is one with nothing
+  queued for it; `-1` sets no such bound. The handler returning or a shutdown ends the
+  stream sooner.
+
+A stream is ended by its handler returning, the client closing the connection, a shutdown,
+or, on every engine, a client that stops reading. See
+[Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
 
 ## Common pitfalls
 

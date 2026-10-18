@@ -205,7 +205,7 @@ inside their H1 header read loop (`celeris/config.go:94-104`,
 
 An SSE stream is a **detached** stream (the middleware calls
 [`Context.Detach`](/docs/streaming#detach)), and a detached stream is not subject to
-`ReadTimeout` or `WriteTimeout` on any engine
+`ReadTimeout` or `WriteTimeout` as a whole on any engine
 ([celeris#855](https://github.com/goceleris/celeris/issues/855)). You do not need
 `WriteTimeout: -1` for SSE, and a server-wide `WriteTimeout` of 30s or 60s does not
 end a stream:
@@ -213,18 +213,17 @@ end a stream:
 | Engine | What a detached stream (SSE) sees |
 | ------ | --------------------------------- |
 | `std` | `net/http` arms one write deadline for the whole response, and `Detach` clears it for that request. Before celeris#855 it stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut a stream on Go 1.27: `net/http` has stopped it by the time the handler runs. In its place each write of the detached stream (a `Write` or `Flush`) is bounded by `WriteTimeout`: one that has not finished within it fails. For an SSE event, which is small, that means the client has stopped reading; a stream that is idle between events is not cut, and `-1` sets no such bound. |
-| `epoll`, `io_uring`, `adaptive` | Neither timeout is applied to a detached connection. |
+| `epoll`, `io_uring`, `adaptive` | `ReadTimeout` and `IdleTimeout` are not applied to a detached connection. `WriteTimeout` is, as "no progress for `WriteTimeout`": a detached connection with bytes queued for its peer, which takes none of them for `WriteTimeout`, is closed (the stream's context ends and `OnDisconnect` runs), whatever the middleware's idle deadline or the last read of the connection says. A peer that reads, however slowly, and a connection with nothing queued are not closed; `-1` sets no such bound ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 36 and 37). |
 
 What bounds a detached stream is what its owner sets: the handler returning, the
-client closing the connection, a shutdown. On `std` a client that stays connected but
-stops reading ends its stream too: a write that has not finished within
-`WriteTimeout` fails (the handler, or the queue's drain goroutine, is parked in it, so
-returning or `ClientPolicyClose` cannot end the stream sooner), and when
+client closing the connection, a shutdown. A client that stays connected but stops
+reading ends its stream too, on every engine. On `std` a write that has not finished
+within `WriteTimeout` fails (the handler, or the queue's drain goroutine, is parked in
+it, so returning or `ClientPolicyClose` cannot end the stream sooner), and when
 `ShutdownTimeout` runs out the writes of the streams still running fail. On the native
-engines `Send` was measured not to wait for a client that reads nothing, so the handler
-returning ends the stream, and a shutdown does; neither `WriteTimeout` nor
-`ClientPolicyClose` ends the connection of such a client yet (known gap, celeris#884 and
-celeris#885).
+engines `Send` does not wait for a client that reads nothing, so there it is the engine
+that closes the connection once the client has taken none of the bytes queued for it for
+`WriteTimeout`.
 
 A response that is **not** detached is still under `WriteTimeout`: a slow large
 download, or a chunked body written with `StreamWriter` without `Detach`. On `std` the
@@ -664,5 +663,6 @@ So Celeris can tell "unset" (infer from `Protocol`) apart from an explicit
 - [Routing](/docs/routing) — per-route `Async` / `Sync` / `UsesDriver` overrides of
   `AsyncHandlers`.
 - [Streaming](/docs/streaming) and [SSE](/docs/sse) — long-lived responses: a detached
-  stream such as SSE is not subject to `ReadTimeout` or `WriteTimeout`; other
-  long-lived responses are.
+  stream such as SSE is not subject to `ReadTimeout` or `WriteTimeout` as a whole (a
+  client that reads nothing of it is closed after `WriteTimeout`); other long-lived
+  responses are.
