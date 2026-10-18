@@ -188,15 +188,16 @@ func main() {
         return c.String(200, "pong")
     })
 
-    // Blocks until ctx is canceled; returns after the in-flight requests
-    // have drained and then the OnShutdown hooks have run.
+    // Blocks until ctx is cancelled; returns after the in-flight requests
+    // have drained, or the ShutdownTimeout deadline has passed, and then the
+    // OnShutdown hooks have run.
     if err := s.StartWithContext(ctx); err != nil {
         log.Fatal(err)
     }
 }
 ```
 
-When the context is canceled, Celeris stops accepting new connections, drains the
+When the context is cancelled, Celeris stops accepting new connections, drains the
 in-flight requests, then runs your shutdown hooks, and `StartWithContext` returns only
 after both. `Config.ShutdownTimeout` (default **30s**) is one budget for the drain and
 the hooks. A request still running when it expires is not interrupted (see
@@ -211,7 +212,7 @@ s.OnShutdown(func(ctx context.Context) {
 ```
 
 Shutdown hooks fire in registration order with the shutdown context, after the
-in-flight requests have drained, on every engine (HTTP/2 has two exceptions; see
+in-flight requests have drained or the deadline has passed, on every engine (see
 [What the drain waits for](/docs/graceful-shutdown#what-the-drain-waits-for)).
 `StartWithContext` returns only after they have run, so a hook must not wait for it to
 return.

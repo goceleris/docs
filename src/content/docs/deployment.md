@@ -554,10 +554,9 @@ Neither `Shutdown` nor `PauseAccept` touches the readiness probe — the
 `healthcheck` middleware only ever returns what your `ReadyChecker` returns
 (`celeris/middleware/healthcheck/healthcheck.go:83`). To stop the LB sending new
 traffic during a drain you have to flip readiness yourself, and before the drain
-begins: the `OnShutdown` hooks run only after the requests in flight have finished, on
-every engine since celeris v1.6.0
-([celeris#703](https://github.com/goceleris/celeris/issues/703); HTTP/2 has two
-exceptions, see
+begins: the `OnShutdown` hooks run only after the requests in flight have finished, or once
+the shutdown deadline has passed, on every engine since celeris v1.6.0
+([celeris#703](https://github.com/goceleris/celeris/issues/703); see
 [What the drain waits for](/docs/graceful-shutdown#what-the-drain-waits-for)), which is
 too late to steer the load balancer (see
 [Shutdown sequence](/docs/graceful-shutdown#shutdown-sequence)). The idiomatic wiring
@@ -616,10 +615,14 @@ drain ordering, and the native engines' `SO_REUSEPORT` rebind — is covered in
 
 In Kubernetes, the rolling-update pattern is: container receives `SIGTERM` →
 your `SIGTERM` handler flips readiness so `/readyz` returns 503 → LB stops new
-traffic → the context is cancelled → in-flight requests drain within
-`ShutdownTimeout` → the `OnShutdown` hooks run → process exits. Set
-`terminationGracePeriodSeconds` greater than the readiness delay plus
-`ShutdownTimeout`.
+traffic → the context is cancelled → in-flight requests drain until
+`ShutdownTimeout`, and then Celeris stops waiting for them (it does not finish them,
+and their handlers keep running) → the `OnShutdown` hooks run → process exits.
+Set `terminationGracePeriodSeconds` to more than the readiness delay plus
+`ShutdownTimeout`, plus a margin. The sum holds only when every `OnShutdown` hook
+returns once its `ctx` is done, because the hooks share the drain's deadline; the
+margin covers the hooks that overrun and the process exit, since Kubernetes sends
+`SIGKILL` when the period ends.
 
 ## Capacity and timeout tuning
 

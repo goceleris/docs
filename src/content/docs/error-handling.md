@@ -440,6 +440,33 @@ no JSON envelope, no customization, no `OnError`. For anything more than "don't
 crash," install `recovery.New()` and (optionally) wire panic reporting (Sentry,
 structured 500s, etc.) through its `ErrorHandlerErr`.
 
+### `runtime.Goexit` is not recovered
+
+A panic is caught and answered with a 500. `runtime.Goexit` is not caught: it ends the goroutine it
+runs on without returning. `t.FailNow`, `t.Fatal` and `t.SkipNow` in a test's handler call it, and
+so do some libraries. What it costs depends on where the handler runs:
+
+- **A sync handler must not call `runtime.Goexit`.** On `epoll`, `io_uring` and `adaptive` a sync
+  handler runs on the event-loop goroutine, so a Goexit ends that loop for good: every connection
+  the loop owns goes unserved and its `SO_REUSEPORT` listener stops accepting. The engine logs an
+  Error (`... ended without returning`) and cannot recover.
+- **An `.Async()` route** runs off the loop, so the loop survives a Goexit there, but the cost
+  depends on the protocol. On HTTP/1.1 the native engines close that connection and log an Error.
+  On HTTP/2 the stream gets no response and no `RST_STREAM`, nothing is logged, and the connection
+  stays open until the client's own timeout.
+- **HTTP/2 sync routes.** A stream of a sync route runs inline whether or not its request has a
+  body, so a Goexit there ends the loop and is logged. The one exception is a connection that
+  already holds 4 MiB of response data it could not send for the peer's window: its streams then
+  run on the HTTP/2 worker pool, where a Goexit ends them silently, as it does for an `.Async()`
+  route.
+- **Other callbacks run on the loop too.** The global middleware; the `NotFound` and
+  `MethodNotAllowed` handlers of a request that matches no route (run inline whatever the routes
+  are marked, until a blocking run promotes them when `Config.AsyncHandlers` is set); the
+  `OnConnect` and `OnDisconnect` callbacks; and `OnExpectContinue`, unless its connection was
+  promoted to async dispatch. None of them may call `runtime.Goexit`.
+- **`std`** runs each request on its own goroutine, so a Goexit ends only that request's
+  goroutine. net/http closes an HTTP/1.1 connection whose handler Goexits.
+
 ## Common pitfalls
 
 - **Writing then returning an error.** Once you call `c.JSON`/`c.String`/etc.,
@@ -457,6 +484,8 @@ structured 500s, etc.) through its `ErrorHandlerErr`.
   message.
 - **Registering `recovery` before `logger`/`metrics`.** Put `recovery` after
   them so observability middleware see the recovered 500.
+- **Calling `runtime.Goexit` in a handler.** On `epoll`, `io_uring` and `adaptive` it ends the
+  event loop when the handler is sync; see the section above for each case.
 - **Calling `OnError`, `NotFound`, or `MethodNotAllowed` after `Start`.**
   Configure them before the server begins serving.
 
