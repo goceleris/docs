@@ -311,7 +311,7 @@ If compression was negotiated, you can toggle it per connection:
   connection (only meaningful after negotiation).
 - `SetCompressionLevel(level int) error` — set the flate level for subsequent
   writes; valid range `-2`…`9`, else returns an error
-  (`celeris/middleware/websocket/conn.go` (`Conn.EnableWriteCompression`)).
+  (`celeris/middleware/websocket/conn.go` (`Conn.EnableWriteCompression`, `Conn.SetCompressionLevel`)).
 
 ### Streaming large messages
 

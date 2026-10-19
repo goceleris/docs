@@ -212,7 +212,7 @@ s.Use(ratelimit.New(ratelimit.Config{Store: store}))
 The Redis store uses an atomic Lua token-bucket script (loaded via `SCRIPT LOAD`
 at `New` time, then run with `EVALSHA` on the hot path), so the limit holds even
 under concurrent requests across replicas. Source:
-`celeris/middleware/ratelimit/redisstore/redisstore.go` (`luaUndo`) (the script),
+`celeris/middleware/ratelimit/redisstore/redisstore.go` (`luaTokenBucket`) (the script),
 `celeris/middleware/ratelimit/redisstore/redisstore.go` (`New`). A memcached store ships alongside it at
 `github.com/goceleris/celeris/middleware/ratelimit/memcachedstore`.
 
