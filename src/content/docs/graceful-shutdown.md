@@ -442,7 +442,7 @@ Plain `session.New` gives you no such handle, so a graceful stop cannot drain th
 queue and the final updates of in-flight requests may be lost — prefer
 `NewWithCloser`/`NewHandler` whenever `WriteBehind` is on. See
 [Middleware](/docs/middleware) for the full session configuration surface. Source:
-`celeris/middleware/session/writebehind.go`, `celeris/middleware/session/session.go:319,395`.
+`celeris/middleware/session/writebehind.go`, `celeris/middleware/session/session.go` (`Handler.Close`, `NewWithCloser`).
 
 ## Pause and resume accept
 
@@ -476,7 +476,7 @@ _ = s.ResumeAccept()
 started yet (no engine is installed). Always check the error and have a fallback (a
 full `Shutdown`) for portability. Source: `celeris/server.go` (`PauseAccept`,
 `ResumeAccept`),
-`celeris/errors.go:29-31`, `celeris/internal/engine/engine.go:38-62`. See
+`celeris/errors.go` (`ErrAcceptControlNotSupported`), `celeris/internal/engine/engine.go` (`AcceptController`). See
 [Engines](/docs/engines) for which engine runs where.
 
 > Pause/resume is for *temporary* quiescing. It does not drain — in flight requests
@@ -566,7 +566,7 @@ To avoid it when using socket handoff, **leave `Config.Addr` empty** (or set it 
 value that matches the listener). Two cases are deliberately *allowed* and do not
 error: the default `":8080"`, and any `"<host>:0"` (pick-any-port), since delegating
 port selection to the pre-bound listener is a common, intentional pattern. Source:
-`celeris/internal/resource/config.go:210-224`.
+`celeris/internal/resource/config.go` (`Config.Validate`).
 
 ```go
 // ✅ No Addr → no ambiguity. The listener decides the bind address.
