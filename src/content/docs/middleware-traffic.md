@@ -504,7 +504,7 @@ hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go` (`Con
 | **Backpressure** | ≥ 0.90 | Low-priority requests get `503` (`BackpressureStatus`); others sleep `BackpressureDelay` (default 50ms) then pass; exempt pass |
 | **Reject** | ≥ 0.95 | All non-exempt requests get `503` + `Retry-After` |
 
-Source: `celeris/middleware/overload/config.go` (`Stage`) and `celeris/middleware/overload/config.go` (`Config.StopContext`).
+Source: `celeris/middleware/overload/config.go` (`Stage`, `defaultThresholds`).
 
 ### `CollectorProvider` is required
 

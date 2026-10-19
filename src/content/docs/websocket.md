@@ -128,7 +128,7 @@ pattern is one read loop plus any number of writer goroutines
 another goroutine, store it in a map, whatever. `ReadMessageReuse` hands back an
 internal buffer that is overwritten on the next read; use it for echo servers and
 forwarding proxies where you process the message immediately and don't retain it
-(`celeris/middleware/websocket/conn.go` (`Conn.ReadMessage`), `:411`).
+(`celeris/middleware/websocket/conn.go` (`Conn.ReadMessage`, `Conn.ReadMessageReuse`)).
 
 ```go
 // Owned copy — safe to keep:
@@ -300,7 +300,7 @@ Handler: func(c *websocket.Conn) {
 
 `SetReadDeadline`/`SetWriteDeadline` delegate to the underlying `net.Conn`, which
 only exists on the std (hijack) path; on native engines they are no-ops
-(`celeris/middleware/websocket/conn.go` (`Conn.SetReadDeadline`), `:985`). For portable idle
+(`celeris/middleware/websocket/conn.go` (`Conn.SetReadDeadline`, `Conn.SetWriteDeadline`)). For portable idle
 enforcement use [`Config.IdleTimeout`](#config).
 
 ### Runtime compression control
@@ -472,7 +472,7 @@ Real-time apps usually need to push one message to *every* connected client
 abstraction: register connections, broadcast to all (or a filtered subset),
 unregister on disconnect. It encodes each frame **once** per broadcast and reuses
 it across every connection, so the wire-encoding cost is O(1) regardless of
-subscriber count (`celeris/middleware/websocket/hub.go` (`Hub.Len`)).
+subscriber count (`celeris/middleware/websocket/hub.go` (`Hub`, `Hub.Broadcast`)).
 
 ```go
 hub := websocket.NewHub(websocket.HubConfig{})
@@ -634,7 +634,7 @@ your function is the sole gate. A rejected origin yields **403** with body
 ## Close handling
 
 When the peer sends a close frame, the read loop returns a `*CloseError` from the
-default close handler (`celeris/middleware/websocket/conn.go` (`Conn.CloseHandler`)):
+default close handler (`celeris/middleware/websocket/conn.go` (`Conn.SetCloseHandler`, `CloseError`)):
 
 ```go
 type CloseError struct {

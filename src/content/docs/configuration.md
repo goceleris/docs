@@ -112,8 +112,7 @@ The I/O engine that drives the accept/read/write loop. The native engines are
 | `celeris.Std`       | any platform  | **Default off-Linux.** Go `net/http` server         |
 
 Defined in `celeris/config.go` (`EngineType`). The zero value resolves to `Adaptive` on
-Linux and `Std` everywhere else (`celeris/internal/resource/config.go` (`defaultEngine`),
-`243-245`).
+Linux and `Std` everywhere else (`celeris/internal/resource/config.go` (`defaultEngine`, `Config.WithDefaults`)).
 
 **Off-Linux hard error.** If you explicitly request `Adaptive`, `Epoll`, or
 `IOUring` on macOS, Windows, or any non-Linux OS, `Start` fails validation with an
@@ -439,7 +438,7 @@ s := celeris.New(cfg)
 
 Built-in metrics are **on by default**. Set `DisableMetrics: true` to turn off the
 collector — `Server.Collector()` then returns `nil` and per-request recording is
-skipped (`celeris/config.go` (`Config.DisableMetrics`), `celeris/server.go` (`New`) and `celeris/server.go` (`Server.PauseAccept`)).
+skipped (`celeris/config.go` (`Config.DisableMetrics`), `celeris/server.go` (`New`, `Server.Collector`)).
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU
@@ -502,7 +501,7 @@ celeris.Config{
 ### `OnConnect` / `OnDisconnect`
 
 Connection lifecycle callbacks, invoked with the remote peer address when a
-connection is accepted and closed (`celeris/config.go` (`Config`)).
+connection is accepted and closed (`celeris/config.go` (`Config.OnConnect`, `Config.OnDisconnect`)).
 
 > **These run on the event loop — they must not block.** A slow `OnConnect` /
 > `OnDisconnect` stalls the I/O worker and degrades every connection it handles. Do
