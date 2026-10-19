@@ -49,7 +49,7 @@ each key gets a bucket that refills at `RPS` tokens per second up to a ceiling o
 `Burst` tokens; each request spends one token, and a request with no tokens left
 is rejected with `429`. This lets short bursts through (up to `Burst`) while
 holding the long-run average at `RPS`.
-Source: `celeris/middleware/ratelimit/ratelimit.go:36`.
+Source: `celeris/middleware/ratelimit/ratelimit.go` (`New`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/ratelimit"
@@ -66,7 +66,7 @@ s.Use(ratelimit.New(ratelimit.Config{
 Instead of `RPS` + `Burst` you can write a `Rate` string in `<count>-<unit>`
 form, where the unit is `S` (second), `M` (minute), `H` (hour), or `D` (day).
 `Rate` takes precedence over `RPS`, and sets `Burst` equal to the count **unless
-you set `Burst` explicitly**. Source: `celeris/middleware/ratelimit/config.go:208`.
+you set `Burst` explicitly**. Source: `celeris/middleware/ratelimit/config.go` (`ParseRate`).
 
 ```go
 s.Use(ratelimit.New(ratelimit.Config{Rate: "100-M"})) // 100/min, burst 100
@@ -95,13 +95,13 @@ if err := ratelimit.ValidateConfig(cfg); err != nil {
 ```
 
 `ValidateConfig` is the safe pre-flight check; `New` itself **panics** on an
-invalid `Rate`. Source: `celeris/middleware/ratelimit/config.go:179`.
+invalid `Rate`. Source: `celeris/middleware/ratelimit/config.go` (`ValidateConfig`).
 
 ### The key: `KeyFunc` and the proxy caveat
 
 A limiter is only as good as its key. By default the key is the **client IP**
 (`c.ClientIP()`, falling back to `c.RemoteAddr()`).
-Source: `celeris/middleware/ratelimit/config.go:155`.
+Source: `celeris/middleware/ratelimit/config.go` (`applyDefaults`).
 
 > **Read this before you ship.** `c.ClientIP()` only returns the real client
 > address when the [proxy middleware](/docs/middleware) is installed
@@ -111,7 +111,7 @@ Source: `celeris/middleware/ratelimit/config.go:155`.
 > noisy client triggers a global 429 for everyone behind that hop. With a
 > *misconfigured* `TrustedProxies` range, attackers can spoof `X-Forwarded-For`
 > and escape their bucket. Verify the chain before relying on the default.
-> Source: the `KeyFunc` doc comment, `celeris/middleware/ratelimit/config.go:62`.
+> Source: the `KeyFunc` doc comment, `celeris/middleware/ratelimit/config.go` (`Config.KeyFunc`).
 
 For anything other than raw IP, supply your own `KeyFunc`:
 
@@ -140,14 +140,14 @@ limit headers, and rejected requests also get `Retry-After`:
 | `X-RateLimit-Reset` | Seconds until the bucket refills |
 | `Retry-After` | (on 429 only) Seconds the client should wait |
 
-Source: `celeris/middleware/ratelimit/ratelimit.go:198-207`.
+Source: `celeris/middleware/ratelimit/ratelimit.go` (`New`).
 
 ### Sliding window
 
 Token bucket can let a burst land right at a window edge. Set
 `SlidingWindow: true` to use a sliding-window counter instead — it weights the
 previous and current window by the elapsed fraction of the current window,
-smoothing the rate near boundaries. Source: `celeris/middleware/ratelimit/config.go:91`.
+smoothing the rate near boundaries. Source: `celeris/middleware/ratelimit/config.go` (`Config.SlidingWindow`).
 
 ```go
 s.Use(ratelimit.New(ratelimit.Config{Rate: "100-M", SlidingWindow: true}))
@@ -159,8 +159,8 @@ When different callers deserve different limits (free vs. paid tiers, say), set
 `RateFunc`. It runs per request and returns a `Rate` string; an empty string
 falls back to the static `Rate`/`RPS`/`Burst`. Each distinct rate string gets its
 own limiter, cached up to `MaxDynamicLimiters` (default 1024); beyond that, new
-rate strings are rejected. Source: `celeris/middleware/ratelimit/config.go:56`,
-`celeris/middleware/ratelimit/ratelimit.go:176-188`.
+rate strings are rejected. Source: `celeris/middleware/ratelimit/config.go` (`Config.RateFunc`),
+`celeris/middleware/ratelimit/ratelimit.go` (`New`).
 
 ```go
 s.Use(ratelimit.New(ratelimit.Config{
@@ -184,7 +184,7 @@ The built-in limiter is in-process: each instance counts independently, so N
 replicas means N× the effective limit. To enforce a *global* limit across a
 fleet, plug in a `Store`. When `Store` is set, it owns the rate/burst logic and
 `RPS`, `Burst`, `Shards`, and `CleanupInterval` are ignored.
-Source: `celeris/middleware/ratelimit/config.go:38`.
+Source: `celeris/middleware/ratelimit/config.go` (`Config.Store`).
 
 Celeris ships a Redis-backed store at
 `github.com/goceleris/celeris/middleware/ratelimit/redisstore`:
@@ -212,8 +212,8 @@ s.Use(ratelimit.New(ratelimit.Config{Store: store}))
 The Redis store uses an atomic Lua token-bucket script (loaded via `SCRIPT LOAD`
 at `New` time, then run with `EVALSHA` on the hot path), so the limit holds even
 under concurrent requests across replicas. Source:
-`celeris/middleware/ratelimit/redisstore/redisstore.go:60-69` (the script),
-`redisstore.go:113-115` (`New`). A memcached store ships alongside it at
+`celeris/middleware/ratelimit/redisstore/redisstore.go` (`luaUndo`) (the script),
+`celeris/middleware/ratelimit/redisstore/redisstore.go` (`New`). A memcached store ships alongside it at
 `github.com/goceleris/celeris/middleware/ratelimit/memcachedstore`.
 
 ### Refunding tokens
@@ -224,7 +224,7 @@ status `>= 400` or panics (a panic spent the token before celeris v1.6.0,
 [celeris#921](https://github.com/goceleris/celeris/issues/921));
 `SkipSuccessfulRequests` refunds it for status `< 400`. For a
 `Store`, refunds require the store to implement `StoreUndo` (the Redis store
-does). Source: `celeris/middleware/ratelimit/config.go:98-106`.
+does). Source: `celeris/middleware/ratelimit/config.go` (`Config`).
 
 ```go
 // Only count requests that actually hit your backend (4xx don't burn quota).
@@ -279,7 +279,7 @@ The breaker is a three-state machine:
 - **Half-open** — probing. After the cooldown, a few probe requests are let
   through. If they succeed the breaker closes; if any fails it re-opens.
 
-Source: `celeris/middleware/circuitbreaker/config.go:9-19`.
+Source: `celeris/middleware/circuitbreaker/config.go` (`State`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/circuitbreaker"
@@ -300,7 +300,7 @@ api.Use(circuitbreaker.New(circuitbreaker.Config{
 The breaker trips (Closed → Open) when, within the current `WindowSize`, the
 total request count is at least `MinRequests` **and** `failures/total >=
 Threshold`. `MinRequests` stops a tiny sample (2 of 3 requests failing) from
-tripping prematurely. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go:193`.
+tripping prematurely. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go` (`Breaker.settle`).
 
 A handler that panics is a failure, with the same transition as a returned one;
 the panic then continues to your recovery middleware. Before celeris v1.6.0 a
@@ -322,7 +322,7 @@ spent, so it answered `503` to every request from then on
 
 > Out-of-range values **panic** at construction: `Threshold` must be in `(0, 1]`,
 > `WindowSize >= 10ms`, `CooldownPeriod > 0`, `HalfOpenMax >= 1`, `MinRequests
-> >= 1`. Source: `celeris/middleware/circuitbreaker/config.go:120`.
+> >= 1`. Source: `celeris/middleware/circuitbreaker/config.go` (`Config.validate`).
 
 ### What counts as a failure: `IsError`
 
@@ -380,7 +380,7 @@ s.GET("/internal/breaker", func(c *celeris.Context) error {
 ```
 
 `Breaker` exposes `State() State`, `Counts() (total, failures int64)`, and
-`Reset()`. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go:54-74`.
+`Reset()`. Source: `celeris/middleware/circuitbreaker/circuitbreaker.go` (`Breaker.State`).
 
 The sentinel for the open state is `circuitbreaker.ErrServiceUnavailable`, which
 aliases `celeris.ErrServiceUnavailable` (`503`) — the **same** sentinel `timeout`
@@ -388,8 +388,8 @@ uses, so `errors.Is(err, celeris.ErrServiceUnavailable)` matches both. (The
 `overload` middleware also returns `503`, but it does so via
 `c.AbortWithStatus(503)` rather than this sentinel, and `ratelimit` returns its
 own `429` sentinel `ratelimit.ErrTooManyRequests`.)
-Source: `celeris/middleware/circuitbreaker/config.go:78-81`,
-`celeris/errors.go:50`.
+Source: `celeris/middleware/circuitbreaker/config.go` (`ErrServiceUnavailable`),
+`celeris/errors.go` (`ErrServiceUnavailable`).
 
 ## Timeouts
 
@@ -402,7 +402,7 @@ The middleware wraps the request context with a deadline and lets the handler
 run. Your handler **cooperatively** observes the deadline by selecting on
 `c.Context().Done()` (or passing `c.Context()` to an `http.Client`, DB driver,
 etc.). If the handler overruns the deadline, the middleware returns the timeout
-response. Source: `celeris/middleware/timeout/timeout.go:36`.
+response. Source: `celeris/middleware/timeout/timeout.go` (`New`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/timeout"
@@ -439,7 +439,7 @@ s.Use(timeout.New(timeout.Config{
 > **Preemptive mode has two hard constraints:**
 > 1. **Handlers must still honour `c.Context().Done()`.** Preemptive mode bounds
 >    the client wait, but a handler that never returns keeps leaking a goroutine.
->    Always select on cancellation. Source: `celeris/middleware/timeout/config.go:38`.
+>    Always select on cancellation. Source: `celeris/middleware/timeout/config.go` (`Config.Preemptive`).
 > 2. **It is incompatible with streaming.** Buffered mode captures the whole
 >    response in memory, defeating `StreamWriter` and risking OOM on large
 >    payloads. Use the non-preemptive default for SSE/streaming endpoints. See
@@ -482,10 +482,10 @@ s.Use(timeout.New(timeout.Config{
 | `Skip` / `SkipPaths` | `func` / `[]string` | — | Bypass certain requests/paths |
 
 > `New` **panics** if `Timeout <= 0` and `TimeoutFunc` is nil — you must give it
-> *some* deadline. Source: `celeris/middleware/timeout/config.go:80`. The
+> *some* deadline. Source: `celeris/middleware/timeout/config.go` (`applyDefaults`). The
 > `ErrorHandler` receives `context.DeadlineExceeded` for a deadline timeout, the
 > matched `TimeoutErrors` entry for a semantic timeout, or a panic-wrapped error
-> for a recovered panic. Source: `celeris/middleware/timeout/config.go:27`.
+> for a recovered panic. Source: `celeris/middleware/timeout/config.go` (`Config.ErrorHandler`).
 
 ## Adaptive overload shedding
 
@@ -493,7 +493,7 @@ Rate limits and circuit breakers are *static* rules. The `overload` middleware i
 *adaptive*: a background goroutine samples real server pressure — CPU
 utilization, in-flight request depth, and tail latency — and walks a five-stage
 ladder, degrading more aggressively as pressure rises and recovering (with
-hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go:1-23`.
+hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go` (`Controller`).
 
 | Stage | CPU default | Behaviour |
 | ----- | ----------- | --------- |
@@ -504,7 +504,7 @@ hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go:1-23`.
 | **Backpressure** | ≥ 0.90 | Low-priority requests get `503` (`BackpressureStatus`); others sleep `BackpressureDelay` (default 50ms) then pass; exempt pass |
 | **Reject** | ≥ 0.95 | All non-exempt requests get `503` + `Retry-After` |
 
-Source: `celeris/middleware/overload/config.go:16-24` and `config.go:177`.
+Source: `celeris/middleware/overload/config.go` (`Stage`) and `celeris/middleware/overload/config.go` (`Config.StopContext`).
 
 ### `CollectorProvider` is required
 
@@ -512,7 +512,7 @@ The middleware reads CPU from an `observe.Collector`, and the collector must hav
 a CPU monitor attached. `New` **panics** if `CollectorProvider` is nil. The
 provider is a *function* (not a value) because the server only creates its
 collector at `Start`, so you pass a closure that fetches it lazily.
-Source: `celeris/middleware/overload/overload.go:103-105`.
+Source: `celeris/middleware/overload/overload.go` (`NewWithController`).
 
 ```go
 import (
@@ -535,12 +535,12 @@ s.Use(overload.New(overload.Config{
 `s.Collector()` is created eagerly in `New`, so it is **non-nil before `Start`**
 — the `if col := s.Collector(); col != nil` snippet above can attach the CPU
 monitor at setup time. It returns nil only when `Config.DisableMetrics` is true.
-Source: `celeris/server.go:863-868`.
+Source: `celeris/server.go` (`Server.Collector`).
 `observe.NewCPUMonitor()` returns a platform-appropriate monitor (Linux reads
 `/proc/stat`; others use `runtime/metrics`) and a non-nil `error`, so check it
-before calling `SetCPUMonitor`. Source: `celeris/observe/cpumon_linux.go:10`,
-`cpumon_other.go:9`, `celeris/observe/collector.go:124` (`SetCPUMonitor`),
-`collector.go:71` (`CPUMonitor`). For the full metrics surface see
+before calling `SetCPUMonitor`. Source: `celeris/observe/cpumon_linux.go` (`NewCPUMonitor`),
+`celeris/observe/cpumon_other.go` (`NewCPUMonitor`), `celeris/observe/collector.go` (`SetCPUMonitor`),
+`celeris/observe/collector.go` (`CPUMonitor`). For the full metrics surface see
 [Configuration](/docs/configuration).
 
 ### Depth and latency signals
@@ -550,7 +550,7 @@ upstream. CPU stays low while requests queue up. Add `DepthThresholds`
 (absolute in-flight counts) and/or `LatencyThresholds` (EMA tail-latency targets)
 — whichever signal produces the *highest* stage wins. A depth/latency threshold
 can escalate the stage **beyond** the CPU-driven one, never below it.
-Source: `celeris/middleware/overload/overload.go:137-155`, `overload.go:235-245`.
+Source: `celeris/middleware/overload/overload.go` (`NewWithController`), `celeris/middleware/overload/overload.go` (`run`).
 A request whose handler panics gives its in-flight count back too; before celeris
 v1.6.0 each panic leaked one, until the depth thresholds rejected every request
 ([celeris#921](https://github.com/goceleris/celeris/issues/921)).
@@ -574,7 +574,7 @@ s.Use(overload.New(overload.Config{
 Zero-valued threshold fields disable that signal for that stage, so you opt into
 exactly the signals you want. `DepthThresholds` guidance from the source: try
 `Reorder = 2×workers`, `Backpressure = 4×workers`, `Reject = 8×workers`.
-Source: `celeris/middleware/overload/config.go:62-66`.
+Source: `celeris/middleware/overload/config.go` (`Thresholds`).
 
 ### Priority: deciding *who* to shed
 
@@ -583,7 +583,7 @@ expendable. `PriorityFunc` classifies each request (higher = more important);
 requests scoring **below** `PriorityThreshold` (default `0`) are the ones
 rejected at Reorder and delayed/rejected at Backpressure. Without a `PriorityFunc`
 all requests share priority 0, so Reorder passes everything and Backpressure
-delays everything. Source: `celeris/middleware/overload/config.go:128-137`.
+delays everything. Source: `celeris/middleware/overload/config.go` (`Config`).
 
 ```go
 s.Use(overload.New(overload.Config{
@@ -656,13 +656,13 @@ s.GET("/internal/overload", func(c *celeris.Context) error {
 // ctrl.Stop() halts the sampler (the stage then freezes at its last value).
 ```
 
-Source: `celeris/middleware/overload/overload.go:48-85`.
+Source: `celeris/middleware/overload/overload.go` (`Controller.Stage`).
 
 ## Body limits
 
 `bodylimit.New` rejects oversized request bodies before your handler runs. Set a
 size in bytes with `MaxBytes`, or with a human-readable `Limit` string (which
-takes precedence). Source: `celeris/middleware/bodylimit/config.go:11`.
+takes precedence). Source: `celeris/middleware/bodylimit/config.go` (`Config.Limit`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/bodylimit"
@@ -675,12 +675,12 @@ s.Use(bodylimit.New(bodylimit.Config{Limit: "10MB"})) // 413 if larger
 suffixes — including the plain `KB`/`MB`/`GB` forms — are interpreted as powers
 of 1024, so `"10MB"` means 10 × 1024 × 1024 bytes. An invalid `Limit` string
 **panics** at construction.
-Source: `celeris/middleware/bodylimit/config.go:83`.
+Source: `celeris/middleware/bodylimit/config.go` (`parseSize`).
 
 The middleware checks in two phases: first the `Content-Length` header (fast
 reject), then the actual buffered body length (catches a lying or absent
 `Content-Length`). Bodyless methods (`GET`, `HEAD`, `DELETE`, `OPTIONS`, `TRACE`,
-`CONNECT`) are auto-skipped. Source: `celeris/middleware/bodylimit/bodylimit.go:53-82`.
+`CONNECT`) are auto-skipped. Source: `celeris/middleware/bodylimit/bodylimit.go` (`New`).
 
 ### `ContentLengthRequired`
 
@@ -692,8 +692,8 @@ reject), then the actual buffered body length (catches a lying or absent
 > too for a route that accepts larger uploads. To force clients to
 > declare body size up front, set `ContentLengthRequired: true`; requests without
 > a `Content-Length` header are then rejected with `411 Length Required` before
-> the body check. Source: `celeris/middleware/bodylimit/bodylimit.go:12-23`,
-> `config.go:31`.
+> the body check. Source: `celeris/middleware/bodylimit/bodylimit.go` (`New`),
+> `celeris/config.go` (`Adaptive`).
 
 ```go
 s.Use(bodylimit.New(bodylimit.Config{
@@ -718,7 +718,7 @@ s.Use(bodylimit.New(bodylimit.Config{
 
 The sentinels are `bodylimit.ErrBodyTooLarge` (`413`) and
 `bodylimit.ErrLengthRequired` (`411`).
-Source: `celeris/middleware/bodylimit/bodylimit.go:5-10`.
+Source: `celeris/middleware/bodylimit/bodylimit.go` (`ErrLengthRequired`).
 
 ## Request coalescing & idempotency
 
@@ -730,7 +730,7 @@ When many identical requests arrive at once (a cache stampede, a dashboard that
 N clients all refresh on the same tick), `singleflight` lets the **first**
 request run the handler and serves every concurrent duplicate a *copy* of that
 one response. Coalesced responses carry an `X-Singleflight: HIT` header.
-Source: `celeris/middleware/singleflight/singleflight.go:102-149`, `singleflight.go:143`.
+Source: `celeris/middleware/singleflight/singleflight.go` (`New`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/singleflight"
@@ -745,7 +745,7 @@ s.GET("/report/:id", singleflight.New(), buildExpensiveReport)
 > the auth and cookie components are what stop one user's response from being
 > served to another. **If you supply your own `KeyFunc`, you MUST incorporate
 > user identity** for any endpoint that returns user-specific data, or you will
-> leak data across users. Source: `celeris/middleware/singleflight/config.go:19-38`.
+> leak data across users. Source: `celeris/middleware/singleflight/config.go` (`Config.KeyFunc`).
 
 ```go
 s.GET("/me/feed", singleflight.New(singleflight.Config{
@@ -780,8 +780,8 @@ for XML never takes a leader's JSON.
 unique key with a write request, and if it has to retry (network blip, timeout),
 the server *replays the original response* instead of performing the operation
 twice. By default it applies to `POST`, `PUT`, `PATCH`, `DELETE`; other methods
-pass through. Source: `celeris/middleware/idempotency/idempotency.go:1-19`,
-`config.go:37-39`.
+pass through. Source: `celeris/middleware/idempotency/idempotency.go`,
+`celeris/config.go` (`Std`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/idempotency"
@@ -800,7 +800,7 @@ How it behaves for a given key:
 - **Handler crashed mid-flight** — the lock expires after `LockTimeout` (default
   30s) so the next request can retry.
 
-Source: `celeris/middleware/idempotency/idempotency.go:71-212`.
+Source: `celeris/middleware/idempotency/idempotency.go` (`New`).
 
 #### The store needs `SetNX`
 
@@ -810,9 +810,9 @@ interfaces are combined in the `idempotency.KVStore` type, which is the static
 type of `Config.Store`, so a backend that lacks `SetNX` simply **won't compile**
 when you assign it. The default in-memory store satisfies `KVStore` out of the
 box; a Redis/Postgres store works too as long as it implements both interfaces.
-Source: `celeris/middleware/idempotency/config.go:15-26`. When `Store` is left
+Source: `celeris/middleware/idempotency/config.go` (`KVStore`). When `Store` is left
 nil, `New` installs the in-memory store. Source:
-`celeris/middleware/idempotency/idempotency.go:48-50`.
+`celeris/middleware/idempotency/idempotency.go` (`New`).
 
 ```go
 s.Use(idempotency.New(idempotency.Config{
@@ -828,8 +828,8 @@ s.Use(idempotency.New(idempotency.Config{
 A client that reuses an idempotency key with a *different* body is almost always
 a bug. Set `BodyHash: true` to store a SHA-256 of the request body alongside the
 response; on replay, a body mismatch returns `422 Unprocessable Entity`.
-Source: `celeris/middleware/idempotency/config.go:50-53`,
-`idempotency.go:105-111`.
+Source: `celeris/middleware/idempotency/config.go` (`Config.BodyHash`),
+`celeris/middleware/idempotency/idempotency.go` (`New`).
 
 ```go
 s.Use(idempotency.New(idempotency.Config{BodyHash: true}))
@@ -837,10 +837,10 @@ s.Use(idempotency.New(idempotency.Config{BodyHash: true}))
 
 With `BodyHash` enabled, a request whose body exceeds `MaxBodyBytes` (default
 1 MiB) is rejected with `413` before hashing, since the hash can't be computed
-over a truncated body. Source: `celeris/middleware/idempotency/idempotency.go:90-96`.
+over a truncated body. Source: `celeris/middleware/idempotency/idempotency.go` (`New`).
 On the leader path, a *response* larger than `MaxBodyBytes` is still served, but
 it is not cached — the lock is released and later retries re-run the handler
-rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go:172-182`.
+rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go` (`New`).
 
 | Field | Type | Default | Purpose |
 | ----- | ---- | ------- | ------- |
@@ -857,7 +857,7 @@ rather than replaying. Source: `celeris/middleware/idempotency/idempotency.go:17
 
 > A missing key header just passes the request through — idempotency is opt-in
 > per request. An invalid key (non-printable, or longer than `MaxKeyLength`)
-> returns `400`. Source: `celeris/middleware/idempotency/idempotency.go:78-84`.
+> returns `400`. Source: `celeris/middleware/idempotency/idempotency.go` (`New`).
 
 ### When to use which
 

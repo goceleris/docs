@@ -15,7 +15,6 @@ const CONTINUATION = /\.go[^\n]*`\d+-\d+`/;
 
 const ALLOW: Record<string, number> = {
 	"binding-and-validation.md": 1,
-	"configuration.md": 60,
 	"context-api-reference.md": 1,
 	"data-stores.md": 37,
 	"deployment.md": 34,
@@ -24,7 +23,6 @@ const ALLOW: Record<string, number> = {
 	"middleware-auth.md": 1,
 	"middleware-content.md": 25,
 	"middleware-routing-helpers.md": 37,
-	"middleware-traffic.md": 56,
 	"middleware.md": 21,
 	"net-http-interop.md": 16,
 	"observability.md": 31,
@@ -33,7 +31,6 @@ const ALLOW: Record<string, number> = {
 	"sse.md": 26,
 	"streaming.md": 15,
 	"testing.md": 17,
-	"websocket.md": 49,
 };
 
 function pages(): string[] {
