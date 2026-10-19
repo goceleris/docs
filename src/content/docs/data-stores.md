@@ -22,7 +22,7 @@ interaction that makes colocation worthwhile.
 
 ## The `store.KV` abstraction
 
-The contract lives in `middleware/store/kv.go`. `KV` is deliberately small — three
+The contract lives in `celeris/middleware/store/kv.go`. `KV` is deliberately small — three
 methods, all `context`-aware and all operating on raw `[]byte`:
 
 ```go
@@ -238,7 +238,7 @@ srv.Use(session.New(session.Config{Store: store}))
 > response critical path. Set `session.Config.WriteBehind = true`
 > (`celeris/middleware/session/config.go` (`Config.WriteBehind`)) to hand the encoded session to a single
 > bounded background worker so the round trip overlaps subsequent work. Pair it
-> with `session.NewWithCloser` (`middleware/session/session.go`) and drain the
+> with `session.NewWithCloser` (`celeris/middleware/session/session.go`) and drain the
 > returned `io.Closer` on graceful shutdown — an acknowledged response no longer
 > guarantees the session is durable across an abrupt crash, so the drain flushes
 > queued writes. `Session.Destroy` stays synchronous regardless.
@@ -295,7 +295,7 @@ v, err := rdb.Get(ctx, "key")
 The typed surface covers strings, hashes, lists, sets, sorted sets, key ops,
 pub/sub, scripting, pipelines, and `MULTI`/`EXEC` transactions; anything not typed
 is reachable via `rdb.Do(ctx, args...)`. Common options
-(`driver/redis/options.go`):
+(`celeris/driver/redis/options.go`):
 
 | Option                         | Effect | Default |
 | ------------------------------ | ------ | ------- |
@@ -476,8 +476,8 @@ if err != nil {
 _ = n
 ```
 
-The verified driver signatures used above (`driver/redis/commands.go`,
-`driver/postgres/pool.go`):
+The verified driver signatures used above (`celeris/driver/redis/commands.go`,
+`celeris/driver/postgres/pool.go`):
 
 | Call | Signature | Miss / not-found sentinel |
 | ---- | --------- | ------------------------- |

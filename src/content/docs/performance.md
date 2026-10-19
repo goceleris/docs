@@ -427,7 +427,7 @@ This is the middleware that keeps you alive when the *server itself* is saturate
 It runs a 5-stage degradation ladder driven by three signals — **CPU utilization,
 in-flight request depth, and tail-latency EMA** — and sheds load according to
 application-defined priorities (`celeris/middleware/overload/overload.go`,
-`config.go`). A background goroutine polls the signals; the hot path is a single
+`celeris/middleware/overload/config.go`). A background goroutine polls the signals; the hot path is a single
 atomic load, so the Normal stage costs only a few nanoseconds.
 
 The stages (`celeris/middleware/overload/config.go` (`Stage`)):
