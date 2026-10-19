@@ -52,7 +52,7 @@ Some middleware need more than Get/Set/Delete. Rather than bloat the core
 interface, Celeris exposes optional **capability interfaces**. A backend implements
 whichever it can support atomically; middleware feature-detect them with a type
 assertion and fall back to emulation (or a documented no-op) when absent
-(`celeris/middleware/store/kv.go` (`Counter`)):
+(`celeris/middleware/store/kv.go` (`GetAndDeleter`)):
 
 | Interface           | Method(s) | What it adds | Who needs it |
 | ------------------- | --------- | ------------ | ------------ |
@@ -331,7 +331,7 @@ db, err := sql.Open("celeris-postgres",
 In this mode `database/sql` owns the pool and the driver runs on a standalone
 event loop. To colocate a `database/sql` pool with your server, build a
 `*Connector` and rebind it with `WithEngine`, then `sql.OpenDB`
-(`celeris/driver/postgres/connector.go` (`NewConnector`)):
+(`celeris/driver/postgres/connector.go` (`NewConnector`, `Connector.WithEngine`)):
 
 ```go
 import "github.com/goceleris/celeris/driver/postgres"
