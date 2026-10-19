@@ -213,7 +213,7 @@ sse.New(sse.Config{
 })
 ```
 
-Source: `celeris/middleware/sse/sse.go` (`New`), `:560-562`.
+Source: `celeris/middleware/sse/sse.go` (`New`), `celeris/middleware/sse/config.go` (`Config.OnDisconnect`).
 
 **`HEAD` requests.** A `HEAD` to an SSE route is answered by its `GET` route
 (see [Routing](/docs/routing#head-and-options-are-answered-for-you)) and gets the
@@ -500,7 +500,7 @@ replay, _ := sse.NewKVReplayStore(sse.KVReplayStoreConfig{
 })
 ```
 
-Source: `celeris/middleware/sse/replay_kv.go` (`KVReplayStoreConfig`), `:160-190`.
+Source: `celeris/middleware/sse/replay_kv.go` (`KVReplayStoreConfig`, `kvStore.Append`).
 
 ### Unknown-cursor behaviour
 

@@ -37,7 +37,7 @@ s := celeris.New(celeris.Config{Addr: ":8080"})
 s.Use(compress.New()) // zstd → br → gzip, MinLength 256
 ```
 
-Source: `celeris/middleware/compress/compress.go`, `compress/config.go`.
+Source: `celeris/middleware/compress/compress.go`, `celeris/middleware/compress/config.go`.
 
 ### What it negotiates
 
@@ -141,7 +141,7 @@ import "github.com/goceleris/celeris/middleware/etag"
 s.Use(etag.New()) // weak ETags, CRC-32
 ```
 
-Source: `celeris/middleware/etag/etag.go`, `etag/config.go`.
+Source: `celeris/middleware/etag/etag.go`, `celeris/middleware/etag/config.go`.
 
 ### Weak vs strong
 
@@ -226,7 +226,7 @@ s.Use(cache.New()) // in-memory store, 1-minute TTL, GET/HEAD, 2xx only
 
 A hit sets `X-Cache: HIT`; a miss runs the handler and sets `X-Cache: MISS`. A
 store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
-`celeris/middleware/cache/cache.go`, `cache/config.go`, `cache/store.go`.
+`celeris/middleware/cache/cache.go`, `celeris/middleware/cache/config.go`, `celeris/middleware/cache/store.go`.
 
 ### Config reference
 
@@ -436,8 +436,8 @@ go get github.com/goceleris/celeris/middleware/protobuf
 import "github.com/goceleris/celeris/middleware/protobuf"
 ```
 
-Source: `celeris/middleware/protobuf/protobuf.go`, `protobuf/middleware.go`,
-`protobuf/config.go`.
+Source: `celeris/middleware/protobuf/protobuf.go`, `celeris/middleware/protobuf/middleware.go`,
+`celeris/middleware/protobuf/config.go`.
 
 ### Content types and errors
 
@@ -544,7 +544,7 @@ itself, and the redirect's `Location` is relative too. So the defaults also work
 behind a reverse proxy that publishes the app under another prefix and strips it
 (the browser asks for `/ext/swagger/`, the app sees `/swagger/`).
 
-Source: `celeris/middleware/swagger/swagger.go`, `swagger/config.go`.
+Source: `celeris/middleware/swagger/swagger.go`, `celeris/middleware/swagger/config.go`.
 
 ### Renderers
 
@@ -675,7 +675,8 @@ request ends the chain ([celeris#927](https://github.com/goceleris/celeris/issue
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `DisablePKCE`
 (PKCE is on unless it is set; it replaces `UsePKCE`, which an `OAuth2Config`
 literal that left it out turned off).
-Source: `swagger/config.go`, `swagger/swagger.go`, `swagger/assets.go`.
+Source: `celeris/middleware/swagger/config.go`, `celeris/middleware/swagger/swagger.go`,
+`celeris/middleware/swagger/assets.go`.
 
 ### Renderer-specific options
 
@@ -791,7 +792,7 @@ page asked for `standalone.min.js`, a name the package does not publish: if you
 served Scalar's file under that name, serve it as `standalone.js` now. Swagger
 UI's OAuth2 redirect page is still served by the middleware. The page is
 written for the pinned versions above and carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
-cannot both be set (`New` panics). Source: `swagger/assets.go`, `swagger/pins.go`.
+cannot both be set (`New` panics). Source: `celeris/middleware/swagger/assets.go`, `celeris/middleware/swagger/pins.go`.
 See [Static files](/docs/static-files) for serving a directory.
 
 ## Common pitfalls

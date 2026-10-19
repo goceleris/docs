@@ -302,7 +302,7 @@ s.Use(logger.New(logger.Config{
 
 This is the single most important thing to get right in the logger. **Header and
 form-field redaction have asymmetric defaults**
-(`celeris/middleware/logger/config.go` (`Config.SensitiveHeaders`) and `:180`):
+(`celeris/middleware/logger/config.go` (`Config.SensitiveHeaders`, `Config.SensitiveFormFields`)):
 
 | Setting | `nil` (unset) | `[]string{}` (empty) | non-empty |
 | --- | --- | --- | --- |
@@ -323,7 +323,7 @@ s.Use(logger.New(logger.Config{
 
 Helpers `logger.DefaultSensitiveHeaders()` and
 `logger.DefaultSensitiveFormFields()` return fresh copies of the built-in lists
-(`celeris/middleware/logger/config.go` (`DefaultSensitiveHeaders`) and `:55`). Redacted values are
+(`celeris/middleware/logger/config.go` (`DefaultSensitiveHeaders`, `DefaultSensitiveFormFields`)). Redacted values are
 replaced with `[REDACTED]`. Note that **every configured sensitive header is
 always emitted as `[REDACTED]`**, present or not — a constant-presence design
 that avoids leaking which headers a request carried
@@ -331,8 +331,7 @@ that avoids leaking which headers a request carried
 
 ### Presets — CLF and JSON
 
-Two preset configs are provided (`celeris/middleware/logger/config.go` (`CLFConfig`),
-`:283`):
+Two preset configs are provided (`celeris/middleware/logger/config.go` (`CLFConfig`, `JSONConfig`)):
 
 ```go
 // Combined / Common Log Format — emits a single "clf" attr per request.
