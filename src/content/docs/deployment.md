@@ -285,7 +285,7 @@ s.Use(healthcheck.New(healthcheck.Config{
 `CheckerTimeout` bounds each checker; on timeout the probe returns 503
 (`celeris/middleware/healthcheck/config.go` (`Config.CheckerTimeout`)). For trivial checkers that
 cannot block, set `CheckerTimeout: healthcheck.FastPathTimeout` to skip the
-goroutine/channel machinery entirely (`celeris/config.go` (`DeriveMemoryLimit`)). The default checkers are
+goroutine/channel machinery entirely (`celeris/middleware/healthcheck/config.go` (`FastPathTimeout`)). The default checkers are
 already optimised this way automatically.
 
 `Config` knobs (`celeris/middleware/healthcheck/config.go` (`Config`)):
@@ -303,7 +303,7 @@ already optimised this way automatically.
 | `Skip`           | `func(c) bool`   | none          | Dynamic bypass                                            |
 
 The constants `healthcheck.DefaultLivePath`, `DefaultReadyPath`, and
-`DefaultStartPath` (`celeris/config.go` (`Auto`)) let you reference the defaults from your
+`DefaultStartPath` (`celeris/middleware/healthcheck/config.go`) let you reference the defaults from your
 Kubernetes manifest generators without hard-coding strings.
 
 > **Validation panics at startup**, not at request time: two probes sharing a path,

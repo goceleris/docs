@@ -486,7 +486,7 @@ stage and the latency-derived stage, then the hot path folds in **depth**, which
 only escalate *above* (never below) the polled stage
 (`celeris/middleware/overload/overload.go` (`run`), `celeris/middleware/overload/overload.go` (`NewWithController`)). CPU thresholds default to
 Expand 0.70 / Reap 0.80 / Reorder 0.85 / Backpressure 0.90 / Reject 0.95 with 0.05
-hysteresis on downward transitions (`celeris/config.go` (`WorkloadLowConcurrency`)). Depth and latency thresholds
+hysteresis on downward transitions (`celeris/middleware/overload/config.go` (`Thresholds`)). Depth and latency thresholds
 are **off by default** — a zero-valued field disables that signal for that stage, so
 you only pay for the signals you opt into.
 
