@@ -693,7 +693,7 @@ reject), then the actual buffered body length (catches a lying or absent
 > declare body size up front, set `ContentLengthRequired: true`; requests without
 > a `Content-Length` header are then rejected with `411 Length Required` before
 > the body check. Source: `celeris/middleware/bodylimit/bodylimit.go` (`New`),
-> `celeris/config.go` (`Adaptive`).
+> `celeris/middleware/bodylimit/config.go` (`Config.ContentLengthRequired`).
 
 ```go
 s.Use(bodylimit.New(bodylimit.Config{
@@ -781,7 +781,7 @@ unique key with a write request, and if it has to retry (network blip, timeout),
 the server *replays the original response* instead of performing the operation
 twice. By default it applies to `POST`, `PUT`, `PATCH`, `DELETE`; other methods
 pass through. Source: `celeris/middleware/idempotency/idempotency.go`,
-`celeris/config.go` (`Std`).
+`celeris/middleware/idempotency/config.go` (`Config.Methods`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/idempotency"
