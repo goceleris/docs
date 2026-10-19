@@ -493,7 +493,7 @@ Rate limits and circuit breakers are *static* rules. The `overload` middleware i
 *adaptive*: a background goroutine samples real server pressure — CPU
 utilization, in-flight request depth, and tail latency — and walks a five-stage
 ladder, degrading more aggressively as pressure rises and recovering (with
-hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go` (`Controller`).
+hysteresis) as it falls. Source: `celeris/middleware/overload/overload.go`.
 
 | Stage | CPU default | Behaviour |
 | ----- | ----------- | --------- |
@@ -574,7 +574,7 @@ s.Use(overload.New(overload.Config{
 Zero-valued threshold fields disable that signal for that stage, so you opt into
 exactly the signals you want. `DepthThresholds` guidance from the source: try
 `Reorder = 2×workers`, `Backpressure = 4×workers`, `Reject = 8×workers`.
-Source: `celeris/middleware/overload/config.go` (`Thresholds`).
+Source: `celeris/middleware/overload/config.go` (`DepthThresholds`).
 
 ### Priority: deciding *who* to shed
 
@@ -718,7 +718,7 @@ s.Use(bodylimit.New(bodylimit.Config{
 
 The sentinels are `bodylimit.ErrBodyTooLarge` (`413`) and
 `bodylimit.ErrLengthRequired` (`411`).
-Source: `celeris/middleware/bodylimit/bodylimit.go` (`ErrLengthRequired`).
+Source: `celeris/middleware/bodylimit/bodylimit.go` (`ErrBodyTooLarge`, `ErrLengthRequired`).
 
 ## Request coalescing & idempotency
 

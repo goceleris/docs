@@ -56,7 +56,7 @@ celeris.Config{
 }
 ```
 
-The mapping happens in `WithDefaults` (`celeris/internal/resource/config.go`):
+The mapping happens in `WithDefaults` (`celeris/internal/resource/config.go` (`Config.WithDefaults`, `resolveTimeout`)):
 `0` falls through to the default branch; a negative value is normalised to `0`,
 which internally means "off". Validation rejects anything below `-1`
 (`celeris/internal/resource/config.go` (`Config.Validate`)), so `-2`, `-5s`, etc. are config errors.
@@ -185,7 +185,8 @@ All timeouts follow the [zero / `-1` convention](#the-zero---1-convention).
 | `IdleTimeout`       | `time.Duration` | `600s`  | no idle timeout | Max idle time on a keep-alive connection            |
 | `ShutdownTimeout`   | `time.Duration` | `30s`   | —               | Drain deadline on graceful shutdown                 |
 
-Sources: `celeris/config.go` (`Config`), defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`).
+Sources: `celeris/config.go` (`Config.ReadTimeout`, `Config.ReadHeaderTimeout`, `Config.WriteTimeout`, `Config.IdleTimeout`, `Config.ShutdownTimeout`),
+defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`).
 
 ### `ReadHeaderTimeout` is your slow-loris defence
 
@@ -338,7 +339,8 @@ These apply when HTTP/2 (h2c) is in play — via `Protocol: H2C`, an h2c upgrade
 | `MaxFrameSize`         | `uint32` | `1 MiB` (`1 << 20`) | `16384 – 16777215` if set |
 | `InitialWindowSize`    | `uint32` | `1 MiB` (`1 << 20`) | `<= 2147483647`           |
 
-Sources: `celeris/config.go` (`Config`), defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`),
+Sources: `celeris/config.go` (`Config.MaxConcurrentStreams`, `Config.MaxFrameSize`, `Config.InitialWindowSize`),
+defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`),
 validation at `celeris/internal/resource/config.go` (`Config.Validate`).
 
 The real defaults for both `MaxFrameSize` and `InitialWindowSize` are **1 MiB**
@@ -366,7 +368,8 @@ the floor.
 | `SocketSendBuf`    | `int`  | OS default (0) | —                       | `SO_SNDBUF` for accepted connections           |
 | `MaxConns`         | `int`  | unlimited (0)  | —                       | Max simultaneous connections **per worker**    |
 
-Sources: `celeris/config.go` (`Config`), `celeris/internal/resource/resource.go` (`Resources`),
+Sources: `celeris/config.go` (`Config.DisableKeepAlive`, `Config.BufferSize`, `Config.SocketRecvBuf`, `Config.SocketSendBuf`, `Config.MaxConns`),
+`celeris/internal/resource/resource.go` (`Resources`),
 `celeris/internal/resource/preset.go` (`MinBufferSize`).
 
 - **`DisableKeepAlive`** — when `true`, each request runs on its own connection and
