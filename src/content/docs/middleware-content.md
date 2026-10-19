@@ -37,7 +37,7 @@ s := celeris.New(celeris.Config{Addr: ":8080"})
 s.Use(compress.New()) // zstd → br → gzip, MinLength 256
 ```
 
-Source: `celeris/middleware/compress/compress.go`, `compress/config.go`.
+Source: `celeris/middleware/compress/compress.go`, `celeris/middleware/compress/config.go`.
 
 ### What it negotiates
 
@@ -69,7 +69,7 @@ s.Use(compress.New(compress.Config{
 | `Skip`                 | `func(*Context) bool`      | `nil`                            | Return `true` to skip compression for a request.                                         |
 | `SkipPaths`            | `[]string`                 | `nil`                            | Exact-match paths to skip.                                                               |
 
-Source: `compress/config.go:30-74`.
+Source: `celeris/middleware/compress/config.go` (`Config`).
 
 ### Per-codec levels
 
@@ -95,7 +95,7 @@ s.Use(compress.New(compress.Config{
 }))
 ```
 
-Source: `compress/config.go:11-28`, `compress/config.go:109-146`.
+Source: `celeris/middleware/compress/config.go` (`Level`), `celeris/middleware/compress/config.go` (`Config.validate`).
 
 ### When compression is skipped
 
@@ -117,7 +117,7 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
 If compression itself errors, the middleware degrades gracefully: it flushes the
 original uncompressed body so the client never sees a blank page.
 
-Source: `compress/compress.go:116-234`.
+Source: `celeris/middleware/compress/compress.go` (`New`).
 
 ### Install order relative to `etag`
 
@@ -141,7 +141,7 @@ import "github.com/goceleris/celeris/middleware/etag"
 s.Use(etag.New()) // weak ETags, CRC-32
 ```
 
-Source: `celeris/middleware/etag/etag.go`, `etag/config.go`.
+Source: `celeris/middleware/etag/etag.go`, `celeris/middleware/etag/config.go`.
 
 ### Weak vs strong
 
@@ -166,7 +166,7 @@ content-negotiated or transfer-encoded (e.g. compressed) — and as noted above,
 | `Skip`      | `func(*Context) bool`   | `nil`              | Return `true` to skip ETag handling.                                          |
 | `SkipPaths` | `[]string`              | `nil`              | Exact-match paths to skip.                                                    |
 
-Source: `etag/config.go:5-24`.
+Source: `celeris/middleware/etag/config.go` (`Config`).
 
 ### Custom hash function
 
@@ -203,7 +203,7 @@ before `Range` (RFC 9110 §13.2.2).
 
 If a downstream handler or middleware (for example the `static` file middleware)
 **already** set an `ETag` header, `etag` reuses that tag verbatim instead of
-hashing the body — so you never get a double tag. Source: `etag/etag.go:17-111`.
+hashing the body — so you never get a double tag. Source: `celeris/middleware/etag/etag.go` (`New`).
 
 ### It must be the innermost transform
 
@@ -226,7 +226,7 @@ s.Use(cache.New()) // in-memory store, 1-minute TTL, GET/HEAD, 2xx only
 
 A hit sets `X-Cache: HIT`; a miss runs the handler and sets `X-Cache: MISS`. A
 store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
-`celeris/middleware/cache/cache.go`, `cache/config.go`, `cache/store.go`.
+`celeris/middleware/cache/cache.go`, `celeris/middleware/cache/config.go`, `celeris/middleware/cache/store.go`.
 
 ### Config reference
 
@@ -247,7 +247,7 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `Skip`                | `func(*Context) bool`         | `nil`                  | Return `true` to skip caching for a request.                                            |
 | `SkipPaths`           | `[]string`                    | `nil`                  | Exact-match paths to skip.                                                              |
 
-Source: `cache/config.go:11-95`.
+Source: `celeris/middleware/cache/config.go` (`Config`).
 
 ### Cache keys and `VaryHeaders`
 
@@ -274,7 +274,7 @@ s.Use(cache.New(cache.Config{
 }))
 ```
 
-Source: `cache/cache.go:318-361`.
+Source: `celeris/middleware/cache/cache.go` (`defaultKeyGenerator`).
 
 ### Singleflight
 
@@ -300,7 +300,7 @@ leaves out, is the default: before celeris v1.6.0 a `Config` that did not set
 `Singleflight: true` silently turned coalescing off, and `RespectCacheControl:
 false` had no effect ([celeris#922](https://github.com/goceleris/celeris/issues/922)).
 
-Source: `cache/cache.go:87-145`.
+Source: `celeris/middleware/cache/cache.go` (`New`).
 
 ### Honoring `Cache-Control`
 
@@ -324,7 +324,7 @@ s.GET("/me", func(c *celeris.Context) error {
 
 `Set-Cookie` is excluded from the stored header set by default, so a cached
 response won't leak one user's session cookie to another. Source:
-`cache/cache.go:193-233`, `cache/config.go:125-127`.
+`celeris/middleware/cache/cache.go` (`capture`), `celeris/middleware/cache/config.go` (`applyDefaults`).
 
 ### Invalidation
 
@@ -358,7 +358,7 @@ s.POST("/users/:id", func(c *celeris.Context) error {
 > your invalidation calls. The middleware does not expose the store it created
 > internally, so to invalidate you must own the reference.
 
-Source: `cache/cache.go:413-429`.
+Source: `celeris/middleware/cache/cache.go` (`Invalidate`).
 
 ### Pluggable stores
 
@@ -376,7 +376,7 @@ defer store.Close() // stops the cleanup goroutine
 s.Use(cache.New(cache.Config{Store: store}))
 ```
 
-`MemoryStore` fields (`cache/store.go:14-32`):
+`MemoryStore` fields (`celeris/middleware/cache/store.go` (`MemoryStoreConfig`)):
 
 | Field             | Default            | Meaning                                                    |
 | ----------------- | ------------------ | --------------------------------------------------------- |
@@ -436,8 +436,8 @@ go get github.com/goceleris/celeris/middleware/protobuf
 import "github.com/goceleris/celeris/middleware/protobuf"
 ```
 
-Source: `celeris/middleware/protobuf/protobuf.go`, `protobuf/middleware.go`,
-`protobuf/config.go`.
+Source: `celeris/middleware/protobuf/protobuf.go`, `celeris/middleware/protobuf/middleware.go`,
+`celeris/middleware/protobuf/config.go`.
 
 ### Content types and errors
 
@@ -449,7 +449,7 @@ Source: `celeris/middleware/protobuf/protobuf.go`, `protobuf/middleware.go`,
 | `protobuf.ErrInvalidProtoBuf`| unmarshal failed (wraps the underlying error)        |
 | `protobuf.ErrNotProtoBuf`    | `Bind` saw a non-protobuf `Content-Type`             |
 
-Source: `protobuf/config.go:9-25`.
+Source: `celeris/middleware/protobuf/config.go` (`ContentType`).
 
 ### Package-level functions
 
@@ -489,7 +489,7 @@ s.GET("/users/:id", func(c *celeris.Context) error {
 
 `Respond` writes the *exact* protobuf variant the client preferred
 (`application/x-protobuf` vs `application/protobuf`) and honors `q=0` to exclude a
-form. Source: `protobuf/protobuf.go:30-134`.
+form. Source: `celeris/middleware/protobuf/protobuf.go` (`Respond`).
 
 ### The middleware just stores config
 
@@ -518,7 +518,7 @@ s.POST("/strict", func(c *celeris.Context) error {
 `Content-Type` is protobuf and returns `ErrNotProtoBuf` otherwise, then unmarshals
 with the stored options. If the middleware wasn't installed, `FromContext` falls
 back to default options, so it's always safe to call. Source:
-`protobuf/middleware.go:14-60`, `protobuf/config.go:55-68`.
+`celeris/middleware/protobuf/middleware.go` (`FromContext`), `celeris/middleware/protobuf/config.go` (`defaultConfig`).
 
 ## OpenAPI docs (Swagger)
 
@@ -544,7 +544,7 @@ itself, and the redirect's `Location` is relative too. So the defaults also work
 behind a reverse proxy that publishes the app under another prefix and strips it
 (the browser asks for `/ext/swagger/`, the app sees `/swagger/`).
 
-Source: `celeris/middleware/swagger/swagger.go`, `swagger/config.go`.
+Source: `celeris/middleware/swagger/swagger.go`, `celeris/middleware/swagger/config.go`.
 
 ### Renderers
 
@@ -582,7 +582,7 @@ required (the middleware **panics at construction** if neither is set):
 
 If you don't set `SpecFile`, the content type of an inline spec is sniffed from
 its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
-`swagger/config.go:145-162`, `swagger/config.go:306-330`, `swagger/swagger.go:176-187`.
+`celeris/middleware/swagger/config.go` (`Config`), `celeris/middleware/swagger/config.go` (`detectSpecContentType`), `celeris/middleware/swagger/swagger.go` (`New`).
 
 ### Config reference
 
@@ -600,7 +600,7 @@ its first non-whitespace byte (`{`/`[` → JSON, else YAML). Source:
 | `Skip`       | `func(*Context) bool` | `nil`                 | Skip predicate.                                              |
 | `SkipPaths`  | `[]string`            | `nil`                 | Exact-match paths to skip.                                   |
 
-Source: `swagger/config.go:113-238`.
+Source: `celeris/middleware/swagger/config.go` (`Config`).
 
 ### UI options
 
@@ -632,7 +632,7 @@ s.Use(swagger.New(swagger.Config{
 
 `DefaultModelsExpandDepth` is a `*int` so the middleware can tell "unset" (use the
 UI default of 1) from an explicit `0`. Use `swagger.IntPtr` to set it. Source:
-`swagger/config.go:24-86`, `swagger/config.go:240-245`.
+`celeris/middleware/swagger/config.go` (`UIConfig`), `celeris/middleware/swagger/config.go` (`IntPtr`).
 
 ### OAuth2 with PKCE
 
@@ -675,7 +675,8 @@ request ends the chain ([celeris#927](https://github.com/goceleris/celeris/issue
 `OAuth2Config` fields: `ClientID`, `Realm`, `AppName`, `Scopes`, `DisablePKCE`
 (PKCE is on unless it is set; it replaces `UsePKCE`, which an `OAuth2Config`
 literal that left it out turned off).
-Source: `swagger/config.go`, `swagger/swagger.go`, `swagger/assets.go`.
+Source: `celeris/middleware/swagger/config.go`, `celeris/middleware/swagger/swagger.go`,
+`celeris/middleware/swagger/assets.go`.
 
 ### Renderer-specific options
 
@@ -699,7 +700,7 @@ s.Use(swagger.New(swagger.Config{
 }))
 ```
 
-Source: `swagger/config.go:170-188`, `swagger/swagger.go:281-372`.
+Source: `celeris/middleware/swagger/config.go` (`Config.Options`), `celeris/middleware/swagger/swagger.go` (`buildPage`).
 
 ### Assets: embedded, CDN or self-hosted
 
@@ -791,7 +792,7 @@ page asked for `standalone.min.js`, a name the package does not publish: if you
 served Scalar's file under that name, serve it as `standalone.js` now. Swagger
 UI's OAuth2 redirect page is still served by the middleware. The page is
 written for the pinned versions above and carries no integrity hash, because the files are yours. `AssetsPath` and `CDN`
-cannot both be set (`New` panics). Source: `swagger/assets.go`, `swagger/pins.go`.
+cannot both be set (`New` panics). Source: `celeris/middleware/swagger/assets.go`, `celeris/middleware/swagger/pins.go`.
 See [Static files](/docs/static-files) for serving a directory.
 
 ## Common pitfalls

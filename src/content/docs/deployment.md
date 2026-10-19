@@ -18,7 +18,7 @@ Terminate TLS upstream and forward cleartext HTTP/1.1 or h2c to Celeris.
 
 ## TLS: terminate it upstream
 
-Celeris exposes exactly three protocol modes (`celeris/config.go:12-22`), all of
+Celeris exposes exactly three protocol modes (`celeris/config.go` (`Protocol`)), all of
 them cleartext:
 
 | `Config.Protocol`  | Wire protocol                                          |
@@ -65,7 +65,7 @@ s := celeris.New(celeris.Config{
 ```
 
 How `Auto` handles the HTTP/1.1 `Upgrade: h2c` handshake is controlled by
-`Config.EnableH2Upgrade` (`celeris/config.go:265-276`), a `*bool`:
+`Config.EnableH2Upgrade` (`celeris/config.go` (`Config.EnableH2Upgrade`)), a `*bool`:
 
 | `EnableH2Upgrade`  | Effect                                                            |
 | ------------------ | ---------------------------------------------------------------- |
@@ -133,10 +133,10 @@ URL. Celeris gives you two complementary tools to fix this.
 ### `Config.TrustedProxies` — corrects `ClientIP()`
 
 Set `Config.TrustedProxies` to the CIDR ranges (or bare IPs) of your proxies
-(`celeris/config.go:256-260`). When set, `c.ClientIP()` walks the
+(`celeris/config.go` (`Config.TrustedProxies`)). When set, `c.ClientIP()` walks the
 `X-Forwarded-For` chain **right-to-left**, skipping hops inside a trusted network,
 and returns the first untrusted address — the real client
-(`celeris/context_request.go:425-493`):
+(`celeris/context_request.go` (`Context.ClientIP`)):
 
 ```go
 s := celeris.New(celeris.Config{
@@ -154,13 +154,13 @@ s.GET("/whoami", func(c *celeris.Context) error {
 
 Entries accept CIDR notation (`10.0.0.0/8`) or a bare IP (`10.0.0.1`, expanded to
 `/32` or `/128`). An invalid entry is a startup error from `Start` —
-`celeris: invalid TrustedProxies entry: …` (`celeris/server.go:909-916`), so a typo
+`celeris: invalid TrustedProxies entry: …` (`celeris/server.go` (`Server.doPrepare`)), so a typo
 fails loudly rather than silently mis-attributing traffic.
 
 > **Without `TrustedProxies`, `ClientIP()` falls back to legacy behaviour**: it
 > returns the *leftmost* `X-Forwarded-For` entry, which is attacker-controlled and
 > trivially spoofed. Always set `TrustedProxies` in production
-> (`celeris/context_request.go:425-448`).
+> (`celeris/context_request.go` (`Context.ClientIP`)).
 
 ### The `proxy` middleware — corrects `Scheme()` and `Host()` too
 
@@ -186,7 +186,7 @@ s.GET("/", func(c *celeris.Context) error {
 ```
 
 The middleware inspects forwarded headers **only when the immediate peer is inside
-`Config.TrustedProxies`** (`celeris/middleware/proxy/proxy.go:54-65`). Its
+`Config.TrustedProxies`** (`celeris/middleware/proxy/proxy.go` (`New`)). Its
 `proxy.Config` options (`celeris/middleware/proxy/config.go`):
 
 | Field                   | Type                  | Default                          | Purpose                                                              |
@@ -201,7 +201,7 @@ The middleware inspects forwarded headers **only when the immediate peer is insi
 `X-Forwarded-For` is walked right-to-left and `X-Real-Ip` is validated;
 `X-Forwarded-Proto` only accepts `http`/`https`; `X-Forwarded-Host` is rejected if
 it contains `\r`, `\n`, `\x00`, `/`, `\`, `?`, `#`, or `@`, or exceeds 253 bytes —
-all to block header injection (`celeris/middleware/proxy/proxy.go:97-117, 215-226`).
+all to block header injection (`celeris/middleware/proxy/proxy.go` (`New`, `isValidHost`)).
 
 Custom single-value IP headers work too — add the provider's header to
 `TrustedHeaders`:
@@ -251,13 +251,12 @@ s.Use(healthcheck.New())
 ```
 
 A healthy probe returns `200 {"status":"ok"}`; an unhealthy one returns
-`503 {"status":"unavailable"}` (`celeris/middleware/healthcheck/healthcheck.go:13-16,
-163-174`). For `HEAD` the body is omitted.
+`503 {"status":"unavailable"}` (`celeris/middleware/healthcheck/healthcheck.go` (`jsonUnavailable`, `respond`)). For `HEAD` the body is omitted.
 
 ### Default paths and configuration
 
 The three probes map to Kubernetes' three probe types. Defaults
-(`celeris/middleware/healthcheck/config.go:11-15`):
+(`celeris/middleware/healthcheck/config.go` (`DefaultLivePath`)):
 
 | Probe       | Default path | `Config` field | Kubernetes probe   | Question it answers                          |
 | ----------- | ------------ | -------------- | ------------------ | -------------------------------------------- |
@@ -266,7 +265,7 @@ The three probes map to Kubernetes' three probe types. Defaults
 | Startup     | `/startupz`  | `StartPath`    | `startupProbe`     | Has init finished? (gates the other probes)  |
 
 Each path has a matching `Checker` — a `func(c *celeris.Context) bool`
-(`celeris/middleware/healthcheck/config.go:17-19`). The defaults always return
+(`celeris/middleware/healthcheck/config.go` (`Checker`)). The defaults always return
 `true`; supply your own to reflect real dependency health:
 
 ```go
@@ -284,12 +283,12 @@ s.Use(healthcheck.New(healthcheck.Config{
 ```
 
 `CheckerTimeout` bounds each checker; on timeout the probe returns 503
-(`celeris/middleware/healthcheck/config.go:54-66`). For trivial checkers that
+(`celeris/middleware/healthcheck/config.go` (`Config.CheckerTimeout`)). For trivial checkers that
 cannot block, set `CheckerTimeout: healthcheck.FastPathTimeout` to skip the
-goroutine/channel machinery entirely (`config.go:69-75`). The default checkers are
+goroutine/channel machinery entirely (`celeris/middleware/healthcheck/config.go` (`FastPathTimeout`)). The default checkers are
 already optimised this way automatically.
 
-`Config` knobs (`celeris/middleware/healthcheck/config.go:21-67`):
+`Config` knobs (`celeris/middleware/healthcheck/config.go` (`Config`)):
 
 | Field            | Type             | Default       | Notes                                                       |
 | ---------------- | ---------------- | ------------- | ---------------------------------------------------------- |
@@ -304,12 +303,12 @@ already optimised this way automatically.
 | `Skip`           | `func(c) bool`   | none          | Dynamic bypass                                            |
 
 The constants `healthcheck.DefaultLivePath`, `DefaultReadyPath`, and
-`DefaultStartPath` (`config.go:10-15`) let you reference the defaults from your
+`DefaultStartPath` (`celeris/middleware/healthcheck/config.go`) let you reference the defaults from your
 Kubernetes manifest generators without hard-coding strings.
 
 > **Validation panics at startup**, not at request time: two probes sharing a path,
 > or a path not starting with `/`, panics in `healthcheck.New`
-> (`celeris/middleware/healthcheck/config.go:111-137`). Catch it in CI, not in prod.
+> (`celeris/middleware/healthcheck/config.go` (`Config.validate`)). Catch it in CI, not in prod.
 
 ### Wiring to Kubernetes
 
@@ -346,12 +345,12 @@ s := celeris.New(celeris.Config{Addr: ":8080"}) // 0.0.0.0:8080, not 127.0.0.1
 ```
 
 `Addr` follows Go's `net.Listen` syntax. `:0` binds an OS-assigned port — read it
-back with `s.Addr()` after `Start` (`celeris/server.go:726-734`), handy in tests.
+back with `s.Addr()` after `Start` (`celeris/server.go` (`Server.Addr`)), handy in tests.
 
 ### Workers and GOMAXPROCS
 
 `Config.Workers` sets the number of I/O worker goroutines and **defaults to
-`GOMAXPROCS`** (`celeris/config.go:82-83`). In a container, `GOMAXPROCS` defaults to
+`GOMAXPROCS`** (`celeris/config.go` (`Config.Workers`)). In a container, `GOMAXPROCS` defaults to
 the *node's* CPU count unless you constrain it, which over-subscribes a pod with a
 CPU limit. On Go 1.25+ the runtime reads the cgroup CPU quota automatically;
 otherwise set `GOMAXPROCS` to match the pod's CPU limit (or pin `Workers`
@@ -373,7 +372,7 @@ runtime — so size it once to the CPUs the pod actually has.
 
 > One Linux-specific exception: when the adaptive engine starts on io_uring, it may
 > reduce the io_uring worker count at startup if `RLIMIT_MEMLOCK` cannot fund the
-> requested rings (`celeris/internal/engine/iouring/ring.go:45-75`). That is a one-time memlock cap at start, not
+> requested rings (`celeris/internal/engine/iouring/ring.go` (`capWorkersToMemlock`)). That is a one-time memlock cap at start, not
 > a runtime scaler — raise `memlock` (below) to fund the full count.
 
 ### Memory limits and peak RSS
@@ -412,7 +411,7 @@ falls back to epoll. This is an optimisation, not a fix-or-fail: epoll is at
 throughput parity, so a container that can't use io_uring still runs at full speed.
 When io_uring setup is denied, Celeris does **not** crash — the probe's
 `io_uring_setup` call returns an error, the io_uring tier is left unselected, and the
-adaptive engine runs on epoll (`celeris/internal/probe/probe.go:122-158`). Confirm which
+adaptive engine runs on epoll (`celeris/internal/probe/probe.go` (`ProbeWith`)). Confirm which
 engine you actually got at runtime with `Server.EngineInfo()` (see
 [Engines](/docs/engines)).
 
@@ -486,9 +485,9 @@ ulimits:
 Other io_uring prerequisites (checked by the startup io_uring probe):
 
 - **Kernel 5.10+** — Celeris's LTS-stable io_uring floor; older kernels fall through
-  to epoll (`celeris/internal/probe/probe.go:112-117`).
+  to epoll (`celeris/internal/probe/probe.go` (`ProbeWith`)).
 - **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
-  (`celeris/internal/probe/probe_linux.go:99-116`); not required for the basic io_uring path.
+  (`celeris/internal/probe/probe_linux.go` (`checkCapSysNiceLinux`)); not required for the basic io_uring path.
 
 You do not need to do anything special for epoll; it works on Linux 3.10+ out of the
 box. On macOS and Windows the engine is `std` (Go `net/http`).
@@ -501,7 +500,7 @@ across workers — no userspace accept lock. This is internal and automatic; you
 not configure it. The one place it surfaces is zero-downtime restarts (below): when
 you hand a listener to `StartWithListener`, the native engines extract the address
 and rebind their own `SO_REUSEPORT` sockets to it, and **you must not `Accept` on or
-close the passed listener afterward** (`celeris/server.go:1035-1066`).
+close the passed listener afterward** (`celeris/server.go` (`Server.StartWithListener`)). A start that fails before its engine runs (a configuration error, or an engine that cannot be created) closes the listener before it returns the error, so a failed start leaves nothing for you to close. The exception is `ErrAlreadyStarted`: the server is already running, and the listener stays with the caller ([celeris#737](https://github.com/goceleris/celeris/issues/737), fixed by [celeris#747](https://github.com/goceleris/celeris/pull/747)).
 
 ### systemd unit
 
@@ -552,12 +551,11 @@ if err := s.StartWithContext(ctx); err != nil {
 
 Neither `Shutdown` nor `PauseAccept` touches the readiness probe — the
 `healthcheck` middleware only ever returns what your `ReadyChecker` returns
-(`celeris/middleware/healthcheck/healthcheck.go:83`). To stop the LB sending new
+(`celeris/middleware/healthcheck/healthcheck.go` (`New`)). To stop the LB sending new
 traffic during a drain you have to flip readiness yourself, and before the drain
-begins: the `OnShutdown` hooks run only after the requests in flight have finished, on
-every engine since celeris v1.6.0
-([celeris#703](https://github.com/goceleris/celeris/issues/703); HTTP/2 has two
-exceptions, see
+begins: the `OnShutdown` hooks run only after the requests in flight have finished, or once
+the shutdown deadline has passed, on every engine since celeris v1.6.0
+([celeris#703](https://github.com/goceleris/celeris/issues/703); see
 [What the drain waits for](/docs/graceful-shutdown#what-the-drain-waits-for)), which is
 too late to steer the load balancer (see
 [Shutdown sequence](/docs/graceful-shutdown#shutdown-sequence)). The idiomatic wiring
@@ -597,7 +595,7 @@ engine. (`atomic.Bool` is in the standard library's `sync/atomic`.)
 
 For true zero-downtime restarts on the same host, inherit the listening socket
 across the exec with `InheritListener` + `StartWithListener`
-(`celeris/server.go:1148-1166`, `celeris/server.go:1035-1066`):
+(`celeris/server.go` (`InheritListener`), `celeris/server.go` (`Server.StartWithListener`)):
 
 ```go
 ln, err := celeris.InheritListener("CELERIS_LISTENER_FD")
@@ -616,10 +614,18 @@ drain ordering, and the native engines' `SO_REUSEPORT` rebind — is covered in
 
 In Kubernetes, the rolling-update pattern is: container receives `SIGTERM` →
 your `SIGTERM` handler flips readiness so `/readyz` returns 503 → LB stops new
-traffic → the context is cancelled → in-flight requests drain within
-`ShutdownTimeout` → the `OnShutdown` hooks run → process exits. Set
-`terminationGracePeriodSeconds` greater than the readiness delay plus
-`ShutdownTimeout`.
+traffic → the context is cancelled → in-flight requests drain until
+`ShutdownTimeout`, and then Celeris stops waiting for them (it does not finish them,
+and their handlers keep running) → the `OnShutdown` hooks run → the `Start*` call
+returns and the process exits. On `epoll`, `io_uring` and `adaptive` the `Start*` call
+returns only after the last handler has returned, so a handler that overruns holds the
+process up until `SIGKILL` cuts it.
+Set `terminationGracePeriodSeconds` to more than the readiness delay plus
+`ShutdownTimeout`, plus a margin. The sum holds only when every `OnShutdown` hook
+returns once its `ctx` is done, because the hooks share the drain's deadline; the
+margin covers the hooks that overrun and the process exit, since Kubernetes sends
+`SIGKILL` when the period ends. On the native engines the sum does not bound the
+exit when a handler overruns: that handler is what `SIGKILL` ends.
 
 ## Capacity and timeout tuning
 
@@ -628,13 +634,13 @@ The timeout and limit fields most relevant in production (full list in
 
 | Field                | Default | Why it matters in prod                                            |
 | -------------------- | ------- | ---------------------------------------------------------------- |
-| `ReadHeaderTimeout`  | `10s`   | Slow-loris defence — drip-fed headers get killed fast (`celeris/config.go:94-104`) |
-| `ReadTimeout`        | `60s`   | Caps total request read time (`celeris/config.go:91-93`)                  |
-| `WriteTimeout`       | `60s`   | Caps response write time (`celeris/config.go:105-107`)                      |
-| `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`celeris/config.go:108-110`) |
-| `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`celeris/config.go:111-115`)           |
+| `ReadHeaderTimeout`  | `10s`   | Slow-loris defence — drip-fed headers get killed fast (`celeris/config.go` (`Config.ReadHeaderTimeout`)) |
+| `ReadTimeout`        | `60s`   | Caps total request read time (`celeris/config.go` (`Config.ReadTimeout`))                  |
+| `WriteTimeout`       | `60s`   | Caps response write time (`celeris/config.go` (`Config.WriteTimeout`))                      |
+| `IdleTimeout`        | `600s`  | Keep-alive idle cap; set below the LB's idle timeout (`celeris/config.go` (`Config.IdleTimeout`)) |
+| `ShutdownTimeout`    | `30s`   | Drain budget on graceful shutdown (`celeris/config.go` (`Config.ShutdownTimeout`))           |
 | `MaxRequestBodySize` | `4MiB`  | Reject oversized bodies; `-1` disables (was `100MB` before v1.6.0)        |
-| `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`celeris/config.go:163-164`)  |
+| `MaxConns`           | `0`     | Per-worker connection cap; `0` = unlimited (`celeris/config.go` (`Config.MaxConns`))  |
 
 Set `IdleTimeout` *below* your load balancer's upstream idle timeout so Celeris
 closes idle keep-alives first, avoiding the race where the LB reuses a connection
@@ -649,7 +655,7 @@ engine selection and the feature matrix, see [Engines](/docs/engines).
 ## Logging and observability in production
 
 Pass a structured `*slog.Logger` via `Config.Logger` (defaults to `slog.Default()`,
-`celeris/config.go:262-263`); use a JSON handler so your log pipeline can parse it:
+`celeris/config.go` (`Config.Logger`)); use a JSON handler so your log pipeline can parse it:
 
 ```go
 logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -660,7 +666,7 @@ s := celeris.New(celeris.Config{Addr: ":8080", Logger: logger})
 
 Built-in metrics are on by default; read a snapshot from the collector for a
 `/metrics`-style endpoint, or disable with `Config.DisableMetrics`
-(`celeris/config.go:178-181`):
+(`celeris/config.go` (`Config.DisableMetrics`)):
 
 ```go
 snap := s.Collector().Snapshot() // requests, errors, latency, active conns, CPU
@@ -694,7 +700,7 @@ Prometheus/OpenTelemetry export, and the full collector snapshot surface, see
   awareness).
 - **`Config.ShutdownTimeout` longer than the orchestrator's grace period.** The
   process gets `SIGKILL`'d mid-drain. Make `terminationGracePeriodSeconds` /
-  `TimeoutStopSec` larger than `ShutdownTimeout`.
+  `TimeoutStopSec` larger than `ShutdownTimeout` plus a margin (and, on Kubernetes, the readiness delay).
 
 ## FAQ
 

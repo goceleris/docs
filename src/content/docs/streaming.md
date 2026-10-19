@@ -51,7 +51,7 @@ if sw == nil {
 }
 ```
 
-Source: `celeris/context_response.go:1695-1742`.
+Source: `celeris/context_response.go` (`Context.StreamWriter`).
 
 `StreamWriter()` returns `nil` in two situations:
 
@@ -66,7 +66,7 @@ Source: `celeris/context_response.go:1695-1742`.
 ### The StreamWriter API
 
 Once you hold a non-nil `*StreamWriter`, you drive the response with these methods.
-Source: `celeris/context_response.go:1625-1693`.
+Source: `celeris/context_response.go` (`StreamWriter`).
 
 | Method                                  | Returns          | Purpose                                                                 |
 | --------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
@@ -143,8 +143,8 @@ writers, and any other standard library writer.
 
 After you use a `StreamWriter`, `Context.IsWritten()` returns `true` and
 `Context.BytesWritten()` tracks the running total (it may keep increasing while the
-stream is still in progress). Source: `celeris/context_response.go:1276`,
-`celeris/context_response.go:1282`.
+stream is still in progress). Source: `celeris/context_response.go` (`Context.IsWritten`),
+`celeris/context_response.go` (`Context.BytesWritten`).
 
 ## The async-detach model
 
@@ -163,7 +163,7 @@ engine — and Celeris exposes a single boolean to decide.
 
 `Context.EngineSupportsAsyncDetach()` reports whether the active engine can keep the
 connection alive after the handler returns. Source:
-`celeris/context_response.go:1444`.
+`celeris/context_response.go` (`Context.EngineSupportsAsyncDetach`).
 
 | Engine                  | `EngineSupportsAsyncDetach()` | Streaming strategy                                                  |
 | ----------------------- | ----------------------------- | ------------------------------------------------------------------ |
@@ -179,7 +179,7 @@ handler returns, so the work must complete *before* you return.
 ### Detach
 
 `Context.Detach()` removes the `Context` from the handler chain's lifecycle and
-returns a `done func()`. Source: `celeris/context_response.go:1471`.
+returns a `done func()`. Source: `celeris/context_response.go` (`Context.Detach`).
 
 > **You MUST call `done()` exactly once when you are finished with the `Context`.**
 > If you don't, the `Context` is never released back to the pool — a permanent leak.
@@ -262,8 +262,8 @@ skip the boilerplate.
 
 Despite their names, `Context.Stream` and `Context.StreamReader` are **not**
 incremental. They read the *entire* `io.Reader` into memory and then write it as a
-single blob. Source: `celeris/context_response.go:1138` and
-`celeris/context_response.go:1153`.
+single blob. Source: `celeris/context_response.go` (`Context.Stream`) and
+`celeris/context_response.go` (`Context.StreamReader`).
 
 ```go
 // Reads ALL of r into memory, then writes it. Not streaming.
@@ -294,7 +294,7 @@ the only way to get true incremental output.
 When you need the raw TCP connection — to speak a non-HTTP protocol, or to implement
 an upgrade that the framework doesn't model — call `Context.Hijack()`. It returns the
 underlying `net.Conn` and hands you full ownership. Source:
-`celeris/context_response.go:1304`.
+`celeris/context_response.go` (`Context.Hijack`).
 
 ```go
 s.GET("/raw", func(c *celeris.Context) error {
@@ -315,7 +315,7 @@ Rules and constraints:
 
 - **HTTP/1.1 only.** HTTP/2 multiplexes many logical streams over one TCP connection,
   so a single stream cannot take it over. `Hijack` on an HTTP/2 request returns
-  `celeris.ErrHijackNotSupported` (source: `celeris/errors.go:27`). Always check the
+  `celeris.ErrHijackNotSupported` (source: `celeris/errors.go` (`ErrHijackNotSupported`)). Always check the
   error.
 - **You own the connection.** After a successful `Hijack`, Celeris steps out
   completely. You are responsible for writing any status line/headers and for
@@ -336,7 +336,7 @@ or rewrite a response after the handler produced it (loggers, compressors, ETag,
 response transforms). Application handlers can skip it.
 
 Celeris exposes two ways to intercept a response. Source:
-`celeris/context_response.go:1196` and `celeris/context_response.go:1223`.
+`celeris/context_response.go` (`Context.CaptureResponse`) and `celeris/context_response.go` (`Context.BufferResponse`).
 
 | Method                   | Effect                                                                                       |
 | ------------------------ | -------------------------------------------------------------------------------------------- |
@@ -345,8 +345,8 @@ Celeris exposes two ways to intercept a response. Source:
 | `FlushResponse()`        | Sends the buffered response. Depth-tracked: only the outermost layer's flush actually writes. |
 | `ResponseBody()`         | The captured body (`[]byte`), or `nil` if capture was not enabled.                            |
 | `ResponseStatus()` / `ResponseContentType()` | The captured status code / `Content-Type`.                               |
-| `IsWritten()`            | `true` once a response has reached the wire. Source: `celeris/context_response.go:1276`.      |
-| `BytesWritten()`         | Body size in bytes (running total while streaming). Source: `celeris/context_response.go:1282`. |
+| `IsWritten()`            | `true` once a response has reached the wire. Source: `celeris/context_response.go` (`Context.IsWritten`).      |
+| `BytesWritten()`         | Body size in bytes (running total while streaming). Source: `celeris/context_response.go` (`Context.BytesWritten`). |
 
 `BufferResponse` is **depth-tracked**: several middleware layers can each call it, and
 the response is only sent when the outermost layer calls `FlushResponse`. A typical
@@ -367,7 +367,7 @@ func transform(c *celeris.Context) error {
 ### StreamWriter is incompatible with buffering
 
 This is the crucial interaction for middleware authors. **While buffering is active,
-`Context.StreamWriter()` returns `nil`.** Source: `celeris/context_response.go:1718-1723`.
+`Context.StreamWriter()` returns `nil`.** Source: `celeris/context_response.go` (`Context.StreamWriter`).
 
 Streaming writes bytes directly and irrevocably to the wire; buffering holds a response
 in memory so it can be discarded or rewritten. The two cannot coexist — a buffered

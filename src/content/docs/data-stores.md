@@ -22,7 +22,7 @@ interaction that makes colocation worthwhile.
 
 ## The `store.KV` abstraction
 
-The contract lives in `middleware/store/kv.go`. `KV` is deliberately small — three
+The contract lives in `celeris/middleware/store/kv.go`. `KV` is deliberately small — three
 methods, all `context`-aware and all operating on raw `[]byte`:
 
 ```go
@@ -33,7 +33,7 @@ type KV interface {
 }
 ```
 
-The contract every backend must honor (`middleware/store/kv.go:24-40`):
+The contract every backend must honor (`celeris/middleware/store/kv.go` (`KV`)):
 
 | Method     | Contract |
 | ---------- | -------- |
@@ -52,7 +52,7 @@ Some middleware need more than Get/Set/Delete. Rather than bloat the core
 interface, Celeris exposes optional **capability interfaces**. A backend implements
 whichever it can support atomically; middleware feature-detect them with a type
 assertion and fall back to emulation (or a documented no-op) when absent
-(`middleware/store/kv.go:42-99`):
+(`celeris/middleware/store/kv.go` (`GetAndDeleter`)):
 
 | Interface           | Method(s) | What it adds | Who needs it |
 | ------------------- | --------- | ------------ | ------------ |
@@ -70,7 +70,7 @@ capability table in the next section maps these requirements to concrete backend
 
 ### `NewMemoryKV` — the in-memory backend
 
-`store.NewMemoryKV` (`middleware/store/memory.go:56`) returns a sharded,
+`store.NewMemoryKV` (`celeris/middleware/store/memory.go` (`NewMemoryKV`)) returns a sharded,
 in-memory `*MemoryKV` that implements `KV` **plus every optional extension
 except `Scripter`** (`GetAndDeleter`, `Scanner`, `PrefixDeleter`, `SetNXer`,
 `Counter` — server-side Lua scripting is Redis-only). It is the
@@ -83,7 +83,7 @@ kv := store.NewMemoryKV() // zero-config: NumCPU shards, 1-minute cleanup
 defer kv.Close()          // stop the background expiry-reaper goroutine
 ```
 
-Tune it with `MemoryKVConfig` (`middleware/store/memory.go:15-29`):
+Tune it with `MemoryKVConfig` (`celeris/middleware/store/memory.go` (`MemoryKVConfig`)):
 
 | Field             | Type              | Default | Meaning |
 | ----------------- | ----------------- | ------- | ------- |
@@ -108,7 +108,7 @@ kv := store.NewMemoryKV(store.MemoryKVConfig{
 
 ### `Prefixed` — sharing one backend across middleware
 
-`store.Prefixed(inner, prefix)` (`middleware/store/prefix.go:16`) wraps any `KV`
+`store.Prefixed(inner, prefix)` (`celeris/middleware/store/prefix.go` (`Prefixed`)) wraps any `KV`
 and transparently prepends `prefix` to every key. This lets several middleware
 share a single backend without key collisions:
 
@@ -122,7 +122,7 @@ cacheStore   := store.Prefixed(kv, "cache:")
 
 The wrapper implements all four extension interfaces — `GetAndDeleter`,
 `Scanner`, `PrefixDeleter`, and `SetNXer` — **unconditionally**, rewriting keys
-and prefixes accordingly (`middleware/store/prefix.go:37-95`). When the inner
+and prefixes accordingly (`celeris/middleware/store/prefix.go` (`prefixedKV.GetAndDelete`)). When the inner
 backend supports a capability natively, `Prefixed` delegates to it; otherwise it
 falls back (`GetAndDelete` → Get-then-Delete, `SetNX` → a *non-atomic*
 Get-then-Set, and `Scan`/`DeletePrefix` → no-ops when the inner is not a
@@ -147,20 +147,20 @@ single-instance app needs zero store configuration:
 
 | Middleware    | Config field | Type | Capabilities required | Default |
 | ------------- | ------------ | ---- | --------------------- | ------- |
-| Session       | `Store` | `store.KV` | `Scanner` for `Reset` (else no-op) | in-memory (`session.NewMemoryStore`) — `middleware/session/config.go:63-66,205-206` |
-| Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `middleware/cache/config.go:12-13,107-108` |
-| CSRF          | `Storage` | `store.KV` | `GetAndDeleter` for single-use tokens | **nil** — pure double-submit cookie mode (`middleware/csrf/config.go:73-82`) |
-| Idempotency   | `Store` | `idempotency.KVStore` (`store.KV` + `store.SetNXer`) | **`SetNXer` is mandatory** | in-memory — `middleware/idempotency/config.go:15-24` |
-| SSE replay    | `KV` | `store.KV` | `Counter` for cross-process IDs (else per-process) | none — you supply it — `middleware/sse/replay_kv.go:32-34` |
+| Session       | `Store` | `store.KV` | `Scanner` for `Reset` (else no-op) | in-memory (`session.NewMemoryStore`) — `celeris/middleware/session/config.go` (`Config.Store`, `applyDefaults`) |
+| Cache         | `Store` | `store.KV` | `PrefixDeleter`/`Scanner` for prefix invalidation | in-memory — `celeris/middleware/cache/config.go` (`Config.Store`, `applyDefaults`) |
+| CSRF          | `Storage` | `store.KV` | `GetAndDeleter` for single-use tokens | **nil** — pure double-submit cookie mode (`celeris/middleware/csrf/config.go` (`Config.Storage`)) |
+| Idempotency   | `Store` | `idempotency.KVStore` (`store.KV` + `store.SetNXer`) | **`SetNXer` is mandatory** | in-memory — `celeris/middleware/idempotency/config.go` (`KVStore`) |
+| SSE replay    | `KV` | `store.KV` | `Counter` for cross-process IDs (else per-process) | none — you supply it — `celeris/middleware/sse/replay_kv.go` (`KVReplayStoreConfig`) |
 
 > **CSRF is the exception to the in-memory default.** Leaving `Config.Storage`
 > unset runs CSRF in *pure double-submit cookie mode* (stateless — no server-side
 > store at all). Set `Storage` only when you want server-side token validation;
 > `SingleUseToken = true` **requires** it (the constructor panics otherwise —
-> `middleware/csrf/config.go:198-199`).
+> `celeris/middleware/csrf/config.go` (`Config.validate`)).
 
 > **Rate limiting is the exception.** The ratelimit middleware uses its own
-> `ratelimit.Store` interface (`middleware/ratelimit/config.go:19`), **not**
+> `ratelimit.Store` interface (`celeris/middleware/ratelimit/config.go` (`Store`)), **not**
 > `store.KV` — its operations are token-bucket-shaped, not key/value-shaped.
 > Redis-backed rate limiting ships as `middleware/ratelimit/redisstore`, which
 > implements `ratelimit.Store` via `EVALSHA`. Do not pass a `store.KV` where a
@@ -170,7 +170,7 @@ Idempotency's requirement is worth calling out because it is a compile-time
 constraint, not a runtime fallback:
 
 ```go
-// idempotency.KVStore = store.KV + store.SetNXer (middleware/idempotency/config.go:15-18)
+// idempotency.KVStore = store.KV + store.SetNXer (celeris/middleware/idempotency/config.go, KVStore)
 type KVStore interface {
     store.KV
     store.SetNXer
@@ -178,8 +178,8 @@ type KVStore interface {
 ```
 
 `store.MemoryKV` satisfies this out of the box (it implements `SetNXer` —
-`middleware/store/memory.go:220`). Because `Config.Store` is typed as `KVStore`
-(`middleware/idempotency/config.go:24`), a backend without atomic SetNX *cannot* be
+`celeris/middleware/store/memory.go` (`MemoryKV.SetNX`)). Because `Config.Store` is typed as `KVStore`
+(`celeris/middleware/idempotency/config.go` (`Config.Store`)), a backend without atomic SetNX *cannot* be
 assigned to it — the constraint is enforced at compile time, not at runtime. There
 is simply nowhere to acquire the lock without `SetNX`.
 
@@ -227,7 +227,7 @@ store := sessredis.New(rdb) // default key prefix "sess:"
 srv.Use(session.New(session.Config{Store: store}))
 ```
 
-`sessredis.New` (`middleware/session/redisstore/redisstore.go:74`) returns a
+`sessredis.New` (`celeris/middleware/session/redisstore/redisstore.go` (`New`)) returns a
 `*Store` that implements `store.KV` **plus** `Scanner` and `PrefixDeleter` (via
 `SCAN` + `DEL`), so session `Reset` works across the cluster. The CSRF Redis store
 (`middleware/csrf/redisstore`) additionally implements `GetAndDeleter` via Redis
@@ -236,9 +236,9 @@ srv.Use(session.New(session.Config{Store: store}))
 > **Tip: overlap the session store write with the next request.** When the
 > session store is a network backend (Redis), the post-handler `Set` sits on the
 > response critical path. Set `session.Config.WriteBehind = true`
-> (`middleware/session/config.go:153`) to hand the encoded session to a single
+> (`celeris/middleware/session/config.go` (`Config.WriteBehind`)) to hand the encoded session to a single
 > bounded background worker so the round trip overlaps subsequent work. Pair it
-> with `session.NewWithCloser` (`middleware/session/session.go`) and drain the
+> with `session.NewWithCloser` (`celeris/middleware/session/session.go`) and drain the
 > returned `io.Closer` on graceful shutdown — an acknowledged response no longer
 > guarantees the session is durable across an abrupt crash, so the drain flushes
 > queued writes. `Session.Destroy` stays synchronous regardless.
@@ -269,8 +269,8 @@ CPU's cache and saves an epoll/io_uring syscall per round trip.
 
 In practice you pass the `*celeris.Server` itself to `WithEngine` — the server
 satisfies the small provider interface the drivers consume by exposing
-`EventLoopProvider()` (`server.go:749`) and `AsyncHandlers()`
-(`server.go:781`). The driver pulls the event loop from the first and its
+`EventLoopProvider()` (`celeris/server.go` (`Server.EventLoopProvider`)) and `AsyncHandlers()`
+(`celeris/server.go` (`Server.AsyncHandlers`)). The driver pulls the event loop from the first and its
 effective async state from the second.
 
 ### Redis
@@ -291,11 +291,11 @@ defer rdb.Close()
 v, err := rdb.Get(ctx, "key")
 ```
 
-`redis.NewClient(addr, opts...)` (`driver/redis/client.go:20`) dials a lazy pool.
+`redis.NewClient(addr, opts...)` (`celeris/driver/redis/client.go` (`NewClient`)) dials a lazy pool.
 The typed surface covers strings, hashes, lists, sets, sorted sets, key ops,
 pub/sub, scripting, pipelines, and `MULTI`/`EXEC` transactions; anything not typed
 is reachable via `rdb.Do(ctx, args...)`. Common options
-(`driver/redis/options.go`):
+(`celeris/driver/redis/options.go`):
 
 | Option                         | Effect | Default |
 | ------------------------------ | ------ | ------- |
@@ -309,11 +309,11 @@ is reachable via `rdb.Do(ctx, args...)`. Common options
 
 > TLS (`rediss://`) is **not** supported — `NewClient` rejects the scheme with a
 > clear error. Deploy over a VPC, loopback, or a sidecar TLS terminator
-> (`driver/redis/client.go:21-22`).
+> (`celeris/driver/redis/client.go` (`NewClient`)).
 
 ### PostgreSQL
 
-The Postgres driver offers two entry points (`driver/postgres/doc.go:6-37`):
+The Postgres driver offers two entry points (`celeris/driver/postgres/doc.go`):
 
 **(a) `database/sql`** — portable, works with any ORM. Import for the side-effect
 registration, then `sql.Open` with the `celeris-postgres` driver name:
@@ -331,7 +331,7 @@ db, err := sql.Open("celeris-postgres",
 In this mode `database/sql` owns the pool and the driver runs on a standalone
 event loop. To colocate a `database/sql` pool with your server, build a
 `*Connector` and rebind it with `WithEngine`, then `sql.OpenDB`
-(`driver/postgres/connector.go:32-67`):
+(`celeris/driver/postgres/connector.go` (`NewConnector`, `Connector.WithEngine`)):
 
 ```go
 import "github.com/goceleris/celeris/driver/postgres"
@@ -346,7 +346,7 @@ defer db.Close()
 
 **(b) Direct `Pool`** — skips `database/sql` overhead and pins connections to
 worker-affinity slots. This is the peak-throughput path
-(`driver/postgres/pool.go:126`):
+(`celeris/driver/postgres/pool.go` (`Open`)):
 
 ```go
 pool, err := postgres.Open("postgres://app:pass@localhost/mydb?sslmode=disable",
@@ -367,7 +367,7 @@ err = pool.QueryRow(ctx,
 The `Pool` API mirrors `database/sql`: `QueryContext`/`QueryRow` return `*Rows`/`*Row`
 with the familiar `Next()`/`Scan()`/`Err()` loop, `ExecContext` returns a `Result`,
 and `BeginTx` returns a `*Tx` with `Commit`/`Rollback` plus savepoints. `Pool`
-options (`driver/postgres/pool.go:80-99`):
+options (`celeris/driver/postgres/pool.go` (`WithMaxOpen`)):
 
 | Option                       | Effect | Default |
 | ---------------------------- | ------ | ------- |
@@ -395,7 +395,7 @@ if err != nil {
 defer mc.Close()
 ```
 
-`memcached.NewClient(addr, opts...)` (`driver/memcached/client.go:33`) follows the
+`memcached.NewClient(addr, opts...)` (`celeris/driver/memcached/client.go` (`NewClient`)) follows the
 same shape as the Redis client and accepts `WithEngine` to colocate. TLS is not
 supported.
 
@@ -476,27 +476,27 @@ if err != nil {
 _ = n
 ```
 
-The verified driver signatures used above (`driver/redis/commands.go`,
-`driver/postgres/pool.go`):
+The verified driver signatures used above (`celeris/driver/redis/commands.go`,
+`celeris/driver/postgres/pool.go`):
 
 | Call | Signature | Miss / not-found sentinel |
 | ---- | --------- | ------------------------- |
-| `rdb.Get` | `Get(ctx, key string) (string, error)` | `redis.ErrNil` (`driver/redis/errors.go:10`) |
+| `rdb.Get` | `Get(ctx, key string) (string, error)` | `redis.ErrNil` (`celeris/driver/redis/errors.go` (`ErrNil`)) |
 | `rdb.Set` | `Set(ctx, key string, value any, expiration time.Duration) error` | — |
 | `rdb.Del` | `Del(ctx, keys ...string) (int64, error)` | — (returns 0 if no key matched) |
-| `pool.QueryRow(...).Scan` | `QueryRow(ctx, query string, args ...any) *Row`; `(*Row).Scan(dest ...any) error` | `sql.ErrNoRows` (`driver/postgres/pool.go:974`) |
+| `pool.QueryRow(...).Scan` | `QueryRow(ctx, query string, args ...any) *Row`; `(*Row).Scan(dest ...any) error` | `sql.ErrNoRows` (`celeris/driver/postgres/pool.go` (`Row.Scan`)) |
 
 ### How colocation works
 
 When you pass `WithEngine(srv)`, the driver pulls the server's `EventLoopProvider`
-(`server.go:749`) and registers its connection FDs on it. Concretely:
+(`celeris/server.go` (`Server.EventLoopProvider`)) and registers its connection FDs on it. Concretely:
 
 - Without `WithEngine`, each driver resolves a **standalone** event loop, shared
   and reference-counted across all drivers that omit `WithEngine`.
 - With `WithEngine`, driver FDs land on the same worker goroutine as HTTP handlers.
   This saves one epoll/io_uring syscall per I/O and improves data locality — the
   Redis driver docs cite lower latency from better data locality for serial
-  queries (`driver/redis/doc.go:6-8`).
+  queries (`celeris/driver/redis/doc.go`).
 
 **Correctness is identical** with or without `WithEngine`; the difference is purely
 performance.
@@ -516,14 +516,14 @@ at dial time and pick their I/O path accordingly:
 
 - **Async dispatch on** — the handler runs on a spawned, unlocked goroutine, so a
   blocking driver call parks that goroutine on Go's netpoll without stalling an I/O
-  worker. The drivers detect this (`server.go:781`, `AsyncHandlers`) and select
+  worker. The drivers detect this (`celeris/server.go` (`Server.AsyncHandlers`), `AsyncHandlers`) and select
   their direct net-conn fast path.
 - **Async dispatch off** — the handler runs inline on a `LockOSThread`'d worker. A
   blocking call there would stall the worker, so a different (mini-loop) path is used.
 
 The key detail: `Server.AsyncHandlers()` reports the **effective** state — it
 returns `true` if the server-level `Config.AsyncHandlers` is set **or** any route
-opted in via `.Async()` / `.UsesDriver()` (`server.go:781-800`). So you have two
+opted in via `.Async()` / `.UsesDriver()` (`celeris/server.go` (`Server.AsyncHandlers`)). So you have two
 ways to put a driver route on the fast path:
 
 ```go
@@ -534,7 +534,7 @@ srv := celeris.New(celeris.Config{Addr: ":8080", AsyncHandlers: true})
 srv.GET("/users/:id", getUser).UsesDriver()
 ```
 
-`.UsesDriver()` (`router.go:261-275`) is exactly equivalent to `.Async()` but reads
+`.UsesDriver()` (`celeris/router.go` (`Route.UsesDriver`)) is exactly equivalent to `.Async()` but reads
 as intent at the call site — it marks a route whose handler performs a blocking
 backend round trip via a Celeris driver. It is the recommended way to flag driver
 routes:
@@ -547,12 +547,28 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
 > (`Config.AsyncHandlers = true` alone) only auto-promotes handlers slower than
 > ~300µs. A fast localhost driver call (sub-300µs) would otherwise keep blocking a
 > worker on every request. Mark such routes explicitly with `.UsesDriver()`
-> (`router.go:261-275`).
+> (`celeris/router.go` (`Route.UsesDriver`)).
 
 > **Ordering footgun.** `AsyncHandlers()` reflects routes registered *so far*. If
 > you rely on per-route `.UsesDriver()` (rather than the server-wide flag), open
 > your `WithEngine` drivers **after** registering those routes — or just set
-> `Config.AsyncHandlers = true` to be order-independent (`server.go:788-790`).
+> `Config.AsyncHandlers = true` to be order-independent (`celeris/server.go` (`Server.AsyncHandlers`)).
+
+## Platform support
+
+The drivers under `driver/redis`, `driver/postgres` and `driver/memcached`, and the middleware
+stores built on them (CSRF, JWT cache, rate limit and session stores over Redis, Postgres and
+memcached), run on the celeris event loop on **Linux**. Linux is the supported production path and
+the one the benchmarks measure. On macOS and the other unix hosts they run on a
+goroutine-per-connection fallback, for development and testing.
+
+On **Windows** the drivers and every store compile (`GOOS=windows go build ./...` and `go vet ./...`
+pass over the whole module) and work through the same kind of portable fallback: each connection is
+a `net.Conn` read by its own goroutine, with no `WithEngine` colocation, no write queue and no
+tuning. CI cross-compiles for windows/amd64 and windows/arm64 and runs the fallback's tests and the
+drivers' fake-server tests on `windows-latest`; the integration suites against real Redis, Postgres
+and memcached run on Linux only. Windows is not benchmarked and is not a production target: deploy
+on Linux.
 
 ## Common pitfalls
 
@@ -569,7 +585,7 @@ srv.GET("/users/:id", getUser).UsesDriver()   // == .Async(), clearer intent
   interface; use `middleware/ratelimit/redisstore` for distributed rate limiting.
 - **`WithEngine` without a native engine.** Colocation needs an event-loop engine.
   On the `std` (net/http) fallback engine, `EventLoopProvider()` returns `nil`
-  (`server.go:749-758`) — the driver transparently falls back to a standalone loop,
+  (`celeris/server.go` (`Server.EventLoopProvider`)) — the driver transparently falls back to a standalone loop,
   so you lose the colocation benefit (correctness is unaffected).
 - **Forgetting to mark fast driver routes.** A sub-300µs driver call on a route
   that isn't `.Async()`/`.UsesDriver()` (and without server-wide `AsyncHandlers`)

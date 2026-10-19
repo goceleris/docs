@@ -453,7 +453,7 @@ func handler(c *celeris.Context) error {
 
 ## The `Cookie` type
 
-`SetCookie` takes a `*celeris.Cookie` (`celeris/types.go:48-71`):
+`SetCookie` takes a `*celeris.Cookie` (`celeris/types.go` (`Cookie`)):
 
 | Field | Type | Notes |
 | ----- | ---- | ----- |
