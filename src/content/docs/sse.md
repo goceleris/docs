@@ -564,18 +564,35 @@ why the same `sse.Config` runs unchanged on all engines. Source:
 ### Server timeouts
 
 An SSE stream is detached, so the server's `ReadTimeout` and `WriteTimeout` do not end
-it on any engine: leave them at their defaults and do not set `WriteTimeout: -1` for
+it as a whole on any engine: leave them at their defaults and do not set `WriteTimeout: -1` for
 SSE. On `std` the `Detach` clears the write deadline `net/http` armed for the request
 (before [celeris#855](https://github.com/goceleris/celeris/issues/855) it cut the stream
-at `WriteTimeout`; `ReadTimeout` never did); the native engines apply neither to a
-detached connection. On `std` a write of the stream that has not finished within
-`WriteTimeout` fails (no bound at `-1`), so a client that stays connected and reads nothing
-ends its stream after one `WriteTimeout` (the handler is parked in the write until
-then), and a shutdown whose budget runs out fails the writes of the streams still
-running. On the native engines `Send` does not wait for such a client; the handler
-returning or a shutdown ends the stream, `WriteTimeout` and `ClientPolicyClose` do not
-yet (celeris#884, celeris#885). A stream is ended by its handler returning, the client
-closing the connection, or a shutdown. See [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
+at `WriteTimeout`; `ReadTimeout` never did). A client that stays connected and stops
+reading is dealt with per engine:
+
+- **`std`**: a write of the stream that has not finished within `WriteTimeout` fails (no
+  bound at `-1`), so the client's stream ends after one `WriteTimeout` (the handler is
+  parked in the write until then), and a shutdown whose budget runs out fails the writes
+  of the streams still running.
+- **`epoll`, `io_uring`, `adaptive`**: `Send` does not wait for such a client (the write
+  only queues the event in the engine), so a write error is not what ends its stream, and
+  `ClientPolicyClose` ends it only earlier, when the queue overflows (a drain goroutine
+  that lags behind the producer). `WriteTimeout` is the bound when it does not, as "no
+  progress for `WriteTimeout`": a client
+  that takes none of the bytes the engine has queued for it for `WriteTimeout` is
+  disconnected, its context is cancelled and `OnDisconnect` runs
+  ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). A client
+  that keeps reading, however slowly (there is no minimum rate), is not disconnected, and neither is one with nothing
+  queued for it; `-1` sets no such bound. The disconnect comes between about 3/4
+  and 5/4 of `WriteTimeout` after the client last took a byte (its progress is sampled every
+  quarter of `WriteTimeout`; a send completion restarts the clock at once), plus the
+  engine's sweep interval (up to about 0.1 s on `epoll`, up to 2 s on `io_uring`; a
+  `WriteTimeout` shorter than that can double). The handler returning or a shutdown ends the
+  stream sooner.
+
+A stream is ended by its handler returning, the client closing the connection, a shutdown,
+or a client that stops reading (HTTP/1.1 on every engine; an h2c stream is not covered yet). See
+[Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
 
 ## Common pitfalls
 

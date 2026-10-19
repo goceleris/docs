@@ -188,13 +188,16 @@ returns a `done func()`. Source: `celeris/context_response.go` (`Context.Detach`
 After `Detach`, the framework will not recycle the `Context` when the handler returns;
 the returned `done` is what releases it.
 
-A detached stream is also exempt from the server's `ReadTimeout` and `WriteTimeout` on
-every engine ([celeris#855](https://github.com/goceleris/celeris/issues/855)): `epoll`,
-`io_uring` and `adaptive` apply neither to a detached connection, and on `std` `Detach`
-clears the write deadline `net/http` armed for the request and bounds each write of the
-stream by `WriteTimeout` instead (a write that has not finished within `WriteTimeout`
-fails, so a client that reads nothing ends the stream; a shutdown whose budget runs out
-fails the writes). An undetached
+A detached stream is also exempt from the server's `ReadTimeout` and `WriteTimeout` as a
+whole on every engine ([celeris#855](https://github.com/goceleris/celeris/issues/855)):
+`epoll`, `io_uring` and `adaptive` apply `ReadTimeout` and `IdleTimeout` to a detached
+connection not at all, and `WriteTimeout` as "no progress for `WriteTimeout`" (a connection
+with bytes queued for a peer that takes none of them for `WriteTimeout` is closed;
+[celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39), and on
+`std` `Detach` clears the write deadline `net/http` armed for the request and bounds each
+write of the stream by `WriteTimeout` instead (a write that has not finished within
+`WriteTimeout` fails, so a client that reads nothing ends the stream; a shutdown whose
+budget runs out fails the writes). An undetached
 `StreamWriter` is still a response with a `WriteTimeout`. See
 [Configuration](/docs/configuration#sse-needs-no--1-other-long-lived-responses-do).
 

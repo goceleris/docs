@@ -710,6 +710,7 @@ worth knowing (`celeris/middleware/websocket/doc.go`):
 | `IdleTimeout`         | Enforced via the engine's idle sweep.                                   | Enforced via `net.Conn.SetReadDeadline`.               |
 | Backpressure          | Engine-integrated (TCP receive window); see [Backpressure](#backpressure-native-engines). | Handled by the kernel TCP stack.       |
 | `WriteBufferPool`     | Ignored (engine pools its own write buffer).                            | Consulted.                                              |
+| Peer that reads nothing | The server's `WriteTimeout` closes the connection once the peer has taken none of the bytes queued for it for `WriteTimeout` ("no progress", whatever the peer sends meanwhile; `-1` sets no such bound; [celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). | Not changed by celeris#888. |
 
 The practical takeaways:
 
