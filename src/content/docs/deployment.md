@@ -500,7 +500,7 @@ across workers — no userspace accept lock. This is internal and automatic; you
 not configure it. The one place it surfaces is zero-downtime restarts (below): when
 you hand a listener to `StartWithListener`, the native engines extract the address
 and rebind their own `SO_REUSEPORT` sockets to it, and **you must not `Accept` on or
-close the passed listener afterward** (`celeris/server.go` (`Server.StartWithListener`)). A start that fails before its engine runs (a configuration error, or an engine that cannot be created) closes the listener before it returns the error, so a failed start leaves nothing for you to close. The exception is `ErrAlreadyStarted`: the server is already running, and the listener stays with the caller ([celeris#747](https://github.com/goceleris/celeris/pull/747)).
+close the passed listener afterward** (`celeris/server.go` (`Server.StartWithListener`)). A start that fails before its engine runs (a configuration error, or an engine that cannot be created) closes the listener before it returns the error, so a failed start leaves nothing for you to close. The exception is `ErrAlreadyStarted`: the server is already running, and the listener stays with the caller ([celeris#737](https://github.com/goceleris/celeris/issues/737), fixed by [celeris#747](https://github.com/goceleris/celeris/pull/747)).
 
 ### systemd unit
 

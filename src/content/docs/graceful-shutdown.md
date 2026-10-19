@@ -543,7 +543,7 @@ In both cases the contract is the same: after calling `StartWithListener`, the
 listener belongs to Celeris. That holds when the start fails, too: if the server cannot
 start before its engine runs (a configuration error, or an engine that cannot be
 created), Celeris closes the listener before it returns the error, since celeris v1.6.0
-([celeris#737](https://github.com/goceleris/celeris/issues/737)). The one exception is
+([celeris#737](https://github.com/goceleris/celeris/issues/737), fixed by [celeris#747](https://github.com/goceleris/celeris/pull/747)). The one exception is
 `ErrAlreadyStarted`: the server is already running, so the listener you passed stays
 yours. Source: `celeris/server.go` (`StartWithListener`, `prepareWithListener`).
 

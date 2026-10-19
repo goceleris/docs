@@ -81,7 +81,7 @@ middleware).
 **Let the JSON fast path do its job.** `c.JSON` has a reflection-free encoder for
 small maps and primitive types that emits byte-identical output to the standard
 library while skipping the reflection machinery
-(`celeris/context_response.go` (`jsonSafeValue`)). You don't enable anything — it's automatic.
+(`celeris/context_response.go` (`Context.JSON`, `jsonSafeValue`)). You don't enable anything — it's automatic.
 The practical takeaway is that returning a small `map[string]string` or a flat
 struct from a handler is genuinely cheap; you do not need to hand-roll byte buffers
 to be fast.
