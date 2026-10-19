@@ -6,7 +6,7 @@ interface PanelProps {
   actions?: ComponentChildren;
   nopad?: boolean;
   children: ComponentChildren;
-  style?: JSX.CSSProperties;
+  style?: JSX.IntrinsicElements["div"]["style"];
 }
 
 export function Panel({ title, sub, actions, nopad, children, style }: PanelProps) {

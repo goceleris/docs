@@ -4,7 +4,7 @@ import type { JSX } from "preact";
 interface IconProps {
   s?: number;
   class?: string;
-  style?: JSX.CSSProperties;
+  style?: JSX.IntrinsicElements["div"]["style"];
 }
 
 export function Crown({ s = 13, class: c, style }: IconProps) {
