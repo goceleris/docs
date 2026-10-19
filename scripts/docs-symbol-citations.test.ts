@@ -37,18 +37,6 @@ export function continuationLines(text: string): number[] {
 }
 
 const ALLOW: Record<string, number> = {
-	"binding-and-validation.md": 1,
-	"context-api-reference.md": 1,
-	"engines.md": 20,
-	"middleware-auth.md": 1,
-	"middleware-content.md": 25,
-	"middleware.md": 21,
-	"net-http-interop.md": 16,
-	"observability.md": 31,
-	"routing.md": 28,
-	"sse.md": 26,
-	"streaming.md": 15,
-	"testing.md": 17,
 };
 
 function pages(): string[] {
@@ -104,4 +92,45 @@ test("the continuation detector leaves listen addresses and plain prose alone", 
 	const lonely = "`celeris/x/config.go` (`WithDefaults`):\n`0` falls through to the default branch.";
 	expect(continuationLines(lonely)).toEqual([]);
 	for (const text of clean) expect(continuationLines(text)).toEqual([]);
+});
+
+// Item 10: a celeris source file is always named with its celeris/ prefix and
+// its full repository path. Two path-only shapes slip past the locator count:
+// a path-qualified file without the prefix (`swagger/config.go`, also the
+// shorthand `etag/config.go` after a full path) and a bare parenthesised file
+// name ((server.go)).
+const UNPREFIXED = /(?<=[`( ])(?!celeris\/)[a-z][\w-]*\/[\w./-]+\.go\b|\([a-z_]+\.go\)/;
+
+export function unprefixedLines(text: string): number[] {
+	const hits: number[] = [];
+	text.split("\n").forEach((line, i) => {
+		if (UNPREFIXED.test(line)) hits.push(i + 1);
+	});
+	return hits;
+}
+
+test("no page names a celeris source file without the celeris/ prefix", () => {
+	const hits: string[] = [];
+	for (const f of pages()) {
+		for (const n of unprefixedLines(readFileSync(join(DOCS, f), "utf8"))) hits.push(`${f}:${n}`);
+	}
+	expect(hits).toEqual([]);
+});
+
+test("the unprefixed-path detector flags both shapes and spares prefixed paths", () => {
+	for (const text of [
+		"Source: `swagger/config.go`, `swagger/swagger.go`.",
+		"lives in `middleware/store/kv.go`.",
+		"(`driver/redis/options.go`):",
+		"`celeris.New(cfg)` (server.go) only allocates",
+	]) {
+		expect(unprefixedLines(text)).not.toEqual([]);
+	}
+	for (const text of [
+		"Source: `celeris/middleware/swagger/config.go` (`Config`).",
+		"Create a `main.go`:",
+		"`celeris.New(cfg)` (`celeris/server.go`) only allocates",
+	]) {
+		expect(unprefixedLines(text)).toEqual([]);
+	}
 });

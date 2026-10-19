@@ -50,7 +50,7 @@ s.GET("/events", sse.New(sse.Config{
 (see [Routing](/docs/routing)). It works across **all** Celeris engines — std,
 epoll, and io_uring — because the middleware detaches the connection internally;
 you never manage the event-loop lifecycle yourself. Source:
-`celeris/middleware/sse/sse.go:487`, `celeris/middleware/sse/sse.go:700-705`.
+`celeris/middleware/sse/sse.go` (`New`).
 
 ## Basic usage
 
@@ -121,7 +121,7 @@ The return contract for `Send` is worth internalising:
 - **nil error (queued mode)** — the event was *enqueued or dropped* per your
   slow-client policy; check `DroppedEvents()` to detect drops.
 
-Source: `celeris/middleware/sse/sse.go:64-99`.
+Source: `celeris/middleware/sse/sse.go` (`Client.Send`).
 
 > Always check the error from `Send` and bail out on non-nil. A failed write
 > cancels the client's context, so the next loop iteration would otherwise spin.
@@ -179,8 +179,8 @@ sse.Config{
 ```
 
 Setting `HeartbeatInterval` to `0` keeps the default of 15 seconds; only a
-**negative** value disables it. Source: `celeris/middleware/sse/config.go:51-58`,
-`celeris/middleware/sse/sse.go:667-695`.
+**negative** value disables it. Source: `celeris/middleware/sse/config.go` (`Config.HeartbeatInterval`),
+`celeris/middleware/sse/sse.go` (`New`).
 
 ### Reconnect delay
 
@@ -213,7 +213,7 @@ sse.New(sse.Config{
 })
 ```
 
-Source: `celeris/middleware/sse/sse.go:428-439`, `:560-562`.
+Source: `celeris/middleware/sse/sse.go` (`New`), `celeris/middleware/sse/config.go` (`Config.OnDisconnect`).
 
 **`HEAD` requests.** A `HEAD` to an SSE route is answered by its `GET` route
 (see [Routing](/docs/routing#head-and-options-are-answered-for-you)) and gets the
@@ -250,7 +250,7 @@ sse.New(sse.Config{
 
 ### `ClientPolicy` values
 
-Source: `celeris/middleware/sse/config.go:24-39`.
+Source: `celeris/middleware/sse/config.go` (`ClientPolicy`).
 
 | Policy               | Effect when the queue is full                                                         |
 | -------------------- | ------------------------------------------------------------------------------------ |
@@ -281,7 +281,7 @@ sse.Config{
 //   if client.QueueDepth() > 100 { ...degrade gracefully... }
 ```
 
-Source: `celeris/middleware/sse/sse.go:229-243`.
+Source: `celeris/middleware/sse/sse.go` (`Client.DroppedEvents`).
 
 ## Fan-out with a Broker
 
@@ -313,7 +313,7 @@ s.POST("/announce", func(c *celeris.Context) error {
 `Subscribe` returns an `unsubscribe` function that the handler **must** defer —
 it removes the subscriber and joins its drain goroutine. Calling it twice is safe.
 Subscribing to a closed broker is a no-op. Source:
-`celeris/middleware/sse/broker.go:139-175`.
+`celeris/middleware/sse/broker.go` (`Broker.Subscribe`).
 
 ### Broker API
 
@@ -331,7 +331,7 @@ Source: `celeris/middleware/sse/broker.go`.
 
 ### `BrokerConfig`
 
-All fields are optional. Source: `celeris/middleware/sse/broker.go:32-58`.
+All fields are optional. Source: `celeris/middleware/sse/broker.go` (`BrokerConfig`).
 
 | Field                       | Type                                       | Default                | Purpose                                                              |
 | --------------------------- | ------------------------------------------ | ---------------------- | ------------------------------------------------------------------ |
@@ -339,7 +339,7 @@ All fields are optional. Source: `celeris/middleware/sse/broker.go:32-58`.
 | `OnSlowSubscriber`          | `func(*Client, *PreparedEvent) BrokerPolicy` | `BrokerPolicyDrop`   | Policy when a subscriber's queue is full at publish time.          |
 | `SlowSubscriberConcurrency` | `int`                                      | `GOMAXPROCS*4`         | Caps in-flight slow-path goroutines. Negative opts out (benchmarks only). |
 
-`BrokerPolicy` mirrors `ClientPolicy` (source: `celeris/middleware/sse/broker.go:10-30`):
+`BrokerPolicy` mirrors `ClientPolicy` (source: `celeris/middleware/sse/broker.go` (`BrokerPolicy`)):
 
 | Policy                | Effect on a slow subscriber                                         |
 | --------------------- | ------------------------------------------------------------------ |
@@ -378,7 +378,7 @@ safe for concurrent reads once constructed.
 Per subscriber, events arrive in publish order (each drains a FIFO channel).
 **Across** subscribers there is no global ordering — fan-out is concurrent, so a
 fast subscriber may see event N before a slow one sees event N-1. Source:
-`celeris/middleware/sse/broker.go:177-204`, `celeris/middleware/sse/broker.go:221-255`.
+`celeris/middleware/sse/broker.go` (`Broker.drain`), `celeris/middleware/sse/broker.go` (`Broker.PublishPrepared`).
 
 ## Resumable streams (`Last-Event-ID`)
 
@@ -410,7 +410,7 @@ Handler: func(client *sse.Client) {
   field with the store-assigned canonical ID** (so you don't manage IDs at all);
 - on an unknown cursor, falls through to a fresh start (details below).
 
-Source: `celeris/middleware/sse/config.go:79-100`, `celeris/middleware/sse/sse.go:617-653`.
+Source: `celeris/middleware/sse/config.go` (`Config.ReplayStore`), `celeris/middleware/sse/sse.go` (`New`).
 
 ### In-memory ring buffer
 
@@ -432,7 +432,7 @@ s.GET("/feed", sse.New(sse.Config{
 }))
 ```
 
-Source: `celeris/middleware/sse/replay_ring.go:15`.
+Source: `celeris/middleware/sse/replay_ring.go` (`NewRingBuffer`).
 
 ### KV-backed store (durable / multi-instance)
 
@@ -456,7 +456,7 @@ if err != nil {
 s.GET("/feed", sse.New(sse.Config{ReplayStore: replay, Handler: feedHandler}))
 ```
 
-`KVReplayStoreConfig` fields (source: `celeris/middleware/sse/replay_kv.go:32-79`):
+`KVReplayStoreConfig` fields (source: `celeris/middleware/sse/replay_kv.go` (`KVReplayStoreConfig`)):
 
 | Field                    | Type            | Default        | Purpose                                                              |
 | ------------------------ | --------------- | -------------- | ------------------------------------------------------------------ |
@@ -472,7 +472,7 @@ When the supplied KV also implements `store.Counter` (the in-memory KV does, via
 `Increment`; so does the Redis adapter via `INCR`), IDs are allocated atomically
 against the backend, giving every process a single monotonic ID space. Without
 `Counter`, the store falls back to a per-process counter and multi-instance setups
-will see ID collisions. Source: `celeris/middleware/sse/replay_kv.go:81-124`.
+will see ID collisions. Source: `celeris/middleware/sse/replay_kv.go` (`NewKVReplayStore`).
 
 #### `AsyncAppend` — latency vs. durability
 
@@ -500,7 +500,7 @@ replay, _ := sse.NewKVReplayStore(sse.KVReplayStoreConfig{
 })
 ```
 
-Source: `celeris/middleware/sse/replay_kv.go:48-72`, `:160-190`.
+Source: `celeris/middleware/sse/replay_kv.go` (`KVReplayStoreConfig`, `kvStore.Append`).
 
 ### Unknown-cursor behaviour
 
@@ -509,8 +509,8 @@ the retention window — the store's `Since` returns `sse.ErrLastIDUnknown`. The
 middleware treats this as a **fresh start**: it writes no replay events but still
 runs your `Handler`, and the original header value stays visible via
 `client.LastEventID()` so your handler can react (for example, send a "you may have
-missed messages" marker). Source: `celeris/middleware/sse/replay.go:8-14`,
-`celeris/middleware/sse/sse.go:623-639`.
+missed messages" marker). Source: `celeris/middleware/sse/replay.go` (`ErrLastIDUnknown`),
+`celeris/middleware/sse/sse.go` (`New`).
 
 ```go
 Handler: func(client *sse.Client) {
@@ -526,7 +526,7 @@ Handler: func(client *sse.Client) {
 ## Event format
 
 `sse.Event` is the struct you hand to `Send`. Source:
-`celeris/middleware/sse/event.go:13-30`.
+`celeris/middleware/sse/event.go` (`Event`).
 
 | Field   | Type     | Wire output                          | Notes                                                                 |
 | ------- | -------- | ------------------------------------ | -------------------------------------------------------------------- |
@@ -547,7 +547,7 @@ buf := sse.FormatEvent(nil, sse.Event{Event: "ping", Data: "hi"})
 // buf == "event: ping\ndata: hi\n\n"
 ```
 
-Source: `celeris/middleware/sse/event.go:34-62`.
+Source: `celeris/middleware/sse/event.go` (`FormatEvent`).
 
 ## How it works across engines
 
@@ -558,7 +558,7 @@ handler immediately; on the std engine it runs the stream inline (returning woul
 tell `net/http` the response is done). You don't have to think about any of this —
 the middleware calls `Context.Detach` and picks the right path internally. This is
 why the same `sse.Config` runs unchanged on all engines. Source:
-`celeris/middleware/sse/sse.go:346-707`. For the underlying detach mechanics, see
+`celeris/middleware/sse/sse.go` (`New`). For the underlying detach mechanics, see
 [Streaming](/docs/streaming).
 
 ### Server timeouts
@@ -585,7 +585,7 @@ closing the connection, or a shutdown. See [Configuration](/docs/configuration#s
   flow while the handler is on the stack. If you publish into a `Client` from a
   spawned goroutine, join that goroutine **before** the handler returns. (The
   middleware guards against a panic, returning `ErrClientClosed`, but the
-  ownership is yours.) Source: `celeris/middleware/sse/sse.go:64-99`.
+  ownership is yours.) Source: `celeris/middleware/sse/sse.go` (`Client.Send`).
 - **Not deferring the broker's `unsubscribe`.** It both removes the subscriber and
   joins its drain goroutine; skipping it leaks a goroutine per connection.
 - **Treating `HeartbeatInterval: 0` as "disabled".** Zero means the 15s default;
@@ -616,7 +616,7 @@ subscribed to several brokers at once.
 **Can a broker-subscribed client also use `MaxQueueDepth`?** Yes — they're
 independent layers. The broker writes via `WritePreparedEvent` (always
 synchronous), so the per-client queue only engages if something calls
-`client.Send` directly. Source: `celeris/middleware/sse/prepared.go:26-42`.
+`client.Send` directly. Source: `celeris/middleware/sse/prepared.go` (`Client.WritePreparedEvent`).
 
 **How do I detect that a client left?** Select on `client.Context().Done()`, or
 watch for a non-nil error from `Send`. Heartbeats turn a silently dead connection

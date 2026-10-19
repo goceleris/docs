@@ -41,7 +41,7 @@ func main() {
 
 ### `New` is cheap and non-blocking
 
-`celeris.New(cfg)` (server.go) only allocates the `Server` struct, creates the
+`celeris.New(cfg)` (`celeris/server.go`) only allocates the `Server` struct, creates the
 router, seeds the per-route async default from `Config.AsyncHandlers`, and — unless
 `Config.DisableMetrics` is set — eagerly constructs the metrics collector so that
 `Server.Collector()` returns non-nil before `Start`. **It does not bind a socket,
@@ -65,7 +65,7 @@ constructs the CPU monitor, and installs the engine. Because it runs exactly
 once:
 
 - The **second** call to any `Start*` method returns `celeris.ErrAlreadyStarted`
-  (server.go). A `Server` is single-use; you cannot restart it after `Shutdown`.
+  (`celeris/server.go`). A `Server` is single-use; you cannot restart it after `Shutdown`.
 - Configuration validation errors and engine-initialization errors surface from
   the **first** `Start*` call, not from `New`.
 
@@ -120,7 +120,7 @@ See [Configuration](/docs/configuration) for the full `Config` reference and
 ## 2. The handler contract
 
 Every handler and every piece of middleware in Celeris has the **same** type
-(types.go):
+(`celeris/types.go`):
 
 ```go
 type HandlerFunc func(*Context) error
@@ -170,7 +170,7 @@ You install global middleware with `Server.Use`, per-group middleware with
 ## 3. The Context is pooled
 
 The `*Context` your handler receives is **obtained from a `sync.Pool`**
-(context.go) and is reset and returned to that pool after your handler chain
+(`celeris/context.go`) and is reset and returned to that pool after your handler chain
 completes. This is central to Celeris's allocation profile, and it imposes one
 rule you must internalise:
 
@@ -198,12 +198,12 @@ the request (a Go `string` copy is just `x := c.Param("id")`).
 The two methods documented for cross-request lifetimes are explicit about it in
 source:
 
-- `c.BodyCopy()` (context_request.go): "returns a copy of the request body that
+- `c.BodyCopy()` (`celeris/context_request.go`): "returns a copy of the request body that
   is safe to retain after the handler returns. Use this instead of `Body()` when
   the body must outlive the request lifecycle (e.g., for async processing or
   logging)." `Body()` itself warns the slice "must not be modified or retained
   after the handler returns."
-- `c.RequestHeaders()` (context_request.go): "returns all request headers as
+- `c.RequestHeaders()` (`celeris/context_request.go`): "returns all request headers as
   key-value pairs. The returned slice is a copy safe for concurrent use."
 
 ```go
@@ -241,7 +241,7 @@ classic footgun.
 
 ### Protocol — what's on the wire
 
-`celeris.Protocol` (config.go) is **cleartext only** — Celeris does not terminate
+`celeris.Protocol` (`celeris/config.go`) is **cleartext only** — Celeris does not terminate
 TLS itself; put it behind a TLS-terminating proxy or load balancer.
 
 | Protocol | Meaning |
@@ -256,7 +256,7 @@ the protocol — enabled for `Auto`, disabled for `HTTP1` and `H2C`.
 
 ### Engine — how bytes move
 
-`celeris.EngineType` (config.go) selects the I/O implementation. **The engine is
+`celeris.EngineType` (`celeris/config.go`) selects the I/O implementation. **The engine is
 an I/O strategy, not a protocol** — every engine serves every supported protocol;
 they differ only in how they talk to the kernel.
 
@@ -304,7 +304,7 @@ understanding before you build.
   I/O worker, you get goroutine-per-connection parallelism, matching `net/http`'s
   model.
 
-The trade-off, per `Config.AsyncHandlers` go-doc (config.go): async costs a
+The trade-off, per `Config.AsyncHandlers` go-doc (`celeris/config.go`): async costs a
 goroutine spawn (~100ns) plus scheduler overhead per request — a measured ~3–5%
 regression on a pure static-response benchmark. So:
 
