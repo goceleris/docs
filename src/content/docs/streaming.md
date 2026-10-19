@@ -51,7 +51,7 @@ if sw == nil {
 }
 ```
 
-Source: `celeris/context_response.go` (`appendClone`).
+Source: `celeris/context_response.go` (`Context.StreamWriter`).
 
 `StreamWriter()` returns `nil` in two situations:
 
@@ -66,7 +66,7 @@ Source: `celeris/context_response.go` (`appendClone`).
 ### The StreamWriter API
 
 Once you hold a non-nil `*StreamWriter`, you drive the response with these methods.
-Source: `celeris/context_response.go` (`Context.materializeRequestViews`).
+Source: `celeris/context_response.go` (`StreamWriter`).
 
 | Method                                  | Returns          | Purpose                                                                 |
 | --------------------------------------- | ---------------- | ----------------------------------------------------------------------- |
@@ -364,7 +364,7 @@ func transform(c *celeris.Context) error {
 ### StreamWriter is incompatible with buffering
 
 This is the crucial interaction for middleware authors. **While buffering is active,
-`Context.StreamWriter()` returns `nil`.** Source: `celeris/context_response.go` (`StreamWriter`).
+`Context.StreamWriter()` returns `nil`.** Source: `celeris/context_response.go` (`Context.StreamWriter`).
 
 Streaming writes bytes directly and irrevocably to the wire; buffering holds a response
 in memory so it can be discarded or rewritten. The two cannot coexist — a buffered

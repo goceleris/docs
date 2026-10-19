@@ -376,7 +376,7 @@ api.GET("/cached", cachedHandler).Sync()           // …opt this one back to in
 `UsesDriver` is the recommended marker for routes that call a Celeris
 postgres/redis/memcached driver opened `WithEngine(srv)`: such drivers may complete
 faster than the adaptive promotion threshold, so an explicit mark guarantees the
-handler is dispatched off the worker. Source: `celeris/router.go` (`Route.Async`).
+handler is dispatched off the worker. Source: `celeris/router.go` (`Route.UsesDriver`).
 
 For the full dispatch model and `Config.AsyncHandlers`, see [Engines](/docs/engines).
 

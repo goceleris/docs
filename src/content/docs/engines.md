@@ -518,7 +518,7 @@ lists them as not covered).
 
 The provider exposes `NumWorkers()` and `WorkerLoop(n)`; the per-worker
 `WorkerLoop` surface (`RegisterConn`, `UnregisterConn`, `Write`, `CPUID`) is
-documented in `celeris/internal/engine/provider.go` (`EventLoopProvider`). You normally don't call this
+documented in `celeris/internal/engine/provider.go` (`EventLoopProvider`, `WorkerLoop`). You normally don't call this
 yourself — a Celeris driver opened `WithEngine(srv)` consumes it for you. When the
 provider is `nil` (std engine), drivers fall back to a standalone mini event loop.
 A nil check and a call such as `p.NumWorkers()` need no name for the type:

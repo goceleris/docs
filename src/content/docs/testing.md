@@ -218,7 +218,7 @@ func TestSession(t *testing.T) {
 > `WithCookie` does **not** escape `;` or CR/LF inside the value — pass
 > well-formed values only. To exercise your server's handling of a *malformed*
 > cookie header, set the raw header yourself with `WithHeader("cookie", …)`.
-> Source: `celeris/celeristest/celeristest.go` (`WithContentType`).
+> Source: `celeris/celeristest/celeristest.go` (`WithCookie`).
 
 ### Client IP behind a proxy
 

@@ -489,7 +489,7 @@ s.GET("/users/:id", func(c *celeris.Context) error {
 
 `Respond` writes the *exact* protobuf variant the client preferred
 (`application/x-protobuf` vs `application/protobuf`) and honors `q=0` to exclude a
-form. Source: `celeris/middleware/protobuf/protobuf.go` (`Write`).
+form. Source: `celeris/middleware/protobuf/protobuf.go` (`Respond`).
 
 ### The middleware just stores config
 
@@ -518,7 +518,7 @@ s.POST("/strict", func(c *celeris.Context) error {
 `Content-Type` is protobuf and returns `ErrNotProtoBuf` otherwise, then unmarshals
 with the stored options. If the middleware wasn't installed, `FromContext` falls
 back to default options, so it's always safe to call. Source:
-`celeris/middleware/protobuf/middleware.go` (`New`), `celeris/middleware/protobuf/config.go` (`defaultConfig`).
+`celeris/middleware/protobuf/middleware.go` (`FromContext`), `celeris/middleware/protobuf/config.go` (`defaultConfig`).
 
 ## OpenAPI docs (Swagger)
 
