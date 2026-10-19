@@ -170,7 +170,7 @@ and let Adaptive/Std resolve automatically.
 | Accept control (Pause/Resume) | Yes          | Yes   | —   |
 | Driver event-loop colocation  | Yes          | Yes   | —   |
 
-Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go` (`SendfileCapable`),
+Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go` (`AcceptController`, `SwitchFreezer`, `SendfileCapable`),
 `celeris/server.go` (`Server.EventLoopProvider`), `celeris/context_response.go` (`Context.EngineSupportsAsyncDetach`).
 
 ## The adaptive controller
