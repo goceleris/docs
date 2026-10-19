@@ -102,9 +102,10 @@ reviews:
         - Flag any technical claim a reviewer cannot verify from the celeris source, a linked issue,
           or a committed benchmark cell. Say what evidence would settle it. Do not accept "fast",
           "zero-copy", "lock-free", "SIMD", "no allocations" or similar without a source.
-        - Pages cite source locations such as `celeris/internal/resource/config.go:13-19`. Check that the
-          file exists and that those lines still say what the page claims; line numbers drift as
-          celeris changes.
+        - Pages cite source locations by file and symbol, such as
+          `celeris/internal/resource/config.go` (`Config.WithDefaults`), never by line number. Check
+          that the file exists, that the symbol is declared in it, and that it says what the page
+          claims. Do not ask for line numbers: they drift as celeris changes.
         - Go code samples must compile against the current celeris API: correct imports, types,
           method names and error handling. Flag samples that would not compile or that teach an
           unsafe pattern.
