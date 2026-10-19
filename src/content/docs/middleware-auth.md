@@ -51,7 +51,7 @@ config shape so you can swap or stack them without relearning the surface.
 ### One sentinel across all stacks: `ErrUnauthorized`
 
 Every auth package re-exports the same canonical 401 error,
-`celeris.ErrUnauthorized` (defined in `celeris/errors.go:44`). `basicauth.ErrUnauthorized`,
+`celeris.ErrUnauthorized` (defined in `celeris/errors.go` (`ErrUnauthorized`)). `basicauth.ErrUnauthorized`,
 `keyauth.ErrUnauthorized`, and `jwt.ErrUnauthorized` are all aliases of it, so a
 single `errors.Is` check matches a failure from *any* layer of a mixed stack:
 

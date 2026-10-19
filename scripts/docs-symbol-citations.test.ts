@@ -37,18 +37,6 @@ export function continuationLines(text: string): number[] {
 }
 
 const ALLOW: Record<string, number> = {
-	"binding-and-validation.md": 1,
-	"context-api-reference.md": 1,
-	"engines.md": 20,
-	"middleware-auth.md": 1,
-	"middleware-content.md": 25,
-	"middleware.md": 21,
-	"net-http-interop.md": 16,
-	"observability.md": 31,
-	"routing.md": 28,
-	"sse.md": 26,
-	"streaming.md": 15,
-	"testing.md": 17,
 };
 
 function pages(): string[] {

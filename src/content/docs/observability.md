@@ -52,14 +52,14 @@ affects what they see (see [Ordering](#recommended-ordering)).
 ## Built-in metrics — the Collector
 
 The server creates an `observe.Collector` **eagerly in `New`** unless you set
-`Config.DisableMetrics: true` (`celeris/config.go:178-181`, `celeris/server.go:152-154`).
+`Config.DisableMetrics: true` (`celeris/config.go` (`Config.DisableMetrics`), `celeris/server.go` (`New`)).
 It uses lock-free, cache-line-padded counters sharded per worker, so recording is
 cheap on the hot path.
 
 ### Getting the Collector
 
 `Server.Collector()` returns the live collector, or `nil` only when metrics are
-disabled via `DisableMetrics` (`celeris/server.go:863-868`). Because the collector is
+disabled via `DisableMetrics` (`celeris/server.go` (`Server.Collector`)). Because the collector is
 created in `New`, it is non-nil immediately — you do **not** need to wait for
 `Start`. Engine-derived fields (`ActiveConns`, `EngineMetrics`), however, stay
 zero until the server is running and the engine is wired:
@@ -79,12 +79,12 @@ if col != nil {
 > **Pitfall:** `Collector()` returns `nil` only when `DisableMetrics` is true —
 > still nil-check it before dereferencing. The `middleware/debug` `/metrics`
 > endpoint returns `501 Not Implemented` when no collector is wired in
-> (`celeris/middleware/debug/debug.go:197`).
+> (`celeris/middleware/debug/debug.go` (`handleMetrics`)).
 
 ### Reading a Snapshot
 
 `Collector.Snapshot()` returns a point-in-time copy of all counters
-(`celeris/observe/collector.go:181`). All fields are read-only values captured
+(`celeris/observe/collector.go` (`Collector.Snapshot`)). All fields are read-only values captured
 at the moment of the call.
 
 | Field | Type | Meaning |
@@ -101,7 +101,7 @@ at the moment of the call.
 The histogram is paired: `LatencyBuckets[i]` is the count of requests whose
 latency was `<= BucketBounds[i]` seconds (the final bucket is the overflow).
 The default bounds are `0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 5`
-seconds (`celeris/observe/collector.go:11`).
+seconds (`celeris/observe/collector.go` (`defaultBucketBounds`)).
 
 ```go
 snap := s.Collector().Snapshot()
@@ -122,7 +122,7 @@ if snap.CPUUtilization >= 0 {
 ### EngineMetrics
 
 `Snapshot.EngineMetrics` (and `Server.EngineInfo().Metrics`) expose the I/O
-engine's own counters (`celeris/observe/engine_metrics.go:22`). These are the same
+engine's own counters (`celeris/observe/engine_metrics.go` (`EngineMetrics`)). These are the same
 counters the adaptive controller reads to pick an engine.
 
 | Field | Type | Meaning |
@@ -142,7 +142,7 @@ counters the adaptive controller reads to pick an engine.
 
 If you only want engine-level info (not the request histogram),
 `Server.EngineInfo()` returns the active engine type and its metrics, or `nil`
-if the server isn't started (`celeris/server.go:802-812`):
+if the server isn't started (`celeris/server.go` (`Server.EngineInfo`)):
 
 ```go
 if info := s.EngineInfo(); info != nil {
@@ -180,7 +180,7 @@ It is intentionally rich and zero-alloc on the steady-state path.
 ### The server-level logger
 
 `Config.Logger` is the server's structured logger; it defaults to
-`slog.Default()` when nil (`celeris/config.go:262-263`). This logger is used by the
+`slog.Default()` when nil (`celeris/config.go` (`Config.Logger`)). This logger is used by the
 server itself (and is the default sink for several middleware, including
 `recovery` — see [Error handling](/docs/error-handling)). Set it once at
 construction:
@@ -197,9 +197,9 @@ s := celeris.New(celeris.Config{
 
 ### Request access logs
 
-Install `logger.New()` to log every request (`celeris/middleware/logger/logger.go:24`).
+Install `logger.New()` to log every request (`celeris/middleware/logger/logger.go` (`New`)).
 With no config its `Output` defaults to `slog.Default()` and it uses the default
-level mapping (`celeris/middleware/logger/config.go:209`):
+level mapping (`celeris/middleware/logger/config.go` (`applyDefaults`)):
 
 ```go
 import "github.com/goceleris/celeris/middleware/logger"
@@ -211,13 +211,13 @@ Every entry carries these base attributes (always emitted):
 `method`, `path`, `status`, `latency`, `bytes`. When present, the middleware also
 adds `client_ip`, `request_id` (from [Request IDs](#request-ids)), and `error`
 (the handler's returned error string). Source:
-`celeris/middleware/logger/logger.go:116`.
+`celeris/middleware/logger/logger.go` (`New`).
 
 #### Level mapping
 
 `Config.Level` maps a response status code to a `slog.Level`. The default maps
 5xx → `Error`, 4xx → `Warn`, everything else → `Info`
-(`celeris/middleware/logger/config.go:222`). Override it to, say, treat 404s as
+(`celeris/middleware/logger/config.go` (`defaultLevel`)). Override it to, say, treat 404s as
 info:
 
 ```go
@@ -282,7 +282,7 @@ s.Use(logger.New(logger.Config{
 
 `CaptureRequestBody` and `CaptureResponseBody` log the request/response body
 (attrs `request_body` / `response_body`), each truncated to `MaxCaptureBytes`
-(default 4096) (`celeris/middleware/logger/config.go:93`). Response capture
+(default 4096) (`celeris/middleware/logger/config.go` (`Config.CaptureRequestBody`)). Response capture
 requires the response to be buffered, which the middleware enables via
 `c.CaptureResponse()` automatically.
 
@@ -302,7 +302,7 @@ s.Use(logger.New(logger.Config{
 
 This is the single most important thing to get right in the logger. **Header and
 form-field redaction have asymmetric defaults**
-(`celeris/middleware/logger/config.go:107` and `:180`):
+(`celeris/middleware/logger/config.go` (`Config.SensitiveHeaders`) and `:180`):
 
 | Setting | `nil` (unset) | `[]string{}` (empty) | non-empty |
 | --- | --- | --- | --- |
@@ -323,15 +323,15 @@ s.Use(logger.New(logger.Config{
 
 Helpers `logger.DefaultSensitiveHeaders()` and
 `logger.DefaultSensitiveFormFields()` return fresh copies of the built-in lists
-(`celeris/middleware/logger/config.go:25` and `:55`). Redacted values are
+(`celeris/middleware/logger/config.go` (`DefaultSensitiveHeaders`) and `:55`). Redacted values are
 replaced with `[REDACTED]`. Note that **every configured sensitive header is
 always emitted as `[REDACTED]`**, present or not — a constant-presence design
 that avoids leaking which headers a request carried
-(`celeris/middleware/logger/logger.go:231`).
+(`celeris/middleware/logger/logger.go` (`New`)).
 
 ### Presets — CLF and JSON
 
-Two preset configs are provided (`celeris/middleware/logger/config.go:243`,
+Two preset configs are provided (`celeris/middleware/logger/config.go` (`CLFConfig`),
 `:283`):
 
 ```go
@@ -347,7 +347,7 @@ s.Use(logger.New(logger.JSONConfig()))
 
 `FastHandler` is a high-performance `slog.Handler` that formats records directly
 into a pooled buffer with zero steady-state allocations, producing
-`slog.TextHandler`-compatible output (`celeris/middleware/logger/fasthandler.go:21`).
+`slog.TextHandler`-compatible output (`celeris/middleware/logger/fasthandler.go` (`FastHandler`)).
 The logger middleware has a fast path that bypasses `slog.Record` entirely when
 the output uses `FastHandler`.
 
@@ -380,14 +380,14 @@ output. When `FastHandler`'s writer is `io.Discard`, the handler reports
 `Enabled() == false` and short-circuits all formatting — letting you keep
 per-request instrumentation (request-id propagation, latency, redaction) with no
 log output, which is exactly what benchmarks use
-(`celeris/middleware/logger/fasthandler.go:123`).
+(`celeris/middleware/logger/fasthandler.go` (`NewFastHandler`)).
 
 ## Request IDs
 
 `middleware/requestid` assigns a unique ID to every request, stores it on the
 context, and echoes it in a response header. The `logger` middleware then
 automatically includes it as the `request_id` attr, so install requestid
-**before** logger (`celeris/middleware/requestid/requestid.go:60`).
+**before** logger (`celeris/middleware/requestid/requestid.go` (`New`)).
 
 ```go
 import "github.com/goceleris/celeris/middleware/requestid"
@@ -419,10 +419,10 @@ func handler(c *celeris.Context) error {
 ```
 
 - `requestid.FromContext(c)` reads the ID from the Celeris context store
-  (`celeris/middleware/requestid/requestid.go:38`).
+  (`celeris/middleware/requestid/requestid.go` (`FromContext`)).
 - `requestid.FromStdContext(ctx)` reads it from a stdlib `context.Context` —
   but **only works if `EnableStdContext` is true** (see below)
-  (`celeris/middleware/requestid/requestid.go:17`).
+  (`celeris/middleware/requestid/requestid.go` (`FromStdContext`)).
 - `requestid.ContextKey` is the store key (`"request_id"`).
 
 ### Configuration
@@ -448,7 +448,7 @@ s.Use(requestid.New(requestid.Config{
 ```
 
 Inbound IDs are validated regardless: an ID must be 1–128 printable-ASCII bytes
-or it is discarded and regenerated (`celeris/middleware/requestid/requestid.go:43`).
+or it is discarded and regenerated (`celeris/middleware/requestid/requestid.go` (`validID`)).
 
 ## Prometheus (separate module)
 
@@ -460,7 +460,7 @@ go get github.com/goceleris/celeris/middleware/metrics
 ```
 
 It serves a Prometheus exposition endpoint (default `/metrics`) and records
-per-request metrics (`celeris/middleware/metrics/metrics.go:30`):
+per-request metrics (`celeris/middleware/metrics/metrics.go` (`New`)):
 
 ```go
 import "github.com/goceleris/celeris/middleware/metrics"
@@ -540,7 +540,7 @@ go get github.com/goceleris/celeris/middleware/otel
 
 It creates a server span per request with W3C trace-context propagation and
 (optionally) OTel metrics, exporting to whatever providers you've configured
-globally (`celeris/middleware/otel/otel.go:322`). By default it uses the global
+globally (`celeris/middleware/otel/otel.go` (`New`)). By default it uses the global
 providers, so configure your tracer/meter/propagator once via the OTel SDK and
 just install the middleware:
 
@@ -558,7 +558,7 @@ s.Use(otel.New())
 Each request produces a server-kind span named `"METHOD /route"` with standard
 HTTP semantic-convention attributes (method, route, scheme, path, protocol
 version, server address, response status/size). The request ID is added as a
-`request.id` span attribute when present (`celeris/middleware/otel/otel.go:484`).
+`request.id` span attribute when present (`celeris/middleware/otel/otel.go` (`New`)).
 When metrics are enabled (the default), it also records
 `http.server.request.duration`, `http.server.active_requests`,
 `http.server.request.body.size`, and `http.server.response.body.size`. Their
@@ -580,7 +580,7 @@ set `MetricServerAddress` where the `Host` is bounded upstream
 ### Reading the active span
 
 `otel.SpanFromContext(c)` returns the active span so you can add attributes or
-events from a handler (`celeris/middleware/otel/otel.go:315-319`):
+events from a handler (`celeris/middleware/otel/otel.go` (`SpanFromContext`)):
 
 ```go
 func handler(c *celeris.Context) error {
@@ -613,7 +613,7 @@ func handler(c *celeris.Context) error {
 > `CollectClientIP`), and `url.query` is **never** added to spans because query
 > strings frequently carry tokens, emails, and session IDs. If you need the
 > query string, add it yourself via `CustomAttributes`
-> (`celeris/middleware/otel/config.go:65`).
+> (`celeris/middleware/otel/config.go` (`Config`)).
 
 ```go
 disableUA := false
@@ -636,7 +636,7 @@ with `403` unless you replace `AuthFunc`.
 ### pprof
 
 `middleware/pprof` mounts the standard `net/http/pprof` handlers under
-`/debug/pprof` (`celeris/middleware/pprof/pprof.go:32`). It is part of the main
+`/debug/pprof` (`celeris/middleware/pprof/pprof.go` (`New`)). It is part of the main
 module (no extra `go get`).
 
 ```go
@@ -665,7 +665,7 @@ Available endpoints: `index`, `cmdline`, `profile`, `symbol`, `trace`,
 ### debug — `/debug/celeris` JSON
 
 `middleware/debug` serves a JSON diagnostics tree under `/debug/celeris`,
-loopback-only by default (`celeris/middleware/debug/debug.go:75`). Part of the
+loopback-only by default (`celeris/middleware/debug/debug.go` (`New`)). Part of the
 main module.
 
 ```go
