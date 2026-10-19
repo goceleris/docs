@@ -24,13 +24,13 @@ everything on this page.
 
 | Hook                 | Runs                              | Can mutate before routing?                | Source                  |
 | -------------------- | --------------------------------- | ----------------------------------------- | ----------------------- |
-| `Server.Pre(mw...)`  | **before** route lookup           | yes — method, path, scheme, host          | `celeris/server.go:211` |
-| `Server.Use(mw...)`  | after lookup, before the handler  | no — the route is already chosen          | `celeris/server.go:196` |
+| `Server.Pre(mw...)`  | **before** route lookup           | yes — method, path, scheme, host          | `celeris/server.go` (`Server.Pre`) |
+| `Server.Use(mw...)`  | after lookup, before the handler  | no — the route is already chosen          | `celeris/server.go` (`Server.Use`) |
 
 `Server.Pre` registers **pre-routing** middleware. It executes before the router
 resolves the handler chain, so a `Pre` handler may rewrite the request method or
 path and the router will then match against the *modified* values
-(`celeris/server.go:204-214`). This is exactly what `redirect`, `rewrite`, and
+(`celeris/server.go` (`Server.Pre`)). This is exactly what `redirect`, `rewrite`, and
 `methodoverride` need: they reshape the request and let routing happen
 afterwards.
 
@@ -50,10 +50,10 @@ The mutators these middleware reach for are all on `*Context`:
 
 | Method               | Effect                                          | Source                         |
 | -------------------- | ----------------------------------------------- | ------------------------------ |
-| `SetMethod(m)`       | overrides the HTTP method seen by the router    | `celeris/context_request.go:27`|
-| `SetPath(p)`         | overrides the request path before route lookup  | `celeris/context_request.go:34`|
-| `SetScheme(scheme)`  | overrides `Scheme()` (e.g. from a proxy header) | `celeris/context_request.go:420`|
-| `SetHost(host)`      | overrides `Host()`                              | `celeris/context_request.go:681`|
+| `SetMethod(m)`       | overrides the HTTP method seen by the router    | `celeris/context_request.go` (`Context.SetMethod`)|
+| `SetPath(p)`         | overrides the request path before route lookup  | `celeris/context_request.go` (`Context.SetPath`)|
+| `SetScheme(scheme)`  | overrides `Scheme()` (e.g. from a proxy header) | `celeris/context_request.go` (`Context.SetScheme`)|
+| `SetHost(host)`      | overrides `Host()`                              | `celeris/context_request.go` (`Context.SetHost`)|
 
 ### The short-circuit contract
 
@@ -63,7 +63,7 @@ A `Pre` handler has a binary choice on every request:
   handler) proceeds. It may have mutated the method/path first.
 - **Short-circuit** — write a response (e.g. `c.Redirect(...)`) and return
   **without** calling `c.Next()`. No routing occurs and the request is
-  considered handled (`celeris/server.go:207-209`).
+  considered handled (`celeris/server.go` (`Server.Pre`)).
 
 > The rule of thumb: **if a `Pre` handler writes to the response, it must not
 > call `Next`.** The redirect middleware follows this exactly — when it issues a
@@ -102,10 +102,10 @@ otherwise they pass through. Source: `celeris/middleware/redirect/redirect.go`.
 | `HTTPSNonWWWRedirect`             | not (`https` **and** non-`www.`)    | `https://` host w/o `www.` (single)   |
 
 Every constructor **preserves the original query string** (via
-`buildRedirectURL`, `celeris/middleware/redirect/redirect.go:30-36`) and skips
+`buildRedirectURL`, `celeris/middleware/redirect/redirect.go` (`buildRedirectURL`)) and skips
 the request — passing through to `c.Next()` — when `Host()` returns `""`, to
 avoid generating a malformed redirect URL (e.g.
-`celeris/middleware/redirect/redirect.go:57-60`).
+`celeris/middleware/redirect/redirect.go` (`HTTPSRedirect`)).
 
 ### In-place rewrite variants
 
@@ -120,7 +120,7 @@ handler simply sees the canonical path:
 
 The `*Rewrite` variants accept a `Config` for skip logic (`Skip`/`SkipPaths`)
 but never act on `Code`, since they don't send a redirect
-(`celeris/middleware/redirect/redirect.go:250-290`). They still validate the
+(`celeris/middleware/redirect/redirect.go` (`TrailingSlashRewrite`)). They still validate the
 config, so an out-of-range `Code` panics exactly as it would for a redirect
 constructor — just leave `Code` unset.
 
@@ -159,7 +159,7 @@ An out-of-range `Code` panics at construction — a deliberate fail-fast:
 redirect: Code must be a redirect status (301, 302, 303, 307, 308), got 404
 ```
 
-Source: `celeris/middleware/redirect/config.go:33-40`.
+Source: `celeris/middleware/redirect/config.go` (`Config.validate`).
 
 ### A complete redirect example
 
@@ -186,7 +186,7 @@ Conflicting redirects loop forever. Two combinations to never install together:
 For "HTTPS *and* a www change", prefer the combined `HTTPSWWWRedirect` /
 `HTTPSNonWWWRedirect` constructors over chaining `HTTPSRedirect` with
 `WWWRedirect`: the combined form does it in a single hop and sidesteps the
-double-redirect (`celeris/middleware/redirect/redirect.go:180-248`).
+double-redirect (`celeris/middleware/redirect/redirect.go` (`HTTPSWWWRedirect`)).
 
 ## rewrite — regex path rewriting
 
@@ -194,7 +194,7 @@ When the trailing-slash and www helpers aren't enough, the `rewrite` package
 (`github.com/goceleris/celeris/middleware/rewrite`) matches the request path
 against an ordered list of regular-expression rules. Its single constructor is
 `New`, and patterns are **compiled once at init** with `regexp.MustCompile`
-(`celeris/middleware/rewrite/rewrite.go:24-48`).
+(`celeris/middleware/rewrite/rewrite.go` (`New`)).
 
 ```go
 import "github.com/goceleris/celeris/middleware/rewrite"
@@ -218,7 +218,7 @@ type Rule struct {
 }
 ```
 
-Source: `celeris/middleware/rewrite/config.go:9-27`.
+Source: `celeris/middleware/rewrite/config.go` (`Rule`).
 
 | Field          | Behaviour                                                                 |
 | -------------- | ----------------------------------------------------------------------- |
@@ -229,7 +229,7 @@ Source: `celeris/middleware/rewrite/config.go:9-27`.
 | `Host`         | Exact `Host` header match. Empty matches every host.                   |
 
 **First match wins.** Rules are evaluated in the order you list them; the first
-regex that matches stops the search (`celeris/middleware/rewrite/rewrite.go:61-88`).
+regex that matches stops the search (`celeris/middleware/rewrite/rewrite.go` (`New`)).
 
 ### Silent rewrite vs redirect
 
@@ -241,7 +241,7 @@ happens when a rule matches:
   handler sees the rewritten path.
 - **`301/302/303/307/308` — redirect.** The middleware builds
   `scheme://host` + the rewritten path (plus `?query` when present) and sends a
-  `c.Redirect`, short-circuiting (`celeris/middleware/rewrite/rewrite.go:77-83`).
+  `c.Redirect`, short-circuiting (`celeris/middleware/rewrite/rewrite.go` (`New`)).
 
 ```go
 type Config struct {
@@ -252,7 +252,7 @@ type Config struct {
 }
 ```
 
-Source: `celeris/middleware/rewrite/config.go:29-45`.
+Source: `celeris/middleware/rewrite/config.go` (`Config`).
 
 ### A complete rewrite example
 
@@ -290,7 +290,7 @@ s.Pre(rewrite.New(rewrite.Config{
 - a `RedirectCode` (config or rule) is non-zero and not a valid redirect status
 - a `Pattern` is not a valid regex (surfaced by `regexp.MustCompile`)
 
-Source: `celeris/middleware/rewrite/config.go:55-79`.
+Source: `celeris/middleware/rewrite/config.go` (`Config.validate`).
 
 ## methodoverride — tunnelling PUT/PATCH/DELETE through POST
 
@@ -303,7 +303,7 @@ form field or header. The middleware reads that value and calls `SetMethod`
 > **Install with `Server.Pre`, never `Server.Use`.** With `Use`, the router has
 > already matched on the original `POST`, so the override has no effect on
 > routing — and it does so silently. The package documents this explicitly
-> (`celeris/middleware/methodoverride/doc.go:8-13`).
+> (`celeris/middleware/methodoverride/doc.go`).
 
 ```go
 import "github.com/goceleris/celeris/middleware/methodoverride"
@@ -317,7 +317,7 @@ s.DELETE("/users/:id", deleteUser)
 
 ### How a request is rewritten
 
-On each request the middleware (`celeris/middleware/methodoverride/methodoverride.go:34-58`):
+On each request the middleware (`celeris/middleware/methodoverride/methodoverride.go` (`New`)):
 
 1. Skips if `Skip`/`SkipPaths` says so.
 2. Checks the original method is in `AllowedMethods` (default: just `POST`).
@@ -338,7 +338,7 @@ type Config struct {
 }
 ```
 
-Source: `celeris/middleware/methodoverride/config.go:17-40`.
+Source: `celeris/middleware/methodoverride/config.go` (`Config`).
 
 | Field            | Default                         | Notes                                              |
 | ---------------- | ------------------------------- | -------------------------------------------------- |
@@ -349,14 +349,14 @@ Source: `celeris/middleware/methodoverride/config.go:17-40`.
 
 `AllowedMethods` and `TargetMethods` must not contain empty/whitespace-only
 strings — the middleware panics at init if they do
-(`celeris/middleware/methodoverride/config.go:61-72`).
+(`celeris/middleware/methodoverride/config.go` (`Config.validate`)).
 
 ### Getters: where the override comes from
 
 The default getter checks the **form field `_method`** first, then the header
 **`X-HTTP-Method-Override`** — that order lets plain HTML forms (which can't set
 custom headers) drive the override with no JavaScript
-(`celeris/middleware/methodoverride/config.go:79-87`). The package also exports
+(`celeris/middleware/methodoverride/config.go` (`defaultGetter`)). The package also exports
 the constants `methodoverride.DefaultFormField` (`"_method"`) and
 `methodoverride.DefaultHeader` (`"X-HTTP-Method-Override"`).
 
@@ -370,7 +370,7 @@ Swap the source with one of the getter factories:
 | `FormThenHeaderGetter(field, header)`   | the named form field, then the named header |
 | `QueryGetter(param)`                    | the named **query parameter** — see warning |
 
-Source: `celeris/middleware/methodoverride/config.go:89-126`.
+Source: `celeris/middleware/methodoverride/config.go` (`HeaderGetter`).
 
 ```go
 // API clients send the method in a header only.
@@ -383,7 +383,7 @@ s.Pre(methodoverride.New(methodoverride.Config{
 > images — `<img src="/users/42?_method=DELETE">` can trigger a destructive
 > override across sites. The package provides it for parity with other
 > frameworks but documents the risk explicitly; prefer `HeaderGetter` for API
-> clients (`celeris/middleware/methodoverride/config.go:118-126`).
+> clients (`celeris/middleware/methodoverride/config.go` (`QueryGetter`)).
 
 ### Interaction with CSRF
 
@@ -391,7 +391,7 @@ Method override changes the method *before* CSRF middleware runs. Make sure the
 overridden targets (`PUT`, `DELETE`, `PATCH`) are **not** in your CSRF
 middleware's safe-methods list, or the protection is bypassed
 (the package warns about CSRF risk for query-based overrides at
-`celeris/middleware/methodoverride/doc.go:17`). See [Security middleware](/docs/middleware-security).
+`celeris/middleware/methodoverride/doc.go`). See [Security middleware](/docs/middleware-security).
 
 ## healthcheck — Kubernetes-style probes
 
@@ -399,13 +399,13 @@ The `healthcheck` package
 (`github.com/goceleris/celeris/middleware/healthcheck`) answers liveness,
 readiness, and startup probes. It intercepts **`GET`/`HEAD`** requests to the
 configured probe paths and returns a small JSON status, passing every other
-request straight through (`celeris/middleware/healthcheck/healthcheck.go:66-91`).
+request straight through (`celeris/middleware/healthcheck/healthcheck.go` (`New`)).
 
 > Unlike the other middleware on this page, install `healthcheck` with
 > **`Server.Use`** (it is route middleware, not pre-routing), and install it
 > **first** so probes are answered before any heavier middleware runs. The
 > package's own examples use `server.Use(healthcheck.New())`
-> (`celeris/middleware/healthcheck/example_test.go:13`).
+> (`celeris/middleware/healthcheck/example_test.go` (`ExampleNew`)).
 
 ```go
 import "github.com/goceleris/celeris/middleware/healthcheck"
@@ -425,15 +425,15 @@ s.GET("/users/:id", showUser)
 | Startup   | `StartPath` | `/startupz`    | `healthcheck.DefaultStartPath` |
 
 Set any path to the **empty string `""` to disable that probe**
-(`celeris/middleware/healthcheck/config.go:94`). Enabled paths must start with
+(`celeris/middleware/healthcheck/config.go` (`applyDefaults`)). Enabled paths must start with
 `/`, and no two enabled probes may share a path — both are init-time panics
-(`celeris/middleware/healthcheck/config.go:111-137`).
+(`celeris/middleware/healthcheck/config.go` (`Config.validate`)).
 
 ### Checkers
 
 Each probe has a `Checker func(c *celeris.Context) bool`. Return `true` for
 healthy (`200`), `false` for unhealthy (`503`). All three default to
-always-`true` (`celeris/middleware/healthcheck/config.go:42-52`).
+always-`true` (`celeris/middleware/healthcheck/config.go` (`Config`)).
 
 ```go
 type Config struct {
@@ -449,7 +449,7 @@ type Config struct {
 }
 ```
 
-Source: `celeris/middleware/healthcheck/config.go:21-67`.
+Source: `celeris/middleware/healthcheck/config.go` (`Config`).
 
 ```go
 s.Use(healthcheck.New(healthcheck.Config{
@@ -476,9 +476,9 @@ The `*Context` is passed in so a checker can honour the request deadline (e.g.
 | positive duration               | Run the checker with that deadline; if it doesn't return, respond `503`. |
 | `healthcheck.FastPathTimeout`   | Run the checker **synchronously inline** — no goroutine/channel/context overhead. Use only for trivial checkers that cannot block. |
 
-Source: `celeris/middleware/healthcheck/config.go:54-75`. A checker that
+Source: `celeris/middleware/healthcheck/config.go` (`Config.CheckerTimeout`). A checker that
 **panics** is recovered and treated as a failure (`503`), so a bad probe never
-crashes the server (`celeris/middleware/healthcheck/healthcheck.go:154-161`).
+crashes the server (`celeris/middleware/healthcheck/healthcheck.go` (`safeCheck`)).
 
 ```go
 s.Use(healthcheck.New(healthcheck.Config{
@@ -490,7 +490,7 @@ s.Use(healthcheck.New(healthcheck.Config{
 > Trivial built-in (always-true) checkers are automatically run on the fast
 > path regardless of `CheckerTimeout`, since the timeout machinery would be pure
 > overhead for a check that can't block
-> (`celeris/middleware/healthcheck/healthcheck.go:32-61`). You only need to set
+> (`celeris/middleware/healthcheck/healthcheck.go` (`New`)). You only need to set
 > `FastPathTimeout` yourself when you supply your own cheap, non-blocking
 > checker.
 
@@ -502,7 +502,7 @@ s.Use(healthcheck.New(healthcheck.Config{
 | `HEAD /readyz`    | `200`, empty body                | `503`, empty body                          |
 
 Content type is `application/json`. `HEAD` returns the status code with no body
-(`celeris/middleware/healthcheck/healthcheck.go:163-174`).
+(`celeris/middleware/healthcheck/healthcheck.go` (`respond`)).
 
 ### Wiring to Kubernetes probes
 

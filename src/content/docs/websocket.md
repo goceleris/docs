@@ -25,7 +25,7 @@ import "github.com/goceleris/celeris/middleware/websocket"
 > WebSocket needs HTTP/1.1 connection takeover. HTTP/2 multiplexes streams over a
 > single TCP connection, so it can't be hijacked — the middleware returns
 > **426 Upgrade Required** for HTTP/2 upgrade requests
-> (`celeris/middleware/websocket/websocket.go:69`).
+> (`celeris/middleware/websocket/websocket.go` (`New`)).
 
 ## Echo-server quickstart
 
@@ -64,13 +64,13 @@ func main() {
 
 That's a complete RFC 6455 echo server. `Handler` is the only required field;
 `websocket.New` **panics** at registration if it is `nil`
-(`celeris/middleware/websocket/config.go:170`).
+(`celeris/middleware/websocket/config.go` (`Config.validate`)).
 
 A few rules to internalise from the start:
 
 - The middleware is a normal `HandlerFunc`. **Non-WebSocket requests are passed
   through** to the next handler, so you can stack it with other middleware on the
-  same route (`celeris/middleware/websocket/websocket.go:64`).
+  same route (`celeris/middleware/websocket/websocket.go` (`New`)).
 - WebSocket routes are **async by construction** — registering
   `s.GET("/ws", websocket.New(cfg))` is all you need. You do **not** (and should
   not bother to) call `.Async()`: it would have no effect here. Note that
@@ -83,7 +83,7 @@ A few rules to internalise from the start:
   or its group. See [Routing](/docs/routing).
 - When `Handler` returns, Celeris sends a normal close frame (code `1000`) if you
   haven't already and closes the connection
-  (`celeris/middleware/websocket/websocket.go:137`).
+  (`celeris/middleware/websocket/websocket.go` (`New`)).
 
 ### Reading request data inside the handler
 
@@ -107,14 +107,14 @@ s.GET("/ws/:room", websocket.New(websocket.Config{
 
 ## The `Conn` API
 
-`*websocket.Conn` is the connection handle (`celeris/middleware/websocket/conn.go:38`).
+`*websocket.Conn` is the connection handle (`celeris/middleware/websocket/conn.go` (`Conn`)).
 All write methods (`WriteMessage`, `WriteText`, `WriteBinary`, `WriteJSON`,
 `WritePing`, `WriteControl`) are internally serialised behind a single write lock,
 so calling them from several goroutines concurrently is safe — each complete
 message arrives intact. Reading, however, is single-goroutine: have at most **one**
 goroutine in `ReadMessage`/`ReadMessageReuse`/`NextReader` at a time. The common
 pattern is one read loop plus any number of writer goroutines
-(`celeris/middleware/websocket/doc.go:30-32`).
+(`celeris/middleware/websocket/doc.go`).
 
 ### Reading messages
 
@@ -128,7 +128,7 @@ pattern is one read loop plus any number of writer goroutines
 another goroutine, store it in a map, whatever. `ReadMessageReuse` hands back an
 internal buffer that is overwritten on the next read; use it for echo servers and
 forwarding proxies where you process the message immediately and don't retain it
-(`celeris/middleware/websocket/conn.go:394`, `:411`).
+(`celeris/middleware/websocket/conn.go` (`Conn.ReadMessage`, `Conn.ReadMessageReuse`)).
 
 ```go
 // Owned copy — safe to keep:
@@ -145,7 +145,7 @@ if err := c.ReadJSON(&cmd); err != nil {
 ```
 
 `MessageType` is one of `websocket.TextMessage` or `websocket.BinaryMessage`
-(`celeris/middleware/websocket/conn.go:29-33`). Control frames (ping/pong/close)
+(`celeris/middleware/websocket/conn.go` (`TextMessage`)). Control frames (ping/pong/close)
 are handled transparently by the read loop and never surface from
 `ReadMessage`/`ReadMessageReuse`.
 
@@ -170,7 +170,7 @@ c.WritePing(nil)
 If compression has been negotiated and a data payload is at least the compression
 threshold, `WriteMessage` compresses it transparently — and only keeps the
 compressed form if it actually came out smaller
-(`celeris/middleware/websocket/conn.go:591`).
+(`celeris/middleware/websocket/conn.go` (`Conn.WriteMessage`)).
 
 `WriteControl` is the right tool for pings/pongs/close from a separate goroutine
 under load: it acquires the write lock **with a deadline** so a stalled large
@@ -179,7 +179,7 @@ if it can't get the lock in time. Its `messageType` parameter is a plain `int`
 that must hold a control opcode (`websocket.OpClose`, `websocket.OpPing`,
 `websocket.OpPong`) — convert with `int(...)` because those constants are typed
 `websocket.Opcode` — and `data` must be ≤ 125 bytes
-(`celeris/middleware/websocket/conn.go:718`).
+(`celeris/middleware/websocket/conn.go` (`Conn.WriteControl`)).
 
 ```go
 err := c.WriteControl(
@@ -196,7 +196,7 @@ if err == websocket.ErrWriteTimeout {
 
 Override the default control-frame behaviour with the setter methods. **Set them
 before you start the read loop** — they aren't safe to swap mid-flight
-(`celeris/middleware/websocket/conn.go:992-1001`).
+(`celeris/middleware/websocket/conn.go` (`Conn.SetPingHandler`)).
 
 | Method                                                    | Default behaviour                                            |
 | -------------------------------------------------------- | ----------------------------------------------------------- |
@@ -259,7 +259,7 @@ c.GracefulClose(websocket.CloseNormalClosure, "bye")
 
 You usually don't need to call either — returning from `Handler` triggers an
 automatic close-frame send and `Close`. Use `GracefulClose` when you want a clean
-RFC 6455 closing handshake before exiting (`celeris/middleware/websocket/conn.go:799`).
+RFC 6455 closing handshake before exiting (`celeris/middleware/websocket/conn.go` (`Conn.GracefulClose`)).
 
 ### Connection metadata
 
@@ -279,7 +279,7 @@ RFC 6455 closing handshake before exiting (`celeris/middleware/websocket/conn.go
 
 `Locals`/`SetLocals` give you a concurrency-safe per-connection bag — handy for
 stashing an authenticated user ID at connect time and reading it during
-broadcasts (`celeris/middleware/websocket/conn.go:922-939`).
+broadcasts (`celeris/middleware/websocket/conn.go` (`Conn.Locals`)).
 
 ```go
 Handler: func(c *websocket.Conn) {
@@ -300,7 +300,7 @@ Handler: func(c *websocket.Conn) {
 
 `SetReadDeadline`/`SetWriteDeadline` delegate to the underlying `net.Conn`, which
 only exists on the std (hijack) path; on native engines they are no-ops
-(`celeris/middleware/websocket/conn.go:976`, `:985`). For portable idle
+(`celeris/middleware/websocket/conn.go` (`Conn.SetReadDeadline`, `Conn.SetWriteDeadline`)). For portable idle
 enforcement use [`Config.IdleTimeout`](#config).
 
 ### Runtime compression control
@@ -311,7 +311,7 @@ If compression was negotiated, you can toggle it per connection:
   connection (only meaningful after negotiation).
 - `SetCompressionLevel(level int) error` — set the flate level for subsequent
   writes; valid range `-2`…`9`, else returns an error
-  (`celeris/middleware/websocket/conn.go:1015-1027`).
+  (`celeris/middleware/websocket/conn.go` (`Conn.EnableWriteCompression`, `Conn.SetCompressionLevel`)).
 
 ### Streaming large messages
 
@@ -344,12 +344,12 @@ _, _ = io.Copy(dst, r)
 _ = mt
 ```
 
-Rules from the source (`celeris/middleware/websocket/writer.go:21-48`,
-`celeris/middleware/websocket/reader.go:70-79`):
+Rules from the source (`celeris/middleware/websocket/writer.go` (`Conn.NextWriter`),
+`celeris/middleware/websocket/reader.go` (`Conn.NextReader`)):
 
 - **Only one writer may be active at a time.** Calling `WriteMessage`,
   `WriteText`, `WriteBinary`, or `WriteJSON` while a `NextWriter` is open returns
-  an error (`celeris/middleware/websocket/conn.go:595`). Control frames
+  an error (`celeris/middleware/websocket/conn.go` (`Conn.WriteMessage`)). Control frames
   (ping/pong/close via `WritePing`/`WriteControl`) *can* still be sent
   concurrently.
 - **You must call `Close()` on the writer** to send the final frame; until then
@@ -361,7 +361,7 @@ Rules from the source (`celeris/middleware/websocket/writer.go:21-48`,
 
 ## Config
 
-`websocket.Config` (`celeris/middleware/websocket/config.go:46`) is passed to
+`websocket.Config` (`celeris/middleware/websocket/config.go` (`Config`)) is passed to
 `websocket.New`. Only `Handler` is required.
 
 | Field                    | Type                              | Default        | Purpose                                                                                  |
@@ -386,7 +386,7 @@ Rules from the source (`celeris/middleware/websocket/writer.go:21-48`,
 | `OnDisconnect`           | `func(*Conn)`                     | `nil`          | Runs after `Handler` returns.                                                             |
 | `WriteBufferPool`        | `BufferPool`                      | `nil`          | Pool write buffers across connections (std/hijack path only).                            |
 
-Defaults are applied in `applyDefaults` (`celeris/middleware/websocket/config.go:141`).
+Defaults are applied in `applyDefaults` (`celeris/middleware/websocket/config.go` (`applyDefaults`)).
 Note `CompressionLevel` and `CompressionThreshold` defaults are only filled in
 when `EnableCompression` is true.
 
@@ -430,7 +430,7 @@ websocket.New(websocket.Config{
 })
 ```
 
-Compression-level constants (`celeris/middleware/websocket/compress.go:11-19`):
+Compression-level constants (`celeris/middleware/websocket/compress.go` (`CompressionLevelDefault`)):
 
 | Constant                              | Value | Meaning              |
 | ------------------------------------- | ----- | -------------------- |
@@ -446,24 +446,24 @@ the engine's event loop and your handler goroutine. When it fills past
 `BackpressureHighPct` of `MaxBackpressureBuffer`, the engine **pauses** inbound
 delivery for that connection, which closes the kernel's TCP receive window and
 slows the peer at the network level; when it drains below `BackpressureLowPct`,
-delivery resumes (`celeris/middleware/websocket/config.go:112-129`). This is fully
+delivery resumes (`celeris/middleware/websocket/config.go` (`Config`)). This is fully
 automatic — the defaults (256 / 75% / 25%) suit most workloads.
 
 You can observe health with `Conn.BackpressureDropped()`, which should always be
 `0` in normal operation. A non-zero value means the engine pause/resume mechanism
 isn't keeping up. It always returns `0` on the std (hijack) path, where the kernel
-TCP stack handles backpressure directly (`celeris/middleware/websocket/conn.go:887`).
+TCP stack handles backpressure directly (`celeris/middleware/websocket/conn.go` (`Conn.BackpressureDropped`)).
 
 ### Write-buffer pooling (std/hijack path)
 
 `WriteBufferPool` lets you share `*bufio.Writer` instances across connections to
 cut per-connection memory for many idle sockets. It is **only consulted on the
 std (hijack) path** — native engines pool their own write buffer internally and
-ignore this setting (`celeris/middleware/websocket/conn.go:206`,
-`celeris/middleware/websocket/websocket.go:319`). Implement the `BufferPool`
+ignore this setting (`celeris/middleware/websocket/conn.go` (`Conn.getWriter`),
+`celeris/middleware/websocket/websocket.go` (`setupConn`)). Implement the `BufferPool`
 interface (`Get(dst io.Writer) *bufio.Writer` and `Put(*bufio.Writer)`); the
 typical implementation wraps a `sync.Pool` and `Reset(dst)`s the writer on
-borrow (`celeris/middleware/websocket/config.go:28`).
+borrow (`celeris/middleware/websocket/config.go` (`BufferPool`)).
 
 ## Broadcasting to many connections (Hub)
 
@@ -472,7 +472,7 @@ Real-time apps usually need to push one message to *every* connected client
 abstraction: register connections, broadcast to all (or a filtered subset),
 unregister on disconnect. It encodes each frame **once** per broadcast and reuses
 it across every connection, so the wire-encoding cost is O(1) regardless of
-subscriber count (`celeris/middleware/websocket/hub.go:56`).
+subscriber count (`celeris/middleware/websocket/hub.go` (`Hub`, `Hub.Broadcast`)).
 
 ```go
 hub := websocket.NewHub(websocket.HubConfig{})
@@ -494,7 +494,7 @@ hub.Broadcast(websocket.TextMessage, []byte(`{"type":"tick"}`))
 ```
 
 `Register` returns an unregister function you **must** defer; it is safe to call
-twice and a no-op after `Hub.Close` (`celeris/middleware/websocket/hub.go:92`).
+twice and a no-op after `Hub.Close` (`celeris/middleware/websocket/hub.go` (`Hub.Register`)).
 
 | Method                                                                 | Returns / behaviour                                                       |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -513,7 +513,7 @@ broadcasts to every registered conn unfiltered.
 ### Room / channel routing
 
 Use `BroadcastFilter` with a predicate over `Conn.Locals` to target a subset
-without maintaining a second hub (`celeris/middleware/websocket/hub.go:153`):
+without maintaining a second hub (`celeris/middleware/websocket/hub.go` (`Hub.BroadcastFilter`)):
 
 ```go
 // On connect, tag the conn with its room:
@@ -529,7 +529,7 @@ hub.BroadcastFilter(websocket.TextMessage, payload, func(c *websocket.Conn) bool
 
 By default a conn whose write fails during a broadcast is unregistered **and
 closed**. Override with `HubConfig.OnSlowConn`, returning a `HubPolicy`
-(`celeris/middleware/websocket/hub.go:10-37`):
+(`celeris/middleware/websocket/hub.go` (`HubConfig.OnSlowConn`)):
 
 | Policy             | Effect                                                          |
 | ------------------ | -------------------------------------------------------------- |
@@ -547,16 +547,16 @@ hub := websocket.NewHub(websocket.HubConfig{
 
 `Hub.Close` waits for every in-flight broadcast to finish before tearing down
 conns, so a shutdown path that synchronises on `Close` cannot race a still
-fanning-out message (`celeris/middleware/websocket/hub.go:315`).
+fanning-out message (`celeris/middleware/websocket/hub.go` (`Hub.Close`)).
 
 ### Bounding broadcast concurrency
 
 A `Broadcast` fans out to every conn concurrently. `HubConfig.MaxConcurrency`
 caps how many of those per-conn writes run at once via a semaphore, keeping
 goroutine pressure bounded on very large hubs
-(`celeris/middleware/websocket/hub.go:46`). Leave it `0` (the default) to use
+(`celeris/middleware/websocket/hub.go` (`HubConfig.MaxConcurrency`)). Leave it `0` (the default) to use
 `DefaultHubConcurrency()` — `runtime.GOMAXPROCS(0) * 4`
-(`celeris/middleware/websocket/hub.go:54`):
+(`celeris/middleware/websocket/hub.go` (`DefaultHubConcurrency`)):
 
 ```go
 hub := websocket.NewHub(websocket.HubConfig{
@@ -569,7 +569,7 @@ hub := websocket.NewHub(websocket.HubConfig{
 When you publish the same payload repeatedly, build a `PreparedMessage` once and
 reuse it. The frame is encoded a single time (with separate cached
 uncompressed/compressed variants) and shared across every send
-(`celeris/middleware/websocket/prepared.go:9-54`):
+(`celeris/middleware/websocket/prepared.go` (`NewPreparedMessage`)):
 
 ```go
 pm, err := websocket.NewPreparedMessage(websocket.TextMessage, payload)
@@ -584,13 +584,13 @@ _ = conn.WritePreparedMessage(pm)
 `NewPreparedMessage` rejects control opcodes (ping/pong/close) and returns
 `websocket.ErrInvalidPreparedOpcode` — control frames have RFC 6455 §5.5 size
 constraints the cache-and-reuse model can't honour; use `WriteControl`
-per-connection for those (`celeris/middleware/websocket/prepared.go:42`).
+per-connection for those (`celeris/middleware/websocket/prepared.go` (`NewPreparedMessage`)).
 
 ## Origin checking
 
 By default the middleware enforces a **same-origin** policy: the request's
 `Origin` header host must match the `Host` header
-(`celeris/middleware/websocket/websocket.go:84`). This protects against
+(`celeris/middleware/websocket/websocket.go` (`New`)). This protects against
 cross-site WebSocket hijacking (CSWSH) from a malicious page. The exact default
 behaviour:
 
@@ -624,7 +624,7 @@ websocket.New(websocket.Config{
 
 When `CheckOrigin` is set, the built-in same-origin logic is bypassed entirely —
 your function is the sole gate. A rejected origin yields **403** with body
-`websocket: origin not allowed` (`celeris/middleware/websocket/websocket.go:82`).
+`websocket: origin not allowed` (`celeris/middleware/websocket/websocket.go` (`New`)).
 
 > **Don't reflexively allow all origins.** `func(*celeris.Context) bool { return
 > true }` disables the browser's only built-in defence against another site
@@ -634,7 +634,7 @@ your function is the sole gate. A rejected origin yields **403** with body
 ## Close handling
 
 When the peer sends a close frame, the read loop returns a `*CloseError` from the
-default close handler (`celeris/middleware/websocket/conn.go:1029`):
+default close handler (`celeris/middleware/websocket/conn.go` (`Conn.SetCloseHandler`, `CloseError`)):
 
 ```go
 type CloseError struct {
@@ -668,7 +668,7 @@ for {
 ```
 
 The standard RFC 6455 close codes are exported as constants
-(`celeris/middleware/websocket/opcode.go:28-43`):
+(`celeris/middleware/websocket/opcode.go` (`CloseNormalClosure`)):
 
 | Constant                          | Code   | Meaning                       |
 | --------------------------------- | ------ | ----------------------------- |
@@ -700,7 +700,7 @@ _ = c.WriteControl(
 ## Engine behavior
 
 The same `Handler` runs on every engine, but the I/O underneath differs in ways
-worth knowing (`celeris/middleware/websocket/doc.go:41-44`):
+worth knowing (`celeris/middleware/websocket/doc.go`):
 
 | Aspect                | Native engines (epoll, io_uring)                                        | std engine (hijack)                                     |
 | --------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -716,7 +716,7 @@ The practical takeaways:
 1. **Don't rely on `NetConn()` or `SetReadDeadline`/`SetWriteDeadline` for
    portable code.** They only do something on the std engine. For an idle
    timeout that works everywhere, set `Config.IdleTimeout` — both paths converge
-   to the same observable behaviour (`celeris/middleware/websocket/config.go:104-110`).
+   to the same observable behaviour (`celeris/middleware/websocket/config.go` (`Config.IdleTimeout`)).
 2. **Backpressure tuning only matters on native engines.** On the std path the
    relevant fields are simply ignored.
 
@@ -732,10 +732,10 @@ applications never need them.
 | `c.UpgradeWebSocket(delivery func([]byte)) bool`         | Engine-integrated upgrade; `false` if the engine doesn't support it. |
 
 `Hijack` hands you the raw `net.Conn` and makes you responsible for the
-handshake, framing, and closing it (`celeris/context_response.go:1289-1321`).
+handshake, framing, and closing it (`celeris/context_response.go` (`Context.Hijack`)).
 `UpgradeWebSocket` installs a data-delivery callback for the native engine path
 and returns `false` on the std engine, where you fall back to `Hijack`
-(`celeris/context_response.go:1323-1347`). Driving these correctly means
+(`celeris/context_response.go` (`Context.UpgradeWebSocket`)). Driving these correctly means
 re-implementing RFC 6455 yourself — the `websocket` middleware exists precisely so
 you don't have to. For other long-lived response patterns built on the same
 primitives, see [Streaming responses](/docs/streaming).
@@ -746,7 +746,7 @@ primitives, see [Streaming responses](/docs/streaming).
   loop (and any keepalive ticker) inside the handler and only return when you want
   to disconnect.
 - **`Handler: nil` panics at startup.** It's the one required field
-  (`celeris/middleware/websocket/config.go:170`).
+  (`celeris/middleware/websocket/config.go` (`Config.validate`)).
 - **Never `.Sync()` a WebSocket route.** WebSocket handlers are async by
   construction; forcing them inline breaks them (see [Routing](/docs/routing)).
 - **`ReadMessageReuse` slices are transient.** The returned buffer is overwritten
@@ -757,19 +757,19 @@ primitives, see [Streaming responses](/docs/streaming).
 - **`NetConn()` / `SetReadDeadline` are `nil` / no-ops on native engines.** Use
   `Config.IdleTimeout` for a portable idle timeout.
 - **`WriteControl` data is capped at 125 bytes** and the opcode must be a control
-  opcode, or it returns an error (`celeris/middleware/websocket/conn.go:718`).
+  opcode, or it returns an error (`celeris/middleware/websocket/conn.go` (`Conn.WriteControl`)).
 
 ## FAQ
 
 **Why am I getting a 426 response?**
 The request arrived over HTTP/2, which can't be hijacked. WebSocket requires
-HTTP/1.1 (`celeris/middleware/websocket/websocket.go:69`).
+HTTP/1.1 (`celeris/middleware/websocket/websocket.go` (`New`)).
 
 **Why does my upgrade return 403?**
 The default same-origin check rejected it — either the `Origin` host didn't match
 `Host`, or `Origin` was missing on an `https` request. Set `Config.CheckOrigin`
 for non-browser clients or cross-origin setups
-(`celeris/middleware/websocket/websocket.go:84`).
+(`celeris/middleware/websocket/websocket.go` (`New`)).
 
 **Can I read and write from different goroutines?**
 Yes. One goroutine may read while others write — all write methods are internally
@@ -779,11 +779,11 @@ message at once.
 **How do I cap message size?**
 Set `Config.ReadLimit` (or call `Conn.SetReadLimit` at runtime). The default is
 64MB; oversize messages close the connection with code `1009`
-(`celeris/middleware/websocket/config.go:74`).
+(`celeris/middleware/websocket/config.go` (`Config.ReadLimit`)).
 
 **How do I time out idle connections on every engine?**
 Set `Config.IdleTimeout`. Unlike `SetReadDeadline`, it's honoured on both the
-native and std paths (`celeris/middleware/websocket/config.go:104`).
+native and std paths (`celeris/middleware/websocket/config.go` (`Config.IdleTimeout`)).
 
 **Does the middleware send a close frame for me?**
 Yes — when `Handler` returns, Celeris sends a `1000` close frame (if you haven't

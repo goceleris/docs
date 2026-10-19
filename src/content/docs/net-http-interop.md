@@ -53,7 +53,7 @@ import (
 
 `celeris.Adapt` turns any `http.Handler` into a `celeris.HandlerFunc` you can pass
 to `s.GET`, `s.POST`, a route group, `s.Use`, or any other place a handler is
-expected. Source: `celeris/bridge.go:16`.
+expected. Source: `celeris/bridge.go` (`Adapt`).
 
 ```go
 func Adapt(h http.Handler) celeris.HandlerFunc
@@ -110,7 +110,7 @@ s.GET("/", homeHandler) // already ported to Celeris
 
 `celeris.AdaptFunc` is a convenience wrapper, exactly equivalent to
 `Adapt(http.HandlerFunc(h))`. Use it when you have a bare function rather than a
-type that already implements `http.Handler`. Source: `celeris/bridge.go:51`.
+type that already implements `http.Handler`. Source: `celeris/bridge.go` (`AdaptFunc`).
 
 ```go
 func AdaptFunc(h http.HandlerFunc) celeris.HandlerFunc
@@ -148,7 +148,7 @@ The two hard limits to remember:
   than 100 MB, the underlying `Write` returns an error to the stdlib handler;
   `Adapt` does not inspect this and still replays the bytes buffered before the
   limit with the handler's own status (200 unless it called `WriteHeader`), so the
-  client may receive a truncated response. Source: `celeris/bridge.go:109-117`.
+  client may receive a truncated response. Source: `celeris/bridge.go` (`bridgeResponseWriter.Write`).
 
 > The reconstructed `http.ResponseWriter` does **not** implement `http.Hijacker`
 > or `http.Flusher`. A handler that type-asserts for either (WebSocket upgrade,
@@ -160,7 +160,7 @@ The two hard limits to remember:
 `celeris.ToHandler` is the reverse of `Adapt`: it wraps a `celeris.HandlerFunc`
 so it satisfies the standard `http.Handler` interface. This is what you reach for
 when you want to mount a Celeris handler inside a stdlib router, or — most
-commonly — drive it from `net/http/httptest`. Source: `celeris/stdlib.go:22`.
+commonly — drive it from `net/http/httptest`. Source: `celeris/stdlib.go` (`ToHandler`).
 
 ```go
 func ToHandler(h celeris.HandlerFunc) http.Handler
@@ -214,11 +214,11 @@ Two limits mirror the other direction:
 
 - The **request body is read fully into memory** and capped at 100 MB; a larger
   body returns `413 Request Entity Too Large`, and a read error returns `400`.
-  Source: `celeris/stdlib.go:47-61`.
+  Source: `celeris/stdlib.go` (`ToHandler`).
 - If the Celeris handler returns a non-nil `error` and nothing has been written
   yet, `ToHandler` responds with `500 Internal Server Error`. A panic in the
   handler is recovered and also yields a `500` (when the response is not already
-  flushed). Source: `celeris/stdlib.go:73-89`.
+  flushed). Source: `celeris/stdlib.go` (`ToHandler`).
 
 ## Wrap net/http middleware
 
@@ -226,7 +226,7 @@ The most valuable adapter for migration is `adapters.WrapMiddleware`. It adapts
 the ubiquitous `func(http.Handler) http.Handler` middleware idiom — used by
 `rs/cors`, `gorilla/csrf`, `gorilla/handlers`, and countless in-house libraries —
 into a `celeris.HandlerFunc` you can register with `s.Use`, on a group, or on a
-single route. Source: `celeris/middleware/adapters/adapters.go:32`.
+single route. Source: `celeris/middleware/adapters/adapters.go` (`WrapMiddleware`).
 
 ```go
 func WrapMiddleware(mw func(http.Handler) http.Handler) celeris.HandlerFunc
@@ -300,13 +300,13 @@ s.Use(adapters.WrapMiddleware(requireKey))
 Panics raised inside the Celeris chain are propagated back out *after* the stdlib
 middleware returns, so your Celeris recovery middleware sees the original panic
 value rather than having it swallowed by a `recover()` inside the stdlib
-middleware. Source: `celeris/middleware/adapters/adapters.go:57-72`.
+middleware. Source: `celeris/middleware/adapters/adapters.go` (`WrapMiddleware`).
 
 ### Limitations of wrapped middleware
 
 - **`nil` panics.** `WrapMiddleware(nil)` panics with
   `adapters: WrapMiddleware argument must not be nil`. Source:
-  `celeris/middleware/adapters/adapters.go:33-35`.
+  `celeris/middleware/adapters/adapters.go` (`WrapMiddleware`).
 - **No `Hijacker` / `Flusher`.** The capturing response writer implements neither,
   so middleware that needs WebSocket upgrade or streaming flush will not work
   through `WrapMiddleware`. Implement those natively.
@@ -316,13 +316,13 @@ middleware. Source: `celeris/middleware/adapters/adapters.go:57-72`.
 - **Do not double up with native equivalents.** Running, say, `rs/cors` via
   `WrapMiddleware` *and* the native `celeris/middleware/cors` in the same chain
   produces duplicate `Access-Control-*` headers and conflicting preflight
-  handling. Pick one. Source: `celeris/middleware/adapters/doc.go:10-13`.
+  handling. Pick one. Source: `celeris/middleware/adapters/doc.go`.
 
 ## Built-in reverse proxy
 
 `adapters.ReverseProxy` wraps the standard library's `net/http/httputil`
 `ReverseProxy` into a `celeris.HandlerFunc`, so forwarding to a backend is a
-one-liner. Source: `celeris/middleware/adapters/adapters.go:210`.
+one-liner. Source: `celeris/middleware/adapters/adapters.go` (`ReverseProxy`).
 
 ```go
 func ReverseProxy(target *url.URL, opts ...adapters.Option) celeris.HandlerFunc
@@ -338,7 +338,7 @@ s.Any("/api/*path", adapters.ReverseProxy(target))
 The proxy automatically sets `X-Forwarded-For`, `X-Forwarded-Host`, and
 `X-Forwarded-Proto` on the outbound request (via
 `httputil.ProxyRequest.SetXForwarded`). It **panics if `target` is `nil`**.
-Source: `celeris/middleware/adapters/adapters.go:210-237`.
+Source: `celeris/middleware/adapters/adapters.go` (`ReverseProxy`).
 
 ### Options
 
@@ -382,11 +382,11 @@ s.Any("/api/*path", proxy)
 ```
 
 > `ReverseProxy` delegates to `celeris.Adapt` (Source:
-> `celeris/middleware/adapters/adapters.go:236`), so it inherits the same **buffering**
+> `celeris/middleware/adapters/adapters.go` (`ReverseProxy`)), so it inherits the same **buffering**
 > behaviour: the backend response is read fully into memory (100 MB cap) before it
 > reaches the client. **Streaming responses — SSE, WebSocket upgrade, or large
 > downloads — are not supported through this proxy.** Source:
-> `celeris/bridge.go:92-117`.
+> `celeris/bridge.go` (`maxBridgeResponseBytes`).
 
 ## Caveats
 
@@ -397,7 +397,7 @@ performance feature. Know the trade-offs before you commit to one.
   routes through a capturing `http.ResponseWriter`. `WrapMiddleware` costs roughly
   8–15 heap allocations per request. On a hot path served thousands of times per
   second, that overhead is measurable. Source:
-  `celeris/middleware/adapters/adapters.go:104-152` (`buildRequest`).
+  `celeris/middleware/adapters/adapters.go` (`buildRequest`).
 - **No zero-copy, no streaming.** `Adapt`, `WrapMiddleware`, and `ReverseProxy`
   all buffer the full response in memory (100 MB cap). `ToHandler` buffers the
   request body the same way. Nothing flushes incrementally.
@@ -438,7 +438,7 @@ a catch-all route and migrate endpoints out over time.
 **Does `Adapt` pass the request context through?**
 Yes. The reconstructed `*http.Request` uses the Celeris request context
 (`c.Context()`), so deadlines, cancellation, and context values flow into the
-stdlib handler. Source: `celeris/bridge.go:67`.
+stdlib handler. Source: `celeris/bridge.go` (`buildHTTPRequest`).
 
 **How do I test a Celeris handler with `httptest`?**
 Wrap it with `celeris.ToHandler` and call `ServeHTTP` against an
