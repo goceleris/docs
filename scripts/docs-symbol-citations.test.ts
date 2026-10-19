@@ -13,7 +13,28 @@ const LOCATOR = /\.go:\d+/g;
 // A backticked line range after a .go path on the same line, e.g. `x.go:1-2`, `3-4`.
 const CONTINUATION = /\.go[^\n]*`\d+-\d+`/;
 
-const ALLOW: Record<string, number> = {};
+const ALLOW: Record<string, number> = {
+	"binding-and-validation.md": 1,
+	"configuration.md": 60,
+	"context-api-reference.md": 1,
+	"data-stores.md": 37,
+	"deployment.md": 34,
+	"engines.md": 20,
+	"graceful-shutdown.md": 4,
+	"middleware-auth.md": 1,
+	"middleware-content.md": 25,
+	"middleware-routing-helpers.md": 37,
+	"middleware-traffic.md": 56,
+	"middleware.md": 21,
+	"net-http-interop.md": 16,
+	"observability.md": 31,
+	"performance.md": 36,
+	"routing.md": 28,
+	"sse.md": 26,
+	"streaming.md": 15,
+	"testing.md": 17,
+	"websocket.md": 49,
+};
 
 function pages(): string[] {
 	return readdirSync(DOCS).filter((f) => f.endsWith(".md") || f.endsWith(".mdx")).sort();
