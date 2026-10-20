@@ -29,8 +29,8 @@ Celeris is a drop-in replacement for the `net/http` *server* — not for the
 `net/http` *types* you write handlers against, and not a framework that wraps the
 stdlib server. Underneath your routes sits a custom event loop:
 
-- **On Linux** it runs a tiered **io_uring** engine (kernel 5.19+, with SQPOLL and
-  zero-copy send on 6.0+) or an edge-triggered **epoll** engine with per-core CPU
+- **On Linux** it runs a tiered **io_uring** engine (kernel 5.19+, with zero-copy send
+  on 6.0+) or an edge-triggered **epoll** engine with per-core CPU
   pinning. The default **adaptive** engine starts on epoll and switches to
   io_uring under sustained load, transplanting live keep-alive connections
   between the two in both directions.

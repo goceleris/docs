@@ -406,10 +406,9 @@ s := celeris.New(celeris.Config{
 ### Running io_uring in a container
 
 io_uring is frequently **disabled by the platform** in containers — not by Celeris.
-There are **two independent gates**, and *both* must pass or Celeris transparently
-falls back to epoll. This is an optimisation, not a fix-or-fail: epoll is at
+There are **two independent gates**, and *both* must pass for io_uring. Under Adaptive, Celeris falls back to epoll; an explicit `IOUring` engine returns the error when the syscalls are blocked (Gate 1) and runs on fewer workers when memlock is low (Gate 2). The Adaptive fallback is an optimisation, not a fix-or-fail: epoll is at
 throughput parity, so a container that can't use io_uring still runs at full speed.
-When io_uring setup is denied, Celeris does **not** crash — the probe's
+When io_uring setup is denied, the probe's
 `io_uring_setup` call returns an error, the io_uring tier is left unselected, and the
 adaptive engine runs on epoll (`celeris/internal/probe/probe.go` (`ProbeWith`)). Confirm which
 engine you actually got at runtime with `Server.EngineInfo()` (see
@@ -426,7 +425,7 @@ of container-escape exploits — the same reasoning that led Google to turn it o
 across ChromeOS, Android, and its production fleet, and containerd to block it
 earlier. So on any modern Docker/Kubernetes setup io_uring is **off unless you
 opt back in**. A blocked `io_uring_setup` surfaces as `EPERM`, and Celeris drops to
-epoll.
+epoll under Adaptive.
 
 The blunt, **dev-only** way is to disable seccomp filtering entirely:
 
@@ -485,10 +484,11 @@ ulimits:
 Other io_uring prerequisites (checked by the startup io_uring probe):
 
 - **Kernel 5.19+** — the io_uring engine refuses older kernels: its cancels use the
-  `IORING_ASYNC_CANCEL` flags that 5.19 added (celeris#682), which older kernels lack; Adaptive runs epoll on them
+  `IORING_ASYNC_CANCEL` flags that 5.19 added (celeris#682), which older kernels lack; Adaptive stays on epoll on them
   (`celeris/internal/engine/iouring/engine.go` (`requireAsyncCancelFlags`)).
-- **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
-  (`celeris/internal/probe/probe_linux.go` (`checkCapSysNiceLinux`)); not required for the basic io_uring path.
+- **`CAP_SYS_NICE`** is not a prerequisite: the probe reads it only as a fallback for an
+  SQPOLL flag that no tier uses ([celeris#377](https://github.com/goceleris/celeris/issues/377);
+  `celeris/internal/probe/probe_linux.go` (`checkCapSysNiceLinux`)).
 
 You do not need to do anything special for epoll; it needs Linux 5.10+ and works out of the
 box. On macOS and Windows the engine is `std` (Go `net/http`).
@@ -512,7 +512,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/myservice
-# Raise locked memory for io_uring (otherwise Adaptive falls back to epoll; an explicit IOUring engine fails to start).
+# Raise locked memory for io_uring (otherwise Adaptive falls back to epoll; an explicit IOUring engine runs on fewer workers, and fails only when not even one ring fits).
 LimitMEMLOCK=infinity
 # Plenty of file descriptors for high connection counts.
 LimitNOFILE=1048576
@@ -721,7 +721,7 @@ middleware). It is only trustworthy when `TrustedProxies` is set.
 **Why is my server using epoll when I asked for io_uring?**
 The kernel is below 5.19 (or rejects the async-cancel flags), `RLIMIT_MEMLOCK` is too low, or the `io_uring_setup`
 syscall is blocked by a sandbox. Under Adaptive, Celeris probes capabilities and falls back to epoll
-(at throughput parity); an explicit `IOUring` engine fails to start instead, with the reason in its error. See [Engines](/docs/engines).
+(at throughput parity). An explicit `IOUring` engine returns the error instead when the kernel or the syscall check fails; with a low `RLIMIT_MEMLOCK` it runs on fewer workers, down to one, and fails only when not even one ring fits. See [Engines](/docs/engines).
 
 **What status do the probes return?**
 `200 {"status":"ok"}` when the checker passes, `503 {"status":"unavailable"}` when
