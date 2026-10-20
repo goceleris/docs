@@ -88,7 +88,7 @@ feature *tier* at startup and enables only what the running kernel supports
 | ------------ | --------- | ------------------------------------------------------------------------------- |
 | `Base`       | 5.19+ (fallback) | Baseline: linked SQE chains, single-shot accept/recv. It runs only as a fallback: when the provided-buffers probe fails on a 5.19 kernel, when the kernel's feature bits do not match its version, or when `CELERIS_MAX_IOURING_TIER=base` caps the tier |
 | `High`       | 5.19+     | Multishot accept, COOP_TASKRUN (DEFER_TASKRUN on 6.1+), zero-copy send (`SEND_ZC`) on 6.0+; multishot recv with provided buffer rings is opt-in (see below) |
-| `Optional`   | 6.0+ (rare) | The `High` set without provided buffers, chosen only when their probe has failed. No SQPOLL: no tier uses it ([celeris#377](https://github.com/goceleris/celeris/issues/377)) |
+| `Optional`   | 6.0+ (rare) | Zero-copy send and multishot accept on the task-run completion model, chosen only when the provided-buffers probe has failed. No SQPOLL: no tier uses it ([celeris#377](https://github.com/goceleris/celeris/issues/377)) |
 
 You do not configure the tier — it is probed and applied automatically. A kernel
 before 5.19 gets no io_uring engine: the engine refuses to build. Under Adaptive the
