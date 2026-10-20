@@ -512,7 +512,7 @@ After=network.target
 
 [Service]
 ExecStart=/usr/local/bin/myservice
-# Raise locked memory for io_uring (otherwise the engine falls back to epoll).
+# Raise locked memory for io_uring (otherwise Adaptive falls back to epoll; an explicit IOUring engine fails to start).
 LimitMEMLOCK=infinity
 # Plenty of file descriptors for high connection counts.
 LimitNOFILE=1048576
