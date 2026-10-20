@@ -9,8 +9,15 @@ import { join, resolve } from "node:path";
 // io_uring floor is 5.19. The epoll floor is 5.10 as celeris README.md states it.
 // introduction.md names the current release; it is RELEASE below from the v1.6.0
 // tag on. Until that tag, the docs PR that changes these lines must not merge.
+// The same file keeps the claims that review of the PR corrected: SQPOLL (no tier
+// uses it, celeris#377), when Base and Optional run, what a low RLIMIT_MEMLOCK
+// does to an explicit IOUring engine, and what Adaptive needs before it uses io_uring.
 const ROOT = resolve(import.meta.dir, "..");
 const DOCS = join(ROOT, "src", "content", "docs");
+// RELEASE is the release stamp introduction.md must carry. It is deliberate that
+// `bun test` fails after a version bump until this constant is edited too: the guard
+// exists to force that edit, so the stamp and the text cannot drift apart. The epoll
+// floor (5.10) is written in the PRESENT patterns and the header above; change them together.
 const RELEASE = "1.6.0";
 
 function read(file: string): string {
@@ -56,6 +63,29 @@ const STALE: string[] = [
 	"kernel is below 5.10",
 	"v1.5.8",
 	"`1.5.8`",
+	// Corrected after review: SQPOLL is never selected by any tier (celeris#377).
+	"with SQPOLL and",
+	"Adds SQPOLL and zero-copy send",
+	"is consulted for SQPoll on some kernels",
+	// Corrected after review: a healthy 6.x kernel runs the High strategy; Optional
+	// needs 6.0+ AND a failed provided-buffers probe. Only that probe drops a tier.
+	"a 6.0 or newer kernel adds",
+	"only when a `High` feature probe fails",
+	// Corrected after review: a low RLIMIT_MEMLOCK caps the workers (down to one); an
+	// explicit IOUring engine fails only if not even one ring fits.
+	"an explicit IOUring engine fails to start)",
+	"an explicit `IOUring` engine fails to start instead",
+	"under a forced `IOUring`\n  it fails to start",
+	"io_uring setup\n  fails",
+	// Corrected after review: Adaptive uses io_uring only from the 6.1+ fast tier
+	// (or 6.10+), so "epoll below 5.19" understates where it stays on epoll.
+	"Adaptive runs epoll on kernels below 5.19",
+	"Adaptive runs epoll on them",
+	"Adaptive runs\nepoll.",
+	"Adaptive runs epoll there",
+	// Corrected after review: the transparent fallback holds for Adaptive only.
+	"must pass or Celeris transparently",
+	"Celeris does **not** crash",
 ];
 
 // Phrases that carry the v1.6.0 floors. Each must occur in the named page.
@@ -74,7 +104,15 @@ const PRESENT: [string, RegExp][] = [
 	["deployment.md", /it needs Linux 5\.10\+ and works out of the\s+box/],
 	["deployment.md", /The kernel is below 5\.19/],
 	["performance.md", /\(Linux 5\.19\+; needs `RLIMIT_MEMLOCK`\)/],
-	["introduction.md", /tiered \*\*io_uring\*\* engine \(kernel 5\.19\+/],
+	["introduction.md", /tiered \*\*io_uring\*\* engine \(kernel 5\.19\+, with zero-copy send\s+on 6\.0\+\)/],
+	["engines.md", /Under Adaptive both fall back to epoll; an explicit `IOUring` engine returns the error/],
+	["engines.md", /`Optional` is chosen only on 6\.0\+ when the provided-buffers probe has failed/],
+	["engines.md", /when the provided-buffers probe fails on a 5\.19 kernel/],
+	["engines.md", /Adaptive uses io_uring only on a 6\.1\+ kernel/],
+	["engines.md", /runs on fewer workers, down to one, and fails only when not even one ring fits/],
+	["deployment.md", /runs on fewer workers, and fails only when not even one ring fits/],
+	["deployment.md", /Under Adaptive, Celeris falls back to epoll; an explicit `IOUring` engine returns the error/],
+	["getting-started.md", /Adaptive uses io_uring only on a 6\.1\+ kernel/],
 	["introduction.md", new RegExp(`\\*\\*\\[\`v${RELEASE.replaceAll(".", "\\.")}\`\\]`)],
 	["introduction.md", new RegExp(`\\(currently \`${RELEASE.replaceAll(".", "\\.")}\`\\)`)],
 ];
