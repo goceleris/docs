@@ -15,7 +15,7 @@ name is Latin for *swift*.
 import "github.com/goceleris/celeris"
 ```
 
-The current release is **[`v1.5.8`](https://github.com/goceleris/celeris/releases/latest)** —
+The current release is **[`v1.6.0`](https://github.com/goceleris/celeris/releases/latest)** —
 always pull the [latest release](https://github.com/goceleris/celeris/releases/latest)
 from GitHub.
 
@@ -29,8 +29,8 @@ Celeris is a drop-in replacement for the `net/http` *server* — not for the
 `net/http` *types* you write handlers against, and not a framework that wraps the
 stdlib server. Underneath your routes sits a custom event loop:
 
-- **On Linux** it runs a tiered **io_uring** engine (kernel 5.10+, richer
-  features on 5.19+) or an edge-triggered **epoll** engine with per-core CPU
+- **On Linux** it runs a tiered **io_uring** engine (kernel 5.19+, with zero-copy send
+  on 6.0+) or an edge-triggered **epoll** engine with per-core CPU
   pinning. The default **adaptive** engine starts on epoll and switches to
   io_uring under sustained load, transplanting live keep-alive connections
   between the two in both directions.
@@ -144,7 +144,7 @@ Operations. If you just want to ship, jump straight to
 
 - **Module:** `github.com/goceleris/celeris` · **package:** `celeris`.
 - **Version:** the running version is the exported `celeris.Version` constant
-  (currently `1.5.8`). Pin a version in your `go.mod` and upgrade deliberately.
+  (currently `1.6.0`). Pin a version in your `go.mod` and upgrade deliberately.
 - **Go toolchain:** Go 1.27.2+ (the module targets `go 1.27.2`).
 - **Platforms:** Linux for io_uring/epoll/adaptive; any OS Go supports for the
   std engine. The engine choice is automatic unless you set
