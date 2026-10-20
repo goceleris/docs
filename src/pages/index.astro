@@ -54,12 +54,12 @@ api.POST("/users", createUser).Async()`;
 const engines = [
   {
     name: "io_uring",
-    tag: "Linux 5.10+",
-    body: "Completion-based async I/O with multishot accept/recv, provided buffer rings and zero-copy sendfile. The lowest-latency path on modern kernels.",
+    tag: "Linux 5.19+",
+    body: "Completion-based async I/O with multishot accept and, on 6.0 and later, zero-copy send. The lowest-latency path on modern kernels.",
   },
   {
     name: "epoll",
-    tag: "Linux 3.10+",
+    tag: "Linux 5.10+",
     body: "Edge-triggered, per-core event loops with CPU pinning. Proven, broad kernel support — and at throughput parity with io_uring.",
   },
   {

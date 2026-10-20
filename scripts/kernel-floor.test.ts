@@ -68,10 +68,10 @@ const PRESENT: [string, RegExp][] = [
 	["engines.md", /\| `Base`\s+\| 5\.19\+/],
 	["engines.md", /known-good 5\.19\+ kernel/],
 	["engines.md", /\(5\.19 or later, ideally 6\.0 or later/],
-	["engines.md", /On a Linux kernel before 5\.19 io_uring is not available/],
+	["engines.md", /On a Linux kernel before 5\.19 io_uring is\s+not available/],
 	["getting-started.md", /`io_uring` engine needs kernel \*\*5\.19\+\*\*; the `epoll` engine needs kernel \*\*5\.10\+\*\*/],
 	["deployment.md", /\*\*Kernel 5\.19\+\*\*/],
-	["deployment.md", /it needs Linux 5\.10\+ and works out of the box/],
+	["deployment.md", /it needs Linux 5\.10\+ and works out of the\s+box/],
 	["deployment.md", /The kernel is below 5\.19/],
 	["performance.md", /\(Linux 5\.19\+; needs `RLIMIT_MEMLOCK`\)/],
 	["introduction.md", /tiered \*\*io_uring\*\* engine \(kernel 5\.19\+/],
@@ -79,14 +79,15 @@ const PRESENT: [string, RegExp][] = [
 	["introduction.md", new RegExp(`\\(currently \`${RELEASE.replaceAll(".", "\\.")}\`\\)`)],
 ];
 
-// Every table row that names the io_uring engine states its floor: 5.19+, and no 5.10.
+// Every table row that names the io_uring engine and gives a Linux floor states 5.19+, and no 5.10.
+// Feature-matrix rows (no `Linux` cell) are not floor claims and are not checked.
 const IOURING_ROW = /^\|\s*(`(celeris\.)?IOUring`|\*\*IOUring\*\*)/;
 
 test("every table row for the io_uring engine states the 5.19 floor", () => {
 	const bad: string[] = [];
 	for (const [file, text] of Object.entries(docs)) {
 		for (const line of text.split("\n")) {
-			if (IOURING_ROW.test(line) && (!line.includes("5.19+") || line.includes("5.10"))) {
+			if (IOURING_ROW.test(line) && line.includes("Linux") && (!line.includes("5.19+") || line.includes("5.10"))) {
 				bad.push(`${file}: ${line.trim()}`);
 			}
 		}

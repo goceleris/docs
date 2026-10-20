@@ -36,7 +36,7 @@ in `celeris/config.go`.
 | ---------------------- | ------------------- | -------------------- | ------------------------------------------------------------------------- |
 | **Adaptive** (default) | `celeris.Adaptive`  | Linux only           | Runs epoll and io_uring behind one socket; switches based on live load.    |
 | **Epoll**              | `celeris.Epoll`     | Linux only           | Edge-triggered epoll, per-core event loops, CPU pinning.                    |
-| **IOUring**            | `celeris.IOUring`   | Linux 5.10+          | Completion-based async I/O via io_uring. The lowest-latency path.           |
+| **IOUring**            | `celeris.IOUring`   | Linux 5.19+          | Completion-based async I/O via io_uring. The lowest-latency path.           |
 | **Std**                | `celeris.Std`       | Everywhere           | Wraps Go's `net/http`. The portable fallback.                              |
 
 ### Adaptive — the default on Linux
@@ -80,19 +80,20 @@ zero-copy `sendfile(2)` for static-file responses (`celeris/internal/engine/engi
 
 ### IOUring
 
-Completion-based asynchronous I/O on Linux **5.10+**. Celeris detects the io_uring
+Completion-based asynchronous I/O on Linux **5.19+**. Celeris detects the io_uring
 feature *tier* at startup and enables only what the running kernel supports
 (`celeris/internal/engine/tier.go`):
 
 | Tier         | Kernel    | Features enabled                                                                |
 | ------------ | --------- | ------------------------------------------------------------------------------- |
-| `Base`       | 5.10+     | LTS-stable baseline: linked SQE chains, single-shot accept/recv                  |
+| `Base`       | 5.19+ (fallback) | Baseline: linked SQE chains, single-shot accept/recv. On 5.19+ it runs only when a `High` feature probe fails, when the kernel's feature bits do not match its version, or when `CELERIS_MAX_IOURING_TIER=base` caps the tier |
 | `High`       | 5.19+     | Multishot accept, COOP_TASKRUN; multishot recv with provided buffer rings is opt-in (see below) |
 | `Optional`   | 6.0+      | Adds SQPOLL and zero-copy send (`SEND_ZC`); 6.1+ swaps in DEFER_TASKRUN          |
 
-You do not configure the tier — it is probed and applied automatically. A 5.12
-kernel transparently uses the `Base` feature set; a 6.1 kernel lights up the
-`Optional` set. io_uring requires `RLIMIT_MEMLOCK` headroom for its rings and
+You do not configure the tier — it is probed and applied automatically. A kernel
+before 5.19 gets no io_uring engine: the engine refuses to build, and Adaptive runs
+epoll. On 5.19 and later the `High` set applies; a 6.0 or newer kernel adds
+`Optional`, and 6.1 swaps `COOP_TASKRUN` for `DEFER_TASKRUN`. io_uring requires `RLIMIT_MEMLOCK` headroom for its rings and
 provided buffers — see [Engine selection in practice](#engine-selection-in-practice).
 
 #### Tuning environment variables
@@ -125,8 +126,8 @@ Std wraps Go's `net/http` server. The router, middleware, and `*Context` API are
 **identical** to the native engines; what you lose are the native fast paths (CPU
 pinning, zero-copy sendfile, engine-integrated WebSocket, the async-detach
 machinery). Std is the default and the only engine off Linux (macOS, Windows), and
-it is what you run in tests on a dev laptop. On a pre-5.10 Linux kernel you still
-get epoll — only io_uring needs 5.10+, and Adaptive falls back to epoll there.
+it is what you run in tests on a dev laptop. On a Linux kernel before 5.19 io_uring is
+not available, and Adaptive runs epoll there (epoll needs 5.10+).
 
 ### Native engines are Linux-only — and selecting one off-Linux is an error
 
@@ -370,10 +371,10 @@ explicit choice only when you have a specific reason:
 | ----------------------------------------------------------------- | ----------------------------------------------------- |
 | The best engine, auto-selected (recommended)                      | *(leave `Engine` unset)*                               |
 | Deterministic behaviour / no runtime switching                    | `Engine: celeris.Epoll`                                |
-| Lowest latency on a known-good 5.10+ kernel, willing to tune memlock | `Engine: celeris.IOUring`                           |
+| Lowest latency on a known-good 5.19+ kernel, willing to tune memlock | `Engine: celeris.IOUring`                           |
 | Adaptive, but start hot on io_uring under known high concurrency  | `Engine: celeris.Adaptive` + `WorkloadHint: …HighConcurrency` |
 | Portability / dev laptop / off Linux                              | `Engine: celeris.Std` *(or just leave unset off Linux)* |
-| Pre-5.10 Linux kernel (no io_uring, but epoll works)              | *(leave `Engine` unset → Adaptive falls back to epoll)*, or `Engine: celeris.Epoll` |
+| Linux kernel before 5.19 (no io_uring)                            | *(leave `Engine` unset → Adaptive falls back to epoll)*, or `Engine: celeris.Epoll` |
 
 A few practical notes:
 
@@ -381,8 +382,8 @@ A few practical notes:
   kernel/memlock requirements are awkward (containers with tight `RLIMIT_MEMLOCK`,
   conservative security policies). Epoll is at throughput parity for most
   request/response traffic and is the engine with zero-copy `sendfile`.
-- **Force `IOUring`** when you have validated the kernel (≥5.10, ideally ≥5.19 or
-  ≥6.0 for the full feature tier) and the latency win matters. io_uring allocates
+- **Force `IOUring`** when you have validated the kernel (5.19 or later, ideally 6.0 or later
+  for the full feature tier) and the latency win matters. io_uring allocates
   locked memory for its rings and provided-buffer pools, so raise the process
   `RLIMIT_MEMLOCK` (e.g. `LimitMEMLOCK=infinity` in a systemd unit, or
   `--ulimit memlock=-1:-1` for a container). If memlock is too low, io_uring setup
