@@ -484,8 +484,8 @@ ulimits:
 
 Other io_uring prerequisites (checked by the startup io_uring probe):
 
-- **Kernel 5.19+** — the io_uring engine refuses older kernels, whose cancels lack the
-  `IORING_ASYNC_CANCEL` flags that 5.19 added (celeris#682); Adaptive runs epoll on them
+- **Kernel 5.19+** — the io_uring engine refuses older kernels: its cancels use the
+  `IORING_ASYNC_CANCEL` flags that 5.19 added (celeris#682), which older kernels lack; Adaptive runs epoll on them
   (`celeris/internal/engine/iouring/engine.go` (`requireAsyncCancelFlags`)).
 - **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
   (`celeris/internal/probe/probe_linux.go` (`checkCapSysNiceLinux`)); not required for the basic io_uring path.

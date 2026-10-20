@@ -34,8 +34,8 @@ in `celeris/config.go`.
 
 | Engine                 | Constant            | Where it runs        | What it is                                                                 |
 | ---------------------- | ------------------- | -------------------- | ------------------------------------------------------------------------- |
-| **Adaptive** (default) | `celeris.Adaptive`  | Linux only           | Runs epoll and io_uring behind one socket; switches based on live load.    |
-| **Epoll**              | `celeris.Epoll`     | Linux only           | Edge-triggered epoll, per-core event loops, CPU pinning.                    |
+| **Adaptive** (default) | `celeris.Adaptive`  | Linux 5.10+          | Runs epoll and io_uring behind one socket; switches based on live load.    |
+| **Epoll**              | `celeris.Epoll`     | Linux 5.10+          | Edge-triggered epoll, per-core event loops, CPU pinning.                    |
 | **IOUring**            | `celeris.IOUring`   | Linux 5.19+          | Completion-based async I/O via io_uring. The lowest-latency path.           |
 | **Std**                | `celeris.Std`       | Everywhere           | Wraps Go's `net/http`. The portable fallback.                              |
 

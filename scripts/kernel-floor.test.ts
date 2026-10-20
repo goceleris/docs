@@ -36,7 +36,6 @@ const astro = read(join(ROOT, "src", "pages", "index.astro"));
 // tier sentence, and the LTS framing) or the old release stamp. Each one is the
 // exact text that stood on origin/main when this guard was written.
 const STALE: string[] = [
-	"| Linux 5.10+",
 	"(Linux 5.10+; needs",
 	"Linux 3.10+",
 	"3.10+",
@@ -69,7 +68,8 @@ const PRESENT: [string, RegExp][] = [
 	["engines.md", /known-good 5\.19\+ kernel/],
 	["engines.md", /\(5\.19 or later, ideally 6\.0 or later/],
 	["engines.md", /On a Linux kernel before 5\.19 io_uring is\s+not available/],
-	["getting-started.md", /`io_uring` engine needs kernel \*\*5\.19\+\*\*; the `epoll` engine needs kernel \*\*5\.10\+\*\*/],
+	["getting-started.md", /`io_uring` engine needs kernel \*\*5\.19\+\*\*; the `epoll` engine and `Adaptive` need kernel \*\*5\.10\+\*\*, and Adaptive runs epoll on kernels below 5\.19/],
+	["engines.md", /\*\*Adaptive\*\* \(default\) \| `celeris\.Adaptive`\s+\| Linux 5\.10\+/],
 	["deployment.md", /\*\*Kernel 5\.19\+\*\*/],
 	["deployment.md", /it needs Linux 5\.10\+ and works out of the\s+box/],
 	["deployment.md", /The kernel is below 5\.19/],
@@ -111,10 +111,9 @@ test("each docs page states the v1.6.0 io_uring floor and epoll floor where it n
 });
 
 test("index.astro engine cards: io_uring is Linux 5.19+ and epoll is Linux 5.10+", () => {
-	expect(astro).toMatch(/name: "io_uring",\s*tag: "Linux 5\.19\+"/);
-	expect(astro).toMatch(/name: "epoll",\s*tag: "Linux 5\.10\+"/);
-	expect(astro).not.toMatch(/name: "io_uring",\s*tag: "Linux 5\.10\+"/);
-	expect(astro).not.toMatch(/name: "epoll",\s*tag: "Linux 3\.10\+"/);
+	const tagOf = (name: string) => astro.match(new RegExp(`name: "${name}",\\s*tag: "([^"]+)"`))?.[1];
+	expect(tagOf("io_uring")).toBe("Linux 5.19+");
+	expect(tagOf("epoll")).toBe("Linux 5.10+");
 });
 
 test("introduction.md states the release on both lines, and both name the same version", () => {
