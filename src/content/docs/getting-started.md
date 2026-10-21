@@ -14,7 +14,7 @@ Celeris source.
 
 | Requirement | Notes |
 | --- | --- |
-| **Go 1.27.2 or newer** | Celeris targets the current Go toolchain. |
+| **Go 1.27.3 or newer** | Celeris targets the current Go toolchain. |
 | **Linux** for the high-performance engines | The `io_uring` engine needs kernel **5.10+**; the `epoll` engine needs kernel **3.10+**. |
 | Any other OS (macOS, Windows, BSD) | Supported via automatic fallback to the portable `std` (`net/http`) engine — no code changes needed. |
 
