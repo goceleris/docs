@@ -109,6 +109,14 @@ s.GET("/files/*name", func(c *celeris.Context) error {
 })
 ```
 
+`FileFromDir` does not inherit the dotfile rule of `Static` and the static middleware: it
+serves hidden files (`.env`), because the caller chooses the path. Since v1.6.0 it accepts
+a `baseDir` of `"."` or `"./"` (the working directory) and of `"/"`, which reaches every
+file the process can read; before, those were refused with a `400`. An empty `baseDir`
+is still refused. Choose `baseDir` and `userPath` with care
+(`celeris/context_response.go` (`Context.FileFromDir`),
+[celeris#1152](https://github.com/goceleris/celeris/pull/1152)).
+
 A request for `/files/../../etc/passwd` returns `400 invalid file path` rather
 than reading outside `./public`. A request that resolves to a directory also
 returns `400` — `FileFromDir` serves files only, not listings (use the
@@ -202,13 +210,24 @@ s.Static("/assets", "./public")
 > configuration, so name a directory that holds only what is public
 > ([celeris#1152](https://github.com/goceleris/celeris/pull/1152)). Since v1.6.0 files
 > and directories whose name starts with a dot (`.env`, `.git`, `.ssh`) are not served
-> by default (a 404 whether or not they exist; `.well-known` is served), and `Static`
-> has no opt-out. A `root` that resolves to the root of a filesystem (`"/"`, `"."` when
-> the working directory is `"/"`, as in a systemd service or a container without a
-> `WORKDIR`) panics at registration; to serve one on purpose use the middleware with
+> by default (`Static` answers 404 whether or not they exist; the middleware by default
+> passes them on as missing files, and in SPA mode serves the index; `.well-known` is
+> served), and `Static` has no opt-out. A `root` that resolves to the root of a
+> filesystem (`"/"`, `"."` when the working directory is `"/"`, as in a systemd service
+> or a container without a `WORKDIR`) panics at registration (`Static`) or at
+> `static.New` (the middleware); to serve one on purpose use the middleware with
 > `AllowFilesystemRoot`, which serves every file the process can read. The dotfile rule
 > looks only at names in the request path and at where symlinks lead: it is not a
-> secrets filter, so keep secrets out of the served directory. Source:
+> secrets filter, so keep secrets out of the served directory.
+>
+> **Security fix in the same release.** A `root` made only of `..` segments (`".."`,
+> `"../.."`, `"./.."`) served files above the directory it names (`GET /../secret`) from
+> v1.3.3 through v1.5.11, for `Static`, the middleware and `FileFromDir`. Since v1.6.0
+> such a root is resolved against the working directory once, at registration or
+> `static.New`, and nothing outside that directory is served; prefer an absolute root.
+> Also since v1.6.0: devices, FIFOs and sockets are not served (the middleware
+> answers them as a missing file; `File`, `FileFromDir` and `FileFromFS` return a `404`
+> "not a regular file"), and `Static` answers a missing file with 404 (it was 500). Source:
 > `celeris/server.go` (`Server.Static`), `celeris/middleware/static/config.go`
 > (`Config.Root`, `Config.Dotfiles`).
 

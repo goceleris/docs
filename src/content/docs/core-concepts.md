@@ -334,9 +334,10 @@ on average (lagging the rate by no more than four windows' worth) is not cut how
 long its response takes, and a `PING`, or a `WINDOW_UPDATE` of one byte, is not
 progress. Clients on slow links need a `WriteTimeout` of 2 s or more, and 5 s where the
 links are slower than a megabyte a second; on `io_uring`, where the engine's own send
-clock closes such a connection at 1 s, use 5 s for clients on slow links. With `WriteTimeout: -1` there is no deadline: the wait lasts until the client
-grants window or the connection closes, and never ends if the I/O worker that would
-see either is the one waiting (below). Source: `celeris/config.go`
+clock closes such a connection at 1 s, use 5 s for clients on slow links. With
+`WriteTimeout: -1` there is no deadline: the wait lasts until the client grants window
+or the connection closes, and never ends if the I/O worker that would see either is the
+one waiting (below). Source: `celeris/config.go`
 (`Config.WriteTimeout`).
 
 **If the event loop itself is stuck, the rate rule is replaced by a bound.** While an

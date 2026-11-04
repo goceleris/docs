@@ -220,9 +220,14 @@ With `DisableDeferAccept` the deferral is gone: a silent connection is closed at
 `ReadTimeout` and `IdleTimeout`; they look at their connections in a sweep, so those
 two are enforced up to a sweep period after their time. `WriteTimeout` is judged in
 windows that end at a sweep (see `Config.WriteTimeout`): on `epoll`, a 1 s
-`WriteTimeout` closed a client that reads nothing at about 2 s in the PR's measurement,
-which is the documented stall-rule windows, and the sweep only adds its own lateness to
-that. Source: `celeris/config.go` (`Config.ReadTimeout`, `Config.WriteTimeout`).
+`WriteTimeout` closed a client whose application reads nothing at about 2 s in
+[celeris#1197](https://github.com/goceleris/celeris/pull/1197)'s measurement. Those are
+the documented stall-rule windows, and the sweep only adds its own lateness to them. The
+2 s is the case where the client's kernel acknowledged at least the 64 KiB floor of
+[the minimum-rate rule below](#sse-needs-no--1-other-long-lived-responses-do) in the
+first window (its receive buffer took it); a client that acknowledges less is closed at
+the end of the first window, about one `WriteTimeout` (the PR records one close at
+1.242 s). Source: `celeris/config.go` (`Config.ReadTimeout`, `Config.WriteTimeout`).
 
 - **`epoll`: every 25 ms, whatever the timeouts are.** Each worker arms a 25 ms kernel
   timer (a `timerfd`) at start, so `ReadTimeout` and `IdleTimeout` fire within about 30 ms
@@ -265,8 +270,8 @@ limiter, cache, session and JWT expiry, the stores).
 
 ### HTTP/2 timeouts on the native engines
 
-On `epoll`, `io_uring` and `adaptive`, the HTTP/2 deadlines are per request and per
-connection, not per read
+Since celeris v1.6.0, on `epoll`, `io_uring` and `adaptive`, the HTTP/2 deadlines are
+per request and per connection, not per read
 ([celeris#1150](https://github.com/goceleris/celeris/pull/1150); `celeris/config.go`
 (`Config.ReadTimeout`, `Config.ReadHeaderTimeout`)):
 
@@ -315,8 +320,8 @@ A response that is **not** detached is still under `WriteTimeout`: a slow large
 download, or a chunked body written with `StreamWriter` without `Detach`. On `std` the
 deadline is absolute for the whole response, so a response that takes longer than
 `WriteTimeout` ends however steadily the client reads (measured: a streaming body that
-sends every 200 ms is cut at `WriteTimeout`). On `epoll` (and `adaptive` while it runs on
-it), a response the kernel did not accept whole is instead bounded by a minimum rate on
+sends every 200 ms is cut at `WriteTimeout`). Since celeris v1.6.0, on `epoll` (and
+`adaptive` while it runs on it), a response the kernel did not accept whole is instead bounded by a minimum rate on
 the bytes the client acknowledges, 64 KiB per `WriteTimeout`, with no elapsed-time
 ceiling: a client that reads steadily above that floor is not cut however long the
 response takes ([celeris#1119](https://github.com/goceleris/celeris/pull/1119),
