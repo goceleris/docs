@@ -250,6 +250,8 @@ These are all in `Config` (`celeris/config.go`):
 | `BufferSize int` | engine default | Per-connection I/O buffer size in bytes. `0` = engine default. |
 | `SocketRecvBuf int` | OS default | `SO_RCVBUF` on accepted connections. `0` = OS default. |
 | `SocketSendBuf int` | OS default | `SO_SNDBUF` on accepted connections. `0` = OS default. |
+| `SocketBusyPoll time.Duration` | `0` (off) | `SO_BUSY_POLL` on accepted connections (Linux native engines). Off since v1.6.0; it was 50 µs before. |
+| `DisableDeferAccept bool` | `false` | Turn `TCP_DEFER_ACCEPT` off on the `epoll` and `io_uring` listen sockets. |
 | `MaxConns int` | unlimited | Max simultaneous connections **per worker**. `0` = unlimited. |
 
 ```go
@@ -270,6 +272,19 @@ A few tuning notes grounded in the engine signals:
 - **`MaxConns` is per worker, not per server.** With 8 workers and
   `MaxConns: 10_000` your ceiling is ~80k connections. It's an admission bound, not
   a tuning knob — use it to fail fast rather than thrash when a flood arrives.
+- **Leave `SocketBusyPoll` off unless you have measured it.** The maintainers found
+  throughput 3.0% higher with it off on an arm64 big.LITTLE host with a single-queue NIC
+  (where it also coincided with `ksoftirqd` takeovers and 1 to 7 s stalls, an indicative result) and 1.1%
+  higher on an amd64 host with a 16-queue NIC; the drivers opened `WithEngine(srv)`
+  follow the server's value. Details, caveats and the exact conditions are in
+  [Configuration](/docs/configuration#connection-socket-and-io) and
+  [Stores and database drivers](/docs/data-stores#busy-polling-for-driver-connections).
+- **`DisableDeferAccept` gives up a saved wakeup per new connection.** With the
+  default, a client that connects and sends its request at once is accepted with the
+  request already queued, saving a wakeup per new connection; turning it off gives that
+  up, a cost on connection churn only (keep-alive traffic does not see it), and removes
+  the second of deferral a silent connection otherwise waits
+  ([Configuration](/docs/configuration#connection-socket-and-io)).
 - **The bytes-per-request signal.** The engine tracks `BytesRead` and
   `BytesWritten` alongside `RequestCount` (`celeris/observe/engine_metrics.go` (`EngineMetrics`)).
   Large average payloads (link-bound workloads) make epoll and io_uring tie, so the

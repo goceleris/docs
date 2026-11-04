@@ -321,14 +321,37 @@ of response data that its client has not yet granted flow-control window for
 that much, a new stream's handler runs on the HTTP/2 worker pool, **even on a
 sync route**, and its response write (`c.JSON`, `c.Blob`, `c.File`, ...) can
 block until the client sends `WINDOW_UPDATE`, as a `net/http` handler's `Write`
-does. The wait lasts at most `Config.WriteTimeout` (60 s by default) from the
-write, for the whole response: progress does not extend it, so a client that
-grants window too slowly is cut off too. Then the stream is reset (`RST_STREAM`,
-`INTERNAL_ERROR`), the request's context is done, and the write returns an error
-that wraps `os.ErrDeadlineExceeded`. With `WriteTimeout: -1` there is no
-deadline: the wait lasts until the client grants window or the connection
-closes, and never ends if the I/O worker that would see either is the one
-waiting (below).
+does. `Config.WriteTimeout` (60 s by default) bounds that wait as a **minimum rate**,
+not as an absolute deadline
+([celeris#1167](https://github.com/goceleris/celeris/pull/1167),
+[celeris#1180](https://github.com/goceleris/celeris/pull/1180)): in each
+`WriteTimeout` window, a stream that holds bytes waiting for the window must have had
+at least 64 KiB of them (or all it held, if less) sent, released by the client's
+`WINDOW_UPDATE`s. If it did not, the stream is reset (`RST_STREAM`, `INTERNAL_ERROR`),
+the request's context is done, and the write returns an error that wraps
+`os.ErrDeadlineExceeded`. There is no ceiling: a stream that releases at least that
+on average is not cut however long its response takes, and a `PING`, or a
+`WINDOW_UPDATE` of one byte, is not progress. Clients on slow links need a
+`WriteTimeout` of 2 s or more, and 5 s where the links are slower than a megabyte a
+second. With `WriteTimeout: -1` there is no deadline: the wait lasts until the client
+grants window or the connection closes, and never ends if the I/O worker that would
+see either is the one waiting (below). Source: `celeris/config.go`
+(`Config.WriteTimeout`).
+
+**If the event loop itself is stuck, the rate rule is replaced by a bound.** While an
+event loop of the server has been in one batch of events for `max(WriteTimeout/2, 2 s)`
+(a synchronous handler that waits for a lock a waiting handler holds across its
+response write does this, and so does any slow blocking call), the rate cannot be
+judged, and every such wait that has lasted a `WriteTimeout` is bounded by
+`WriteTimeout` in all, as before the rate rule: at most `max(WriteTimeout/2, 2 s) + WriteTimeout` from the start of the freeze
+(1.5 `WriteTimeout`s for a `WriteTimeout` of 4 s or more; the default's threshold is
+30 s). The 2 s floor
+([celeris#1202](https://github.com/goceleris/celeris/pull/1202)) matters only for a
+`WriteTimeout` under 4 s: a healthy loop of an overloaded or instrumented host has
+batches of a second or two, and a 250 ms floor cut healthy downloads there. The server
+logs a Warn once per episode ("the minimum rate of a pool handler's wait for window is
+suspended") and the reason of each such reset at Debug level (`rate`, or
+`loop-blocked`).
 
 So do not hold a lock across a response write that a sync handler also takes.
 The sync handler would wait for that lock on its I/O worker, and every

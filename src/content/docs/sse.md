@@ -586,7 +586,7 @@ reading is dealt with per engine:
   queued for it; `-1` sets no such bound. The disconnect comes between about 3/4
   and 5/4 of `WriteTimeout` after the client last took a byte (its progress is sampled every
   quarter of `WriteTimeout`; a send completion restarts the clock at once), plus the
-  engine's sweep interval (up to about 0.1 s on `epoll`, up to 2 s on `io_uring`; a
+  engine's sweep interval (25 ms on `epoll`, up to 2 s on `io_uring`; a
   `WriteTimeout` shorter than that can double). The handler returning or a shutdown ends the
   stream sooner.
 

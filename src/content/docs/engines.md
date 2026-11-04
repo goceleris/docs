@@ -78,6 +78,18 @@ latency for compatibility by choosing it. Epoll is also the engine that implemen
 zero-copy `sendfile(2)` for static-file responses (`celeris/internal/engine/engine.go` (`SendfileCapable`),
 `celeris/internal/engine/capability.go` (`CapabilityProfile.Sendfile`)).
 
+Every epoll worker arms a 25 ms kernel timer (a `timerfd`) and sweeps its connections
+for expired timeouts on each tick, whatever `ReadHeaderTimeout` and the other timeouts
+are set to. Since v1.6.0 that includes `ReadHeaderTimeout: -1`; before, a loop without
+the timer swept every 4 to 5 s, so `IdleTimeout`, `ReadTimeout` and `WriteTimeout` fired
+seconds late
+([celeris#1197](https://github.com/goceleris/celeris/pull/1197); see
+[How promptly the native engines enforce a timeout](/docs/configuration#how-promptly-the-native-engines-enforce-a-timeout)).
+Both native engines also set `TCP_DEFER_ACCEPT` on their listen sockets by default, so
+the kernel hands them a connection when its first byte arrives, or about a second after
+its SYN if the client stays silent; `Config.DisableDeferAccept` turns that off (see
+[Configuration](/docs/configuration#connection-socket-and-io)).
+
 ### IOUring
 
 Completion-based asynchronous I/O on Linux **5.10+**. Celeris detects the io_uring
@@ -94,6 +106,30 @@ You do not configure the tier — it is probed and applied automatically. A 5.12
 kernel transparently uses the `Base` feature set; a 6.1 kernel lights up the
 `Optional` set. io_uring requires `RLIMIT_MEMLOCK` headroom for its rings and
 provided buffers — see [Engine selection in practice](#engine-selection-in-practice).
+
+**Startup probes.** Besides the tier, the engine probes four features at startup by
+running them once on a throwaway ring: `SEND_ZC`, fixed files, provided buffers and
+multishot accept. The result is cached for the process, but since v1.6.0 only the
+kernel's own answer is cached
+([celeris#1201](https://github.com/goceleris/celeris/pull/1201),
+[celeris#1198](https://github.com/goceleris/celeris/pull/1198);
+`celeris/internal/engine/iouring/probe.go`):
+
+- A probe that could not run, because setup failed before the kernel answered (out of
+  file descriptors or memory, a busy ring, a failed wait), is **not** cached. The
+  engine being built goes without that feature, and the probe runs again when the next
+  engine is built. Before, an `EMFILE` at the first engine build could leave the process
+  without the feature for good, while the log said the kernel had refused it.
+- A wait that returns with nothing to read (a signal, a timer's wake) is waited out
+  within the same budget instead of being read as the kernel's answer. A probe whose
+  wait gets no answer in two runs is kept as unsupported.
+- When a probe could not run, the engine logs one Warn per probe per process:
+  `io_uring startup probe could not run when an engine was built, so the feature was
+  off for the engine being built then; the probe runs again when the next engine is
+  built (restart the server, or build a new engine, to probe again; a probe whose wait
+  gets no answer in two runs is kept as unsupported)`, with the attributes `probe`
+  (`SEND_ZC`, `fixed files`, `provided buffers` or `multishot accept`) and `reason`.
+  Restart the server to probe again.
 
 #### Tuning environment variables
 
@@ -482,15 +518,16 @@ if m.RequestCount > 0 {
 
 To stop accepting new connections while continuing to serve existing ones — useful
 for graceful load shedding or coordinated draining — call `Server.PauseAccept()`
-and later `Server.ResumeAccept()` (`celeris/server.go` (`Server.PauseAccept`)). These work on the
-native engines. The **std engine does not support accept control**: both return
-`celeris.ErrAcceptControlNotSupported` (`celeris/errors.go` (`ErrAcceptControlNotSupported`)), as does calling
-them before `Start`.
+and later `Server.ResumeAccept()` (`celeris/server.go` (`Server.PauseAccept`)). These work on
+`epoll` and `io_uring`. The **`std` and `adaptive` engines do not support accept control**
+(`celeris/server.go` (`Server.ResumeAccept`)): both calls return
+`celeris.ErrAcceptControlNotSupported` (`celeris/errors.go` (`ErrAcceptControlNotSupported`)), as they do
+before `Start`.
 
 ```go
 if err := s.PauseAccept(); err != nil {
     if errors.Is(err, celeris.ErrAcceptControlNotSupported) {
-        // std engine (or not started) — fall back to your own shedding strategy
+        // std or adaptive engine (or not started) — fall back to your own shedding strategy
     }
 }
 // ... drain / shed ...
@@ -550,7 +587,7 @@ if p := s.EventLoopProvider(); p != nil {
 - **Streaming on the std engine without finishing before return.** On Std,
   `EngineSupportsAsyncDetach()` is false; a goroutine you spawn must complete before
   the handler returns, or `net/http` closes the connection out from under it.
-- **`PauseAccept`/`ResumeAccept` on std.** They return
+- **`PauseAccept`/`ResumeAccept` on std or adaptive.** They return
   `ErrAcceptControlNotSupported` — always check the error with `errors.Is`.
 - **Forgetting `RLIMIT_MEMLOCK` for io_uring.** Too-low memlock prevents io_uring
   setup; under Adaptive this silently keeps you on epoll, under a forced `IOUring`

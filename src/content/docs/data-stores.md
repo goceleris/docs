@@ -303,13 +303,79 @@ is reachable via `rdb.Do(ctx, args...)`. Common options
 | `WithPassword` / `WithUsername` | AUTH credentials (ACL on Redis 6+) | none |
 | `WithDB(n)`                    | `SELECT` database index | 0 |
 | `WithPoolSize(n)`              | Total connection cap | `NumWorkers * 4` |
-| `WithDialTimeout(d)`           | TCP dial timeout | 5s |
+| `WithDialTimeout(d)`           | Bounds the TCP connect and, separately, the connection handshake (`HELLO`, then `AUTH` and `SELECT`) | 5s |
 | `WithProto(2\|3)`              | RESP version target | 3 (RESP2 fallback) |
 | `WithForceRESP2()`             | Skip `HELLO`; speak RESP2 (ElastiCache classic) | off |
+| `WithSocketBusyPoll(d)`        | `SO_BUSY_POLL` for the connections the driver puts on an event loop; see [busy polling](#busy-polling-for-driver-connections) | off |
+
+Since v1.6.0 `DialTimeout` bounds the handshake as well as the TCP connect
+([celeris#1209](https://github.com/goceleris/celeris/pull/1209)). Before, only the
+connect was bounded, so a node that accepted the connection and never answered `HELLO`
+held `Do`, `Subscribe` and every call that needed a new connection until the caller's
+context ended, which is for ever under `context.Background()`. It now fails after
+`DialTimeout`, also when the context has no deadline; a shorter deadline on the caller's
+context still wins. The two are separate budgets, so a slow connect followed by a silent
+server can take up to about twice `DialTimeout`. The pool's command and Pub/Sub dials,
+`Pipeline`, and the node and sentinel clients below are bounded the same way
+(`celeris/driver/redis/options.go` (`Config.DialTimeout`)).
 
 > TLS (`rediss://`) is **not** supported — `NewClient` rejects the scheme with a
 > clear error. Deploy over a VPC, loopback, or a sidecar TLS terminator
 > (`celeris/driver/redis/client.go` (`NewClient`)).
+
+#### Redis Cluster and Sentinel
+
+`redis.NewClusterClient(redis.ClusterConfig{Addrs: ...})` and
+`redis.NewSentinelClient(redis.SentinelConfig{...})` build on the same `Client`
+(`celeris/driver/redis/cluster.go`, `celeris/driver/redis/sentinel.go`). What they do
+that is easy to miss, as of v1.6.0:
+
+- **A Pub/Sub follows its subscription.** The `PubSub` from `ClusterClient.Subscribe`
+  or `SentinelClient.Subscribe` subscribes again on another node (a cluster) or on the
+  new master (Sentinel) when its connection goes away, and keeps delivering to the same
+  `PubSub.Channel()`
+  ([celeris#1154](https://github.com/goceleris/celeris/pull/1154)). A message
+  published while it switches is lost (a gap), and on a cluster a message in flight
+  around the switch can in rare cases be delivered twice. While it has no connection,
+  its control calls return `ErrPubSubConnDown`; it retries with backoff and no retry
+  limit until `PubSub.Close`. When the client is closed, a `PubSub` whose connection is
+  down (or goes down afterwards) gives up and its `Channel()` closes.
+- **Sharded Pub/Sub is per slot.** `ClusterClient.SSubscribe` connects to the node that
+  owns the slot of the first channel and follows that slot when it moves. All channels
+  of one call must hash to one slot (use hash tags), or the call returns `ErrCrossSlot`
+  before anything is sent, and so does `PubSub.SSubscribe` with channels of different
+  slots. After a reroute the driver replays `SSUBSCRIBE` one slot at a time
+  ([celeris#1210](https://github.com/goceleris/celeris/pull/1210)). One `PubSub` holds
+  one connection, so a channel of another slot that the node does not own is answered
+  `-MOVED`, which is not reported, and is not subscribed; use a separate `PubSub` for
+  it.
+- **A moved slot does not cause a herd of topology reads.** Commands that meet the same
+  `-MOVED` or the same lost primary share one `CLUSTER SLOTS` read, and so do the
+  reroutes of sharded `PubSub`s
+  ([celeris#1215](https://github.com/goceleris/celeris/pull/1215),
+  [celeris#1211](https://github.com/goceleris/celeris/pull/1211)). On the PR's test
+  cluster, 200 concurrent `GET`s on a moved slot sent 200 `CLUSTER SLOTS` before and 2
+  to 6 after; the figure is that fake cluster's, not a guarantee.
+- **One `Client` per node address.** A seed address listed more than once in `Addrs` now
+  builds a single node `Client`; before, the first was overwritten and never closed
+  ([celeris#1241](https://github.com/goceleris/celeris/pull/1241)).
+- **`SentinelClient.Close` cancels and waits.** It cancels the background sentinel
+  subscription and any failover in progress and waits for them, so no `Client`, and no
+  reference to the driver's standalone event loop, outlives `Close`
+  ([celeris#1247](https://github.com/goceleris/celeris/pull/1247),
+  [celeris#1251](https://github.com/goceleris/celeris/pull/1251)). A failover dial that
+  is connecting or in the handshake ends at once. One that waits for the new master's
+  `ROLE` reply, in direct mode (a plain `net.Conn` client: an `Engine` that runs
+  `AsyncHandlers` on any OS, any `Engine` on macOS and Windows, and on Linux a started
+  `epoll`, `io_uring` or `adaptive` server), can hold `Close` for up to `DialTimeout`
+  (5 s by default).
+- **`NewSentinelClient` discovery is bounded.** The query for the master address to each
+  sentinel, and the dial of the master with its `ROLE` check, are each bound by
+  `DialTimeout`, and discovery goes on to the next sentinel, so construction takes at
+  most (N+1) x `DialTimeout` for N sentinels (about 15 s for two at the 5 s default). A
+  failed construction returns the error of every sentinel tried (`errors.Join`); one that
+  timed out satisfies `errors.Is(err, context.DeadlineExceeded)`
+  ([celeris#1252](https://github.com/goceleris/celeris/pull/1252)).
 
 ### PostgreSQL
 
@@ -383,6 +449,29 @@ options (`celeris/driver/postgres/pool.go` (`WithMaxOpen`)):
 > The Postgres driver enforces SSL policy from the DSN's `sslmode`. Use a valid
 > `sslmode` for your deployment; the DSN is validated at `Open`/`NewConnector` time.
 
+**Connect timeout.** `connect_timeout` (whole seconds, in the DSN) is one budget for the
+dial and the startup together: the TCP connect, then the startup exchange
+(authentication, `ParameterStatus`, `BackendKeyData`) up to `ReadyForQuery`
+(`celeris/driver/postgres/dsn.go` (`Options.ConnectTimeout`),
+[celeris#1216](https://github.com/goceleris/celeris/pull/1216),
+[celeris#1223](https://github.com/goceleris/celeris/pull/1223)). A server that accepts
+the connection and never completes the startup fails the dial with an error that matches
+`context.DeadlineExceeded`, and a shorter deadline on the caller's context still wins.
+Since v1.6.0:
+
+- A DSN **without** `connect_timeout` gets a **10 s default**. Before, such a dial
+  could wait for ever under `context.Background()`.
+- `connect_timeout=0` means no client-side timeout, as in libpq; the caller's context is
+  then the only bound. A negative `connect_timeout` is rejected.
+- In a DSN built in code (an `Options` value, not a string), a zero `ConnectTimeout`
+  is "not set" (the 10 s default applies) and a negative one means no timeout.
+- The host name lookup before the dial is not bounded by it, nor by the caller's
+  context, and the `PG*` environment variables (`PGCONNECT_TIMEOUT` included) are not
+  read.
+
+`sslmode=require` and `verify-*` are refused up front, so there is no SSL negotiation to
+bound.
+
 ### Memcached
 
 ```go
@@ -398,6 +487,19 @@ defer mc.Close()
 `memcached.NewClient(addr, opts...)` (`celeris/driver/memcached/client.go` (`NewClient`)) follows the
 same shape as the Redis client and accepts `WithEngine` to colocate. TLS is not
 supported.
+
+Two timeouts apply (`celeris/driver/memcached/options.go` (`Config.DialTimeout`,
+`Config.Timeout`)):
+
+| Option | Bounds | Default |
+| ------ | ------ | ------- |
+| `WithDialTimeout(d)` | The TCP connect and, separately, the binary-protocol handshake (a `VERSION` round trip) of a new connection. The text protocol has no handshake. A slow connect followed by a silent server takes up to about twice `DialTimeout`. ([celeris#1217](https://github.com/goceleris/celeris/pull/1217)) | 5s |
+| `WithTimeout(d)` | Each operation: a command (and `Ping`, `Version`, `Stats`, ...) not complete after `Timeout` fails with an error that matches `context.DeadlineExceeded`, and the connection it used is dropped. A multi-key get, `Stats` and `Flush` are one operation each. It does not cover waiting for a pool slot or dialling a new connection. A negative value turns it off, and the caller's context is then the only bound. ([celeris#1222](https://github.com/goceleris/celeris/pull/1222)) | 3s |
+
+`Timeout` applies whether or not the caller's context has a deadline; a caller's deadline
+that is not later than `Timeout` wins and its error is returned as it is. Before v1.6.0
+`Config.Timeout` was documented but never applied, so a command on a server that
+accepted the connection and never answered blocked until the caller's context ended.
 
 ### Cache-aside: Redis in front of Postgres
 
@@ -500,6 +602,57 @@ When you pass `WithEngine(srv)`, the driver pulls the server's `EventLoopProvide
 
 **Correctness is identical** with or without `WithEngine`; the difference is purely
 performance.
+
+`WithEngine(srv)` of a server that has not started yet, or that is on the `std` engine
+without `AsyncHandlers`, is answered with the driver's standalone loop. Closing a redis
+or memcached `Client` (or a `ClusterClient`, or a redis `SentinelClient`) opened that
+way gives its reference to that loop back since v1.6.0
+([celeris#1239](https://github.com/goceleris/celeris/pull/1239)); when the closed
+`Client` was the last holder, the loop (an epoll or io_uring instance and its goroutine)
+is shut down, so loops no longer accumulate across repeated open and close. A redis
+`Client` that is the last holder takes its Pub/Sub connections down when it is closed;
+another `Client` sharing the loop keeps them working.
+
+### Busy polling for driver connections
+
+The drivers no longer set `SO_BUSY_POLL` by default
+([celeris#1233](https://github.com/goceleris/celeris/pull/1233); the server's own
+`Config.SocketBusyPoll`, off by default, is in the
+[Configuration reference](/docs/configuration#connection-socket-and-io)). In v1.5 the
+redis, postgres and memcached drivers set 50 µs, but only on the connections they
+register on an event loop, not on every connection they dial. Which those are depends
+on how the driver was opened (`celeris/README.md`, "Busy polling"):
+
+| Driver opened | redis commands | memcached | postgres `Pool` |
+| --- | --- | --- | --- |
+| no engine | loop (was set) | netpoll | netpoll |
+| `WithEngine` of a server that does not run async handlers and has not started yet, or is on the `std` engine | loop (was set) | loop (was set) | loop (was set) |
+| `WithEngine` of a started `epoll`, `io_uring` or `adaptive` server (the default is `adaptive`) | netpoll | netpoll | netpoll |
+| `WithEngine` of a server that runs async handlers, started or not | netpoll | netpoll | netpoll |
+
+Redis Pub/Sub connections and postgres `Connector` connections are always on a loop. The
+connections that go through Go's netpoll were never set and still are not, so an
+application that used only those is not affected and has nothing to change.
+
+Opened with `WithEngine(srv)`, the connections that are on a loop now take the server's
+`Config.SocketBusyPoll` (`srv.SocketBusyPoll()`, callable before `Start`; it reports 0
+for the `std` engine), so one setting decides both. With no engine they are off unless
+you ask:
+
+- redis: `redis.WithSocketBusyPoll(d)` or `Config.SocketBusyPoll` (`ClusterConfig` and
+  `SentinelConfig` forward it);
+- postgres: `Connector.WithSocketBusyPoll(d)`; a `Pool` has no option of its own and
+  only follows the server;
+- memcached: no option of its own; it only follows the server.
+
+A value of at least 1 µs on a driver option wins over the server's; anything less
+(0, a negative value, a fraction of a microsecond) leaves the connection to the server's
+value, so a driver option cannot turn off a server that has busy polling on. A refused
+`setsockopt` is ignored silently (the server logs its own warning once). The reason it is
+off is the one in the Configuration reference; the measurements were of accepted sockets,
+and no driver traffic was measured. Source: `celeris/driver/redis/options.go`
+(`Config.SocketBusyPoll`), `celeris/driver/postgres/connector.go`
+(`Connector.WithSocketBusyPoll`), `celeris/server.go` (`Server.SocketBusyPoll`).
 
 ## Standalone vs engine-colocated mode
 

@@ -243,7 +243,11 @@ finished. Before celeris v1.6.0, on `epoll` and `io_uring` the hooks ran, and a 
 ([celeris#703](https://github.com/goceleris/celeris/issues/703)).
 
 `Shutdown` returns the engine's shutdown error, or `ctx`'s error if the drain did not
-finish within `ctx`, or `nil`. Note that hook panics are swallowed (recovered) — they
+finish within `ctx`, or `nil`. On `epoll`, `io_uring` and `adaptive`, a drain that
+`ctx`'s deadline ends can finish at that same instant, and `Shutdown` then returns
+`nil`: **`nil` at the deadline does not mean nothing was cut**
+([celeris#1225](https://github.com/goceleris/celeris/issues/1225), `celeris/server.go`
+(`Server.Shutdown`)). Note that hook panics are swallowed (recovered) — they
 do not surface in the return value — so do your own error logging inside the hook.
 
 **Overlapping calls.** Several `Shutdown` calls can share one drain, for example a second
@@ -328,7 +332,12 @@ handlers had returned, and such a response lost its tail
 ([celeris#760](https://github.com/goceleris/celeris/issues/760)).
 
 On `io_uring` the keep-accepting window is at most 250 ms, the start of that drain: past
-it the worker stops accepting. Before [celeris#978](https://github.com/goceleris/celeris/issues/978)
+it the worker stops accepting. A worker with nothing to send and no request in progress
+does not keep accepting at all: if it is waiting only for a request head that is
+already in the kernel, it closes its listener at once, and a connection that arrives
+afterwards is not waited for
+([celeris#1243](https://github.com/goceleris/celeris/pull/1243); see
+[What each kind of connection gets](#what-each-kind-of-connection-gets)). Before [celeris#978](https://github.com/goceleris/celeris/issues/978)
 its send drain was a fixed 250 ms whatever the budget, so a client slower than that could
 lose the tail. `std` drains through net/http.
 
@@ -347,6 +356,112 @@ above), so no byte count is given.)
 > only ~500ms of budget left. Size `ShutdownTimeout` (or the context you build
 > manually) to cover both the request drain *and* the slowest resource you close in a
 > hook.
+
+### What each kind of connection gets
+
+What a connection gets when `Shutdown` begins depends on what it has sent, and on the
+engine. This is the contract the `Shutdown` godoc states
+([celeris#1208](https://github.com/goceleris/celeris/issues/1208),
+[celeris#1220](https://github.com/goceleris/celeris/pull/1220),
+[celeris#1253](https://github.com/goceleris/celeris/pull/1253)); the timings are the
+maintainers' measurements on arm64, in docker with 2 CPUs, on a 7.0 kernel with
+`io_uring`'s high tier. `adaptive` does what the engine it is running does (`epoll`
+when it starts). Source: `celeris/server.go` (`Server.Shutdown`).
+
+- **An idle keep-alive connection** (no request under way). `std` and `epoll` close it
+  at once, and so does an `io_uring` worker with no response going out. An `io_uring`
+  worker that has one serves on for the first 250 ms of its send drain, so its idle
+  connections are closed at 250 ms, and a request one of them sends before then is
+  answered with `Connection: close`. While a connection that has begun a head is open
+  (below), `epoll` closes the idle connections of the loop that serves it at about 250
+  ms, and `io_uring` closes its idle connections at about 250 ms (251 to 258 ms with
+  six; with 2000, all were closed within 0.46 s on `epoll` and 0.71 s on `io_uring`,
+  against 11 ms and 17 ms with no such connection).
+- **A request in progress, whose head the server has read.** Read on and answered, with
+  `Connection: close`, on every engine.
+- **A head begun and not completed: a fragment, or a bare CRLF.** On `epoll` and
+  `io_uring` ([celeris#1225](https://github.com/goceleris/celeris/issues/1225)) this
+  *is* a request in progress, whether the connection was idle after a response or is
+  new: the engine reads on and waits for it, and does not close the connection as it
+  closes an idle one. `Shutdown` waits until the head completes (the request is then
+  answered, with `Connection: close`), until a limit of the connection ends it, or
+  until `ctx` is done. The limits are `ReadHeaderTimeout` (10 s by default), counted
+  from the head's first byte (for a new connection, from the engine's accept, which
+  [`TCP_DEFER_ACCEPT`](/docs/configuration#connection-socket-and-io) puts at that byte)
+  and **not extended** by the bytes that follow (a head trickled in at one byte per 150
+  ms was cut at it), and `WriteTimeout`, from the start of the wait; when one of them
+  ends the wait, `Shutdown` returns `nil` if that was all it waited for. A client can
+  therefore hold a graceful shutdown for as long as the shortest of those by sending a
+  bare CRLF or one byte of a head. The bound you set is `ctx`'s deadline: when it comes
+  first, `Shutdown` returns at it, with `ctx`'s error (or with `nil`, see above), and
+  the engine closes the connection with a FIN. `std` counts differently: `net/http`
+  marks a connection active only once a request head has been read in full, so `std`
+  closes a keep-alive connection that has begun a head, or sent a bare CRLF, with the
+  idle ones, without an answer, and `Shutdown` returns at once (measured at 1 ms). A
+  *new* connection that has begun its first head is not idle for `net/http` until it is
+  about five seconds old, so on `std` `Shutdown` waits for it until the head completes,
+  `ReadHeaderTimeout` cuts it, it is five seconds old, or `ctx` is done (then
+  `Shutdown` returns `ctx`'s error and leaves the connection open; still open 4 s later
+  when measured).
+- **A request head that has reached the kernel without the server having read it.**
+  Answered, with `Connection: close`, on `epoll`, `io_uring` and `adaptive`, as a
+  request in progress is (also for a connection whose head arrived while the loop was
+  held in another connection's `OnConnect` callback). A fragment or a bare CRLF found
+  there is read and is a request in progress like any other (the bullet above). An
+  `io_uring` worker with nothing to send makes this look **once**, when its send drain
+  begins (after the wait for the HTTP/2 handlers), and waits only for the connections
+  that had such a head then, with its listener closed
+  ([celeris#1226](https://github.com/goceleris/celeris/pull/1226),
+  [celeris#1243](https://github.com/goceleris/celeris/pull/1243)): a connection that
+  arrives afterwards does not hold it, however many keep coming, and a request it sends
+  is dropped. The head is answered on a connection the engine has accepted: one still in
+  the accept queue when the listener closes gets a reset, on `epoll` as well. A head
+  that reaches the kernel after the engine's gate has looked at the connection is
+  refused. On `std`, `net/http` reads the head after `Shutdown` began and drops the
+  request: the connection is closed without an answer, and reset if body bytes are
+  still unread (a small body, 2 KiB measured, is read with the head and the close is a
+  FIN; 64 KiB gave a reset).
+- **A connection that has sent nothing.** `std`, `epoll` and an `io_uring` worker with
+  no response going out do not answer it, and a request it sends once `Shutdown` has
+  begun is dropped. `epoll` and such a worker close it at once if the engine has
+  accepted it. By default the kernel does not hand such a connection to the engine for
+  about a second (`TCP_DEFER_ACCEPT`, see `DisableDeferAccept` in the
+  [Configuration reference](/docs/configuration#connection-socket-and-io)); while it is
+  held back, `Shutdown` neither closes it nor lets a request through on `epoll` or on
+  such a worker: its first request gets a reset once the loops have closed their
+  listeners (an `epoll` loop busy sending can take a few milliseconds to, and answers
+  with `Connection: close` until then). An `io_uring` worker that has a response going
+  out keeps accepting for its first 250 ms: it closes an accepted silent connection at
+  250 ms and answers, with `Connection: close`, a first request that arrives before
+  then, on an accepted connection or a held-back one. `std` keeps the connection open
+  until its first request is read, which is then dropped as above, or until `net/http`
+  closes it for being five seconds old, so a client that connects and sends nothing can
+  hold `Shutdown` on `std` for about five seconds, within `ctx`.
+
+### Every HTTP/1 response after `Shutdown` ends its connection
+
+Every HTTP/1 response written once `Shutdown` has begun ends its connection, as
+`net/http`'s does: the response to a request that was already in its handler when
+`Shutdown` began, and the response to a request that arrives on a keep-alive
+connection before the connection is closed
+([celeris#1169](https://github.com/goceleris/celeris/pull/1169), v1.6.0). Source:
+`celeris/server.go` (`Server.Shutdown`).
+
+- On the native engines (`epoll`, `io_uring`, `adaptive`) it carries exactly one
+  `Connection: close`, an HTTP/1.0 client's included, and a handler's own `Connection`
+  header on it is replaced by that one. The `417` of a refused `Expect` says
+  `Connection: close` too.
+- `std`, which is `net/http`, closes the connection after the response and says `close`
+  to an HTTP/1.1 client, but not to an HTTP/1.0 one.
+- A request pipelined behind such a response is **not served**: its bytes, already
+  read, are dropped with the connection, and so are those the kernel holds when the
+  engine's gate looks at the connection (a request that reaches it after that can still
+  reset it, as it can `net/http`'s).
+- Not changed: a response whose head went out before `Shutdown` began (a stream under
+  way keeps the head it sent; its connection is closed by the shutdown, at once or when
+  the gate looks at it, 250 ms into a wait), a detached stream (Server-Sent Events, a
+  WebSocket), which the engines end themselves, and a hijacked connection, which is
+  the application's. HTTP/2 connections get `GOAWAY` instead.
 
 ## Drain hooks: `OnShutdown`
 
@@ -469,15 +584,32 @@ _ = s.ResumeAccept()
 | `PauseAccept() error` | Stop accepting new connections. Existing connections continue to be served. |
 | `ResumeAccept() error` | Resume accepting after a pause. |
 
-**Native engines only.** Accept control is implemented by the native Linux engines
-(`epoll`, `io_uring`, and the `adaptive` controller that drives them). The `std`
-(net/http) engine does **not** support it: both methods return
-`celeris.ErrAcceptControlNotSupported` on `std`, and also when the server has not been
-started yet (no engine is installed). Always check the error and have a fallback (a
-full `Shutdown`) for portability. Source: `celeris/server.go` (`PauseAccept`,
-`ResumeAccept`),
-`celeris/errors.go` (`ErrAcceptControlNotSupported`), `celeris/internal/engine/engine.go` (`AcceptController`). See
+**`epoll` and `io_uring` only.** Accept control is implemented by the `epoll` and
+`io_uring` engines when you select one of them. The `std` (net/http) engine does
+**not** support it, and neither does the `adaptive` engine, which is the default on
+Linux: on both, `PauseAccept` and `ResumeAccept` return
+`celeris.ErrAcceptControlNotSupported`, as they do when the server has not been
+started yet (no engine is installed). So to pause accept, set `Engine: celeris.Epoll`
+or `celeris.IOUring`, and always check the error and have a fallback (a full
+`Shutdown`) for the rest. Source: `celeris/server.go` (`Server.PauseAccept`,
+`Server.ResumeAccept`), `celeris/errors.go` (`ErrAcceptControlNotSupported`),
+`celeris/internal/engine/engine.go` (`AcceptController`). See
 [Engines](/docs/engines) for which engine runs where.
+
+**On `epoll` and `io_uring`, `PauseAccept` blocks for about 1.5 s by default.**
+`TCP_DEFER_ACCEPT` is on by default on their listen sockets, and while it is on, the kernel
+holds a client that has completed its handshake but not yet sent its request outside
+the accept queue until about one second after its SYN. Closing the listen socket then
+would reset that client, so `PauseAccept` first clears the option on each listen socket
+and keeps it open, accepting and serving, for about 1.5 s, and only then closes it. The
+call blocks for that long, and the server keeps admitting new connections meanwhile.
+What a pause can still reset is a handshake still in flight when a listen socket
+closes, which is inherent to closing one, and a client whose retransmitted SYN-ACK is
+lost or goes unanswered on a lossy path. Set `Config.DisableDeferAccept` for a pause
+that closes the listen sockets at once; the
+[Configuration reference](/docs/configuration#connection-socket-and-io) says what the
+option saves. Source: `celeris/server.go` (`Server.PauseAccept`),
+`celeris/config.go` (`Config.DisableDeferAccept`).
 
 > Pause/resume is for *temporary* quiescing. It does not drain — in flight requests
 > keep running, and paused connections are simply not accepted. For an orderly stop
@@ -692,8 +824,8 @@ std via the shared inherited fd), so no client connection is refused.
   Run it on its own goroutine.
 - **Expecting hook panics in the return value.** Hook panics are recovered and *not*
   reflected in `Shutdown`'s return. Log errors inside the hook.
-- **Using `PauseAccept` on the std engine.** It returns
-  `ErrAcceptControlNotSupported`. Accept control is native-engines-only.
+- **Using `PauseAccept` on the std or adaptive engine.** It returns
+  `ErrAcceptControlNotSupported`. Accept control is `epoll`- and `io_uring`-only.
 
 ## FAQ
 
@@ -757,7 +889,7 @@ Keep handlers shorter than the budget, and give long-running ones (streams) a st
 signal of your own that your signal handler fires before it cancels the context.
 
 **Can I pause accept instead of shutting down for a maintenance window?**
-On native engines, yes — `PauseAccept` then `ResumeAccept`. It keeps in flight requests
+On `epoll` and `io_uring`, yes — `PauseAccept` then `ResumeAccept`. It keeps in flight requests
 running but does not drain; it is not a substitute for `Shutdown` when you actually want
 to stop.
 
