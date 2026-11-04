@@ -201,6 +201,97 @@ of 10s defeats slow-loris while still letting legitimate proxies and high-latenc
 inside their H1 header read loop (`celeris/config.go` (`Config.ReadHeaderTimeout`),
 `celeris/internal/resource/config.go` (`Config.ReadHeaderTimeout`)).
 
+On a connection that sends nothing, the budget starts when the engine accepts it, and
+on `epoll`, `io_uring` and `adaptive` that is later than the connect:
+[`TCP_DEFER_ACCEPT`](#connection-socket-and-io) is on by default on their listen
+sockets, so the kernel hands the engine a connection when its first byte arrives, or
+about a second after its SYN if it stays silent. The bound on a silent connection is
+its connect, plus about one second of deferral (measured 1.00 to 1.07 s), plus
+`ReadHeaderTimeout`, plus the lateness of the engine's check (about 30 ms on `epoll`
+and `io_uring`, measured on docker arm64 with 2 CPUs). `std` counts from the handshake.
+With `DisableDeferAccept` the deferral is gone: a silent connection is closed at
+`ReadHeaderTimeout` from its connect (a `ReadHeaderTimeout` of one second closed it at
+1.00 to 1.03 s). Source: `celeris/config.go` (`Config.ReadHeaderTimeout`,
+`Config.DisableDeferAccept`), [celeris#1193](https://github.com/goceleris/celeris/pull/1193).
+
+### How promptly the native engines enforce a timeout
+
+`epoll`, `io_uring` and `adaptive` do not arm one timer per connection for
+`ReadTimeout` and `IdleTimeout`; they look at their connections in a sweep, so those
+two are enforced up to a sweep period after their time. `WriteTimeout` is judged in
+windows that end at a sweep (see `Config.WriteTimeout`): on `epoll`, a 1 s
+`WriteTimeout` closed a client whose application reads nothing at about 2 s in
+[celeris#1197](https://github.com/goceleris/celeris/pull/1197)'s measurement. Those are
+the documented stall-rule windows, and the sweep only adds its own lateness to them. The
+2 s is the case where the client's kernel acknowledged at least the 64 KiB floor of
+[the minimum-rate rule below](#sse-needs-no--1-other-long-lived-responses-do) in the
+first window (its receive buffer took it); a client that acknowledges less is closed at
+the end of the first window, about one `WriteTimeout` (the PR records one close at
+1.242 s). Source: `celeris/config.go` (`Config.ReadTimeout`, `Config.WriteTimeout`).
+
+- **`epoll`: every 25 ms, whatever the timeouts are.** Each worker arms a 25 ms kernel
+  timer (a `timerfd`) at start, so `ReadTimeout` and `IdleTimeout` fire within about 30 ms
+  (a 1 s `IdleTimeout` closed an idle connection at 1.00 to 1.03 s on docker arm64 with 2
+  CPUs). Since v1.6.0 that holds with `ReadHeaderTimeout: -1` too. Before, the timer was
+  armed only when `ReadHeaderTimeout` was set, and without it a quiet loop swept every
+  4 to 5 s: a 1 s `IdleTimeout` closed at 4.4 to 5.0 s
+  ([celeris#1197](https://github.com/goceleris/celeris/pull/1197), the numbers are that
+  PR's measurement). `adaptive` follows `epoll` while it runs on it.
+- **`io_uring`: about 0.8 s apart on an idle worker** (0.83 s measured; about 1 s with
+  `ReadHeaderTimeout` off), so a `ReadTimeout` or `IdleTimeout` of a few seconds or
+  less is approximate by that much. The HTTP/1 header deadline and the budget of a connection whose protocol
+  is not decided yet have a timer of their own on `io_uring` and are not late; the
+  HTTP/2 header-block bound is checked by the sweep and is.
+
+**The clock is monotonic.** Since v1.6.0 the native engines stamp their timeouts from
+a clock that a step of the wall clock does not move
+([celeris#1188](https://github.com/goceleris/celeris/pull/1188), `celeris/internal/mono`):
+the idle, read, write, header and protocol-detection timeouts, the sweep, the HTTP/1
+header deadline, the WebSocket idle deadline and the HTTP/2 per-stream deadlines, and,
+since [celeris#1177](https://github.com/goceleris/celeris/pull/1177), the shutdown
+deadlines. An NTP step, a VM clock sync or a clock stepped repeatedly no longer closes
+connections that are making progress, and no longer keeps timed-out ones open. Before,
+those stamps were wall-clock readings (the PR reports a 32 MiB response cut at 2.7 MB
+by repeated 75 s steps). `Context.StartTime()` carries a monotonic reading,
+so `time.Since(c.StartTime())` ignores steps; `SetWSIdleDeadline` still takes a
+wall-clock Unix time in nanoseconds. Not covered: the `std` engine, which uses
+`net/http`'s own timeouts, and application time, which stays wall-clock (the rate
+limiter, cache, session and JWT expiry, the stores).
+
+> **A suspended host.** Linux's monotonic clock (`CLOCK_MONOTONIC`, which Go reads)
+> does not advance while the machine is suspended, so a connection that is idle across
+> a suspend times out after its full timeout has elapsed *awake*, not at the first
+> sweep after the resume (`IdleTimeout` is 600 s by default). The same holds for a
+> process restored from a checkpoint (CRIU without a time namespace) onto a host with
+> less uptime: its monotonic clock goes backward and its timeouts wait until it catches
+> up. The PR says suspend and resume were not verified on real hardware, and that VM live
+> migration and snapshot restore typically keep the guest's monotonic clock continuous
+> (kvmclock, Firecracker), which it did not verify either.
+
+### HTTP/2 timeouts on the native engines
+
+Since celeris v1.6.0, on `epoll`, `io_uring` and `adaptive`, the HTTP/2 deadlines are
+per request and per connection, not per read
+([celeris#1150](https://github.com/goceleris/celeris/pull/1150); `celeris/config.go`
+(`Config.ReadTimeout`, `Config.ReadHeaderTimeout`)):
+
+- **`ReadTimeout` bounds each request**, from its `HEADERS` frame, as an absolute
+  deadline, as `net/http`'s is. A request that is not whole by then (its body, or its
+  trailers, still to come) is answered `408` and its stream is reset with
+  `RST_STREAM(NO_ERROR)`; the connection and its other streams go on. A `DATA` frame or
+  a `PING` does not move the deadline, so **an HTTP/2 upload has to fit in
+  `ReadTimeout`** (as on `std`; there is no per-route override), where an HTTP/1.1 body
+  is bounded by the time since the last read. A request without a body has no deadline.
+- **`ReadHeaderTimeout` bounds a header block.** One that begins with a `HEADERS` frame
+  without `END_HEADERS` and is not complete that long after ends the connection with
+  `GOAWAY(ENHANCE_YOUR_CALM)`.
+- **`IdleTimeout` ignores `PING`s.** A connection with no stream open that receives only
+  `PING`, `SETTINGS` or connection-level `WINDOW_UPDATE` frames is closed at
+  `IdleTimeout` from the last stream activity, which those frames do not move. A
+  connection that has a stream open whose request is whole is not closed by the
+  connection's own clock; a response waiting for the client's flow-control window is
+  bounded by `WriteTimeout` (see [HTTP/2 response writes](/docs/core-concepts)).
+
 ### SSE needs no `-1`; other long-lived responses do
 
 An SSE stream is a **detached** stream (the middleware calls
@@ -213,7 +304,7 @@ end a stream:
 | Engine | What a detached stream (SSE) sees |
 | ------ | --------------------------------- |
 | `std` | `net/http` arms one write deadline for the whole response, and `Detach` clears it for that request. Before celeris#855 it stayed armed and cut the stream at `WriteTimeout`, over HTTP/1.1 (the next `Send` failed) and over h2c (the stream was reset with `INTERNAL_ERROR`). `ReadTimeout` never cut a stream on Go 1.27: `net/http` has stopped it by the time the handler runs. In its place each write of the detached stream (a `Write` or `Flush`) is bounded by `WriteTimeout`: one that has not finished within it fails. For an SSE event, which is small, that means the client has stopped reading; a stream that is idle between events is not cut, and `-1` sets no such bound. |
-| `epoll`, `io_uring`, `adaptive` | `ReadTimeout` and `IdleTimeout` are not applied to a detached connection. `WriteTimeout` is, as "no progress for `WriteTimeout`": a detached connection with bytes queued for its peer, which takes none of them for `WriteTimeout`, is closed (the stream's context ends and `OnDisconnect` runs), whatever the middleware's idle deadline or the last read of the connection says. A peer that reads, however slowly (there is no minimum rate), and a connection with nothing queued are not closed; `-1` sets no such bound. The close comes between about 3/4 and 5/4 of `WriteTimeout` after the peer last took a byte (its progress is sampled every quarter of `WriteTimeout`; a send completion restarts the clock at once), plus the engine's sweep interval (up to about 0.1 s on `epoll`, up to 2 s on `io_uring`; a `WriteTimeout` shorter than that can double) ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). |
+| `epoll`, `io_uring`, `adaptive` | `ReadTimeout` and `IdleTimeout` are not applied to a detached connection. `WriteTimeout` is, as "no progress for `WriteTimeout`": a detached connection with bytes queued for its peer, which takes none of them for `WriteTimeout`, is closed (the stream's context ends and `OnDisconnect` runs), whatever the middleware's idle deadline or the last read of the connection says. A peer that reads, however slowly (there is no minimum rate), and a connection with nothing queued are not closed; `-1` sets no such bound. The close comes between about 3/4 and 5/4 of `WriteTimeout` after the peer last took a byte (its progress is sampled every quarter of `WriteTimeout`; a send completion restarts the clock at once), plus the engine's sweep interval (25 ms on `epoll`, up to 2 s on `io_uring`; a `WriteTimeout` shorter than that can double) ([celeris#888](https://github.com/goceleris/celeris/issues/888) items 38 and 39). |
 
 What bounds a detached stream is what its owner sets: the handler returning, the
 client closing the connection, a shutdown. A client that stays connected but stops
@@ -229,7 +320,12 @@ A response that is **not** detached is still under `WriteTimeout`: a slow large
 download, or a chunked body written with `StreamWriter` without `Detach`. On `std` the
 deadline is absolute for the whole response, so a response that takes longer than
 `WriteTimeout` ends however steadily the client reads (measured: a streaming body that
-sends every 200 ms is cut at `WriteTimeout`). On HTTP/2 over `epoll`, `io_uring` and
+sends every 200 ms is cut at `WriteTimeout`). Since celeris v1.6.0, on `epoll` (and
+`adaptive` while it runs on it), a response the kernel did not accept whole is instead bounded by a minimum rate on
+the bytes the client acknowledges, 64 KiB per `WriteTimeout`, with no elapsed-time
+ceiling: a client that reads steadily above that floor is not cut however long the
+response takes ([celeris#1119](https://github.com/goceleris/celeris/pull/1119),
+`celeris/config.go` (`Config.WriteTimeout`)). On HTTP/2 over `epoll`, `io_uring` and
 `adaptive` a write that waits for the client's flow-control window is bounded by
 `WriteTimeout` ([HTTP/2 response writes](/docs/core-concepts)). Raise the timeout for
 those routes, or disable it server-wide only when such responses dominate:
@@ -362,18 +458,57 @@ the floor.
 | Field              | Type   | Default        | Constraint              | Effect                                         |
 | ------------------ | ------ | -------------- | ----------------------- | ---------------------------------------------- |
 | `DisableKeepAlive` | `bool` | `false`        | —                       | One request per connection when `true`         |
+| `DisableDeferAccept` | `bool` | `false`      | Linux native engines (`epoll`, `io_uring`, `adaptive`) | Turns `TCP_DEFER_ACCEPT` off on the listen sockets |
 | `BufferSize`       | `int`  | `8192`         | `>= 4096`; clamped to `262144` | Per-connection I/O buffer size in bytes  |
 | `SocketRecvBuf`    | `int`  | OS default (0) | —                       | `SO_RCVBUF` for accepted connections           |
 | `SocketSendBuf`    | `int`  | OS default (0) | —                       | `SO_SNDBUF` for accepted connections           |
+| `SocketBusyPoll`   | `time.Duration` | `0` (off) | `0`, or `1µs` to `2147483647µs`; Linux native engines | `SO_BUSY_POLL` for accepted connections |
 | `MaxConns`         | `int`  | unlimited (0)  | —                       | Max simultaneous connections **per worker**    |
 
-Sources: `celeris/config.go` (`Config.DisableKeepAlive`, `Config.BufferSize`, `Config.SocketRecvBuf`, `Config.SocketSendBuf`, `Config.MaxConns`),
+Sources: `celeris/config.go` (`Config.DisableKeepAlive`, `Config.DisableDeferAccept`, `Config.BufferSize`, `Config.SocketRecvBuf`, `Config.SocketSendBuf`, `Config.SocketBusyPoll`, `Config.MaxConns`),
 `celeris/internal/resource/resource.go` (`Resources`),
 `celeris/internal/resource/preset.go` (`MinBufferSize`).
 
 - **`DisableKeepAlive`** — when `true`, each request runs on its own connection and
   the connection closes after the response. Leave `false` (the default) for
   performance; keep-alive is what makes the engine fast.
+- **`DisableDeferAccept`** (new in v1.6.0) — `epoll` and `io_uring` (and `adaptive`,
+  which runs them) set `TCP_DEFER_ACCEPT` on their listen sockets, and it stays on by
+  default. While it is on, the kernel keeps a connection that has finished its
+  handshake but sent no data out of the accept queue: a client that sends its request
+  at once is accepted with the request already queued, which saves the engine a wakeup
+  per new connection, and a client that stays silent is accepted about one second after
+  its SYN, and is then subject to `ReadHeaderTimeout` like any other (see
+  [`ReadHeaderTimeout`](#readheadertimeout-is-your-slow-loris-defence)). Setting
+  `DisableDeferAccept: true` gives up that saved wakeup, a cost on connection churn
+  only: keep-alive traffic, where one accept serves many requests, does not see it. It
+  also changes [`PauseAccept`](/docs/graceful-shutdown#pause-and-resume-accept), which
+  carries a not-yet-sent client across a pause by lingering about 1.5 s with the option
+  cleared: with `DisableDeferAccept` the pause closes the listen sockets at once.
+- **`SocketBusyPoll`** (new in v1.6.0) — turns on `SO_BUSY_POLL`, Linux's per-socket
+  busy polling of the network device's receive queue (NAPI), for the connections the
+  `epoll`, `io_uring` and `adaptive` engines accept. **It is off by default.** Before
+  v1.6.0 the engines set it to 50 µs on every accepted socket with no way to turn it
+  off; `SocketBusyPoll: 50 * time.Microsecond` restores that
+  ([celeris#1036](https://github.com/goceleris/celeris/issues/1036),
+  [celeris#1227](https://github.com/goceleris/celeris/pull/1227)). With it set, a read
+  that finds a socket empty first runs one pass of the device's receive polling on its
+  CPU. The engines' sockets are non-blocking, so the value only switches that on: any
+  positive value behaves alike (a fraction of a microsecond is dropped). A negative
+  value or one under 1 µs is a [configuration error](#validation-behaviour). The
+  `std` engine, other operating systems and the unsupported io_uring fixed-files mode
+  (`CELERIS_IOURING_FIXED_FILES`) ignore it. The kernel needs
+  `CONFIG_NET_RX_BUSY_POLL`; where it refuses the option the connections are served
+  without it and a Warn is logged once per process. **Why it is off:** the maintainers
+  measured throughput 3.0% higher with it off on an arm64 big.LITTLE host with a
+  single-queue NIC (with `ksoftirqd` taking over receive processing in 5 of 32 runs
+  with it on and in none with it off) and 1.1% higher on an amd64 host with a 16-queue
+  NIC. Those numbers are for accepted sockets with 512 connections of GET on `io_uring`,
+  the stall result is indicative, and the mechanism is inferred, not observed. Set it
+  only where you have measured a gain for your own traffic and NIC, and keep the NIC's
+  interrupt vectors off the CPUs that run loops when you do. The Redis, PostgreSQL and
+  Memcached drivers opened `WithEngine(srv)` follow this value; see
+  [Stores and database drivers](/docs/data-stores#busy-polling-for-driver-connections).
 - **`BufferSize`** — the per-connection I/O buffer. Zero uses the engine default
   (8192 bytes, `celeris/internal/resource/preset.go` (`resolveDefaults`)). If you set it, a value below 4096 is
   a config error (`bufferSize must be >= 4096 if set`,
@@ -600,6 +735,7 @@ Common errors under the `config validation:` prefix (`celeris/internal/resource/
 | `initialWindowSize must be 0-2147483647`           | `InitialWindowSize` too large                     |
 | `maxConcurrentStreams must be <= 2147483647`       | `MaxConcurrentStreams` too large                  |
 | `readTimeout must be >= -1` (also write/idle)      | A timeout set below `-1`                          |
+| `socketBusyPoll must be 0 (off) or between …`      | `SocketBusyPoll` negative, under 1µs, or over 2147483647µs |
 
 `TrustedProxies` is parsed *after* validation passes and surfaces its own error
 (not under the `config validation:` prefix): `celeris: invalid TrustedProxies entry: …`
