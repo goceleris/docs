@@ -341,17 +341,18 @@ that is easy to miss, as of v1.6.0:
   limit until `PubSub.Close`. When the client is closed, a `PubSub` whose connection is
   down (or goes down afterwards) gives up and its `Channel()` closes.
 - **Sharded Pub/Sub is per slot.** `ClusterClient.SSubscribe` connects to the node that
-  owns the slot of the first channel and follows that slot when it moves. All channels
-  of one call must hash to one slot (use hash tags), or the call returns `ErrCrossSlot`
-  before anything is sent, and so does `PubSub.SSubscribe` with channels of different
-  slots. After a reroute the driver replays `SSUBSCRIBE` one slot at a time
+  owns the slot of the first channel and follows that slot when it moves. A single
+  `ClusterClient.SSubscribe` or `PubSub.SSubscribe` call whose channels span slots
+  returns `ErrCrossSlot` before anything is sent (use hash tags). A separate
+  `PubSub.SSubscribe` call for another slot's channel is subscribed only if the node the
+  `PubSub` is on owns that slot; otherwise the node answers `-MOVED`, which is not
+  reported, and the channel is not subscribed. After a reroute the driver replays
+  `SSUBSCRIBE` one slot at a time
   ([celeris#1210](https://github.com/goceleris/celeris/pull/1210)). One `PubSub` holds
-  one connection, so a channel of another slot that the node does not own is answered
-  `-MOVED`, which is not reported, and is not subscribed; use a separate `PubSub` for
-  it.
+  one connection, so it is on one node.
 - **A moved slot does not cause a herd of topology reads.** Commands that meet the same
-  `-MOVED` or the same lost primary share one `CLUSTER SLOTS` read, and so do the
-  reroutes of sharded `PubSub`s
+  `-MOVED` or the same lost primary share a few `CLUSTER SLOTS` reads instead of one
+  each, and the reroutes of sharded `PubSub`s share reads too
   ([celeris#1215](https://github.com/goceleris/celeris/pull/1215),
   [celeris#1211](https://github.com/goceleris/celeris/pull/1211)). On the PR's test
   cluster, 200 concurrent `GET`s on a moved slot sent 200 `CLUSTER SLOTS` before and 2
@@ -595,10 +596,18 @@ When you pass `WithEngine(srv)`, the driver pulls the server's `EventLoopProvide
 
 - Without `WithEngine`, each driver resolves a **standalone** event loop, shared
   and reference-counted across all drivers that omit `WithEngine`.
-- With `WithEngine`, driver FDs land on the same worker goroutine as HTTP handlers.
-  This saves one epoll/io_uring syscall per I/O and improves data locality — the
-  Redis driver docs cite lower latency from better data locality for serial
-  queries (`celeris/driver/redis/doc.go`).
+- With `WithEngine` of a started `epoll`, `io_uring` or `adaptive` server, the
+  connections the driver registers on an event loop (redis Pub/Sub, postgres
+  `Connector`) land on the server's worker loops, next to the HTTP handlers; that saves
+  an epoll/io_uring syscall per I/O and improves data locality — the Redis driver docs
+  cite lower latency from better data locality for serial queries
+  (`celeris/driver/redis/doc.go`). The command connections (redis, memcached) and the
+  postgres `Pool` then use Go's netpoll on the handler's goroutine, and so do all three
+  with a server that runs async handlers. Before `Start`, or on `std` without async
+  handlers, the driver uses its standalone loop. The table under
+  [Busy polling for driver connections](#busy-polling-for-driver-connections) lists each
+  case (`celeris/driver/redis/options.go` (`Config.SocketBusyPoll`),
+  `celeris/driver/internal/eventloop/registry.go` (`Resolve`)).
 
 **Correctness is identical** with or without `WithEngine`; the difference is purely
 performance.

@@ -195,6 +195,23 @@ s.Static("/assets", "./public")
 // GET /assets/css/app.css  →  ./public/css/app.css   (traversal-safe)
 ```
 
+> **Upgrading to v1.6.0: a `root` of `"."` or `"./"` now serves the tree below it.**
+> Before v1.6.0 `Static` (and `static.Config.Root`) with `"."` or `"./"` served nothing
+> below the root, since v1.3.3. A configuration that was inert
+> then **starts to serve the working directory after the upgrade**, with its sources and
+> configuration, so name a directory that holds only what is public
+> ([celeris#1152](https://github.com/goceleris/celeris/pull/1152)). Since v1.6.0 files
+> and directories whose name starts with a dot (`.env`, `.git`, `.ssh`) are not served
+> by default (a 404 whether or not they exist; `.well-known` is served), and `Static`
+> has no opt-out. A `root` that resolves to the root of a filesystem (`"/"`, `"."` when
+> the working directory is `"/"`, as in a systemd service or a container without a
+> `WORKDIR`) panics at registration; to serve one on purpose use the middleware with
+> `AllowFilesystemRoot`, which serves every file the process can read. The dotfile rule
+> looks only at names in the request path and at where symlinks lead: it is not a
+> secrets filter, so keep secrets out of the served directory. Source:
+> `celeris/server.go` (`Server.Static`), `celeris/middleware/static/config.go`
+> (`Config.Root`, `Config.Dotfiles`).
+
 On a group, the group's prefix is prepended as usual:
 
 ```go
@@ -263,6 +280,8 @@ s.Use(static.New(static.Config{
 | `SPA` | `bool` | `false` | Single-page-app mode: requests for non-existent files serve `Index` instead of falling through. |
 | `MaxAge` | `time.Duration` | `0` | Sets `Cache-Control: public, max-age=N`. Zero means no `Cache-Control` header. |
 | `Compress` | `bool` | `false` | Serve pre-compressed `.br`/`.gz` siblings when the client's `Accept-Encoding` allows. Brotli is preferred over gzip. Works with both `Root` and `FS`. |
+| `Dotfiles` | `static.DotfilesPolicy` | `static.DotfilesIgnore` | What to do with a request whose path below the root has a segment that starts with a dot (`.env`, `.git`): `DotfilesIgnore` answers as if the file did not exist (the next handler, usually the router's 404), `DotfilesDeny` answers `403`, `DotfilesAllow` serves it, as before v1.6.0. `.well-known` is served. A symlink that leads to a hidden file is refused like it. Not a secrets filter. |
+| `AllowFilesystemRoot` | `bool` | `false` | Acknowledges a `Root` that resolves to the root of a filesystem, which `New` otherwise refuses with a panic naming the resolved path. Such a `Root` serves every file the process can read. |
 | `Skip` | `func(c *celeris.Context) bool` | `nil` | Skip the middleware for requests where this returns `true`. |
 | `SkipPaths` | `[]string` | `nil` | Skip the middleware for these exact request paths. |
 
@@ -473,6 +492,9 @@ does not coalesce a request with a `Range` header.
   [`StreamWriter`](#files-larger-than-100-mb).
 - **Setting disposition after writing.** Call `Attachment`/`Inline` (and any
   `SetHeader`) **before** `File`/`FileFromDir`/`FileFromFS` writes the response.
+- **A `Root` of `.` serves the working directory.** Since v1.6.0 it is served (without
+  its hidden files); name the directory that holds what is public. See the callout under
+  [`Static`](#one-line-static-serving--static).
 - **`Root` *and* `FS` both set.** The middleware uses `FS` and ignores `Root`.
   Set exactly one.
 - **Prefix that isn't a clean segment.** `Prefix` must start with `/`, and it

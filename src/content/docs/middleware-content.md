@@ -244,10 +244,11 @@ store transport error sets `X-Cache: ERROR` and passes through uncached. Source:
 | `IncludeHeaders`      | `[]string`                    | `nil` (all)            | Whitelist of response headers to store. When set, only these are kept.                  |
 | `ExcludeHeaders`      | `[]string`                    | `["set-cookie"]`       | Response headers to drop from the stored set (applied after `IncludeHeaders`).          |
 | `IgnoreCacheControl`  | `bool`                        | `false`                | Store responses whatever their `Cache-Control` says. By default `no-store`/`private` skip and `max-age=N` caps the TTL. |
+| `SetTimeout`          | `time.Duration`               | `1s`                   | How long the middleware waits for each `Store.Set`. Zero selects the default; negative waits for ever. A `Set` not back in time is abandoned silently: the response is sent as usual with `X-Cache: MISS` and is not stored. A store whose `Set` can legitimately take longer (Redis over a WAN, a saturated pool) needs a larger value, for example `5 * time.Second`. New in v1.6.0 ([celeris#1151](https://github.com/goceleris/celeris/pull/1151)). |
 | `Skip`                | `func(*Context) bool`         | `nil`                  | Return `true` to skip caching for a request.                                            |
 | `SkipPaths`           | `[]string`                    | `nil`                  | Exact-match paths to skip.                                                              |
 
-Source: `celeris/middleware/cache/config.go` (`Config`).
+Source: `celeris/middleware/cache/config.go` (`Config`, `Config.SetTimeout`).
 
 ### Cache keys and `VaryHeaders`
 

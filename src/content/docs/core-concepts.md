@@ -330,10 +330,11 @@ at least 64 KiB of them (or all it held, if less) sent, released by the client's
 `WINDOW_UPDATE`s. If it did not, the stream is reset (`RST_STREAM`, `INTERNAL_ERROR`),
 the request's context is done, and the write returns an error that wraps
 `os.ErrDeadlineExceeded`. There is no ceiling: a stream that releases at least that
-on average is not cut however long its response takes, and a `PING`, or a
-`WINDOW_UPDATE` of one byte, is not progress. Clients on slow links need a
-`WriteTimeout` of 2 s or more, and 5 s where the links are slower than a megabyte a
-second. With `WriteTimeout: -1` there is no deadline: the wait lasts until the client
+on average (lagging the rate by no more than four windows' worth) is not cut however
+long its response takes, and a `PING`, or a `WINDOW_UPDATE` of one byte, is not
+progress. Clients on slow links need a `WriteTimeout` of 2 s or more, and 5 s where the
+links are slower than a megabyte a second; on `io_uring`, where the engine's own send
+clock closes such a connection at 1 s, use 5 s for clients on slow links. With `WriteTimeout: -1` there is no deadline: the wait lasts until the client
 grants window or the connection closes, and never ends if the I/O worker that would
 see either is the one waiting (below). Source: `celeris/config.go`
 (`Config.WriteTimeout`).

@@ -206,6 +206,8 @@ and let Adaptive/Std resolve automatically.
 | Accept control (Pause/Resume) | Yes          | Yes   | —   |
 | Driver event-loop colocation  | Yes          | Yes   | —   |
 
+`adaptive` has no column: it switches between `epoll` and `io_uring`. It does not implement accept control, so `PauseAccept` and `ResumeAccept` return `ErrAcceptControlNotSupported` on it.
+
 Sources: `celeris/internal/engine/capability.go`, `celeris/internal/engine/engine.go` (`AcceptController`, `SwitchFreezer`, `SendfileCapable`),
 `celeris/server.go` (`Server.EventLoopProvider`), `celeris/context_response.go` (`Context.EngineSupportsAsyncDetach`).
 
@@ -614,7 +616,8 @@ Yes — `EngineInfo().Type` reflects the *active* engine, and
 **Will my code change between engines?**
 No. The router, middleware, `*Context`, and handler signature are identical on all
 four. The only engine-visible behavioural differences are the native-only features
-(async-detach, accept control, driver colocation, sendfile) — and Celeris exposes
+(async-detach, driver colocation, sendfile, and accept control, which only `epoll` and
+`io_uring` implement, not `adaptive`) — and Celeris exposes
 runtime predicates (`EngineSupportsAsyncDetach`, the `ErrAcceptControlNotSupported`
 sentinel, a `nil` `EventLoopProvider`) so portable code can adapt cleanly.
 

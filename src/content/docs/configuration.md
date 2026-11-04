@@ -217,21 +217,24 @@ With `DisableDeferAccept` the deferral is gone: a silent connection is closed at
 ### How promptly the native engines enforce a timeout
 
 `epoll`, `io_uring` and `adaptive` do not arm one timer per connection for
-`ReadTimeout`, `IdleTimeout` and `WriteTimeout`; they look at their connections in a
-sweep, so each is enforced up to a sweep period after its time. Source:
-`celeris/config.go` (`Config.ReadTimeout`).
+`ReadTimeout` and `IdleTimeout`; they look at their connections in a sweep, so those
+two are enforced up to a sweep period after their time. `WriteTimeout` is judged in
+windows that end at a sweep (see `Config.WriteTimeout`): on `epoll`, a 1 s
+`WriteTimeout` closed a client that reads nothing at about 2 s in the PR's measurement,
+which is the documented stall-rule windows, and the sweep only adds its own lateness to
+that. Source: `celeris/config.go` (`Config.ReadTimeout`, `Config.WriteTimeout`).
 
 - **`epoll`: every 25 ms, whatever the timeouts are.** Each worker arms a 25 ms kernel
-  timer (a `timerfd`) at start, so a timeout fires within about 30 ms (a 1 s
-  `IdleTimeout` closed an idle connection at 1.00 to 1.03 s on docker arm64 with 2
+  timer (a `timerfd`) at start, so `ReadTimeout` and `IdleTimeout` fire within about 30 ms
+  (a 1 s `IdleTimeout` closed an idle connection at 1.00 to 1.03 s on docker arm64 with 2
   CPUs). Since v1.6.0 that holds with `ReadHeaderTimeout: -1` too. Before, the timer was
   armed only when `ReadHeaderTimeout` was set, and without it a quiet loop swept every
   4 to 5 s: a 1 s `IdleTimeout` closed at 4.4 to 5.0 s
   ([celeris#1197](https://github.com/goceleris/celeris/pull/1197), the numbers are that
   PR's measurement). `adaptive` follows `epoll` while it runs on it.
 - **`io_uring`: about 0.8 s apart on an idle worker** (0.83 s measured; about 1 s with
-  `ReadHeaderTimeout` off), so a timeout of a few seconds or less is approximate by
-  that much. The HTTP/1 header deadline and the budget of a connection whose protocol
+  `ReadHeaderTimeout` off), so a `ReadTimeout` or `IdleTimeout` of a few seconds or
+  less is approximate by that much. The HTTP/1 header deadline and the budget of a connection whose protocol
   is not decided yet have a timer of their own on `io_uring` and are not late; the
   HTTP/2 header-block bound is checked by the sweep and is.
 
@@ -259,6 +262,30 @@ limiter, cache, session and JWT expiry, the stores).
 > up. The PR says suspend and resume were not verified on real hardware, and that VM live
 > migration and snapshot restore typically keep the guest's monotonic clock continuous
 > (kvmclock, Firecracker), which it did not verify either.
+
+### HTTP/2 timeouts on the native engines
+
+On `epoll`, `io_uring` and `adaptive`, the HTTP/2 deadlines are per request and per
+connection, not per read
+([celeris#1150](https://github.com/goceleris/celeris/pull/1150); `celeris/config.go`
+(`Config.ReadTimeout`, `Config.ReadHeaderTimeout`)):
+
+- **`ReadTimeout` bounds each request**, from its `HEADERS` frame, as an absolute
+  deadline, as `net/http`'s is. A request that is not whole by then (its body, or its
+  trailers, still to come) is answered `408` and its stream is reset with
+  `RST_STREAM(NO_ERROR)`; the connection and its other streams go on. A `DATA` frame or
+  a `PING` does not move the deadline, so **an HTTP/2 upload has to fit in
+  `ReadTimeout`** (as on `std`; there is no per-route override), where an HTTP/1.1 body
+  is bounded by the time since the last read. A request without a body has no deadline.
+- **`ReadHeaderTimeout` bounds a header block.** One that begins with a `HEADERS` frame
+  without `END_HEADERS` and is not complete that long after ends the connection with
+  `GOAWAY(ENHANCE_YOUR_CALM)`.
+- **`IdleTimeout` ignores `PING`s.** A connection with no stream open that receives only
+  `PING`, `SETTINGS` or connection-level `WINDOW_UPDATE` frames is closed at
+  `IdleTimeout` from the last stream activity, which those frames do not move. A
+  connection that has a stream open whose request is whole is not closed by the
+  connection's own clock; a response waiting for the client's flow-control window is
+  bounded by `WriteTimeout` (see [HTTP/2 response writes](/docs/core-concepts)).
 
 ### SSE needs no `-1`; other long-lived responses do
 
@@ -288,7 +315,12 @@ A response that is **not** detached is still under `WriteTimeout`: a slow large
 download, or a chunked body written with `StreamWriter` without `Detach`. On `std` the
 deadline is absolute for the whole response, so a response that takes longer than
 `WriteTimeout` ends however steadily the client reads (measured: a streaming body that
-sends every 200 ms is cut at `WriteTimeout`). On HTTP/2 over `epoll`, `io_uring` and
+sends every 200 ms is cut at `WriteTimeout`). On `epoll` (and `adaptive` while it runs on
+it), a response the kernel did not accept whole is instead bounded by a minimum rate on
+the bytes the client acknowledges, 64 KiB per `WriteTimeout`, with no elapsed-time
+ceiling: a client that reads steadily above that floor is not cut however long the
+response takes ([celeris#1119](https://github.com/goceleris/celeris/pull/1119),
+`celeris/config.go` (`Config.WriteTimeout`)). On HTTP/2 over `epoll`, `io_uring` and
 `adaptive` a write that waits for the client's flow-control window is bounded by
 `WriteTimeout` ([HTTP/2 response writes](/docs/core-concepts)). Raise the timeout for
 those routes, or disable it server-wide only when such responses dominate:
@@ -421,7 +453,7 @@ the floor.
 | Field              | Type   | Default        | Constraint              | Effect                                         |
 | ------------------ | ------ | -------------- | ----------------------- | ---------------------------------------------- |
 | `DisableKeepAlive` | `bool` | `false`        | —                       | One request per connection when `true`         |
-| `DisableDeferAccept` | `bool` | `false`      | `epoll` / `io_uring` only | Turns `TCP_DEFER_ACCEPT` off on the listen sockets |
+| `DisableDeferAccept` | `bool` | `false`      | Linux native engines (`epoll`, `io_uring`, `adaptive`) | Turns `TCP_DEFER_ACCEPT` off on the listen sockets |
 | `BufferSize`       | `int`  | `8192`         | `>= 4096`; clamped to `262144` | Per-connection I/O buffer size in bytes  |
 | `SocketRecvBuf`    | `int`  | OS default (0) | —                       | `SO_RCVBUF` for accepted connections           |
 | `SocketSendBuf`    | `int`  | OS default (0) | —                       | `SO_SNDBUF` for accepted connections           |
