@@ -21,21 +21,41 @@ The `Context` is pooled and reused across requests. **Anything that hands back a
 view into request memory is only valid until your handler returns.** Once the
 handler returns, the underlying buffers may be recycled for the next request.
 
-This affects exactly two accessors:
+This affects the body, the headers, and every string the request hands back:
 
 | Accessor | Returns | After handler returns |
 | --- | --- | --- |
 | `Body()` | The raw body bytes (zero-copy) | Invalid — may be overwritten |
-| `Header(key)` | A header value (substring of the parsed buffer) | Invalid — may be overwritten |
+| `Header(key)`, `RequestHeaders()` | A header value, or the header slice (names and values are views of the receive buffer) | Invalid — may be overwritten |
+| `Method()`, `Path()`, `Param(key)`, `Query(key)`, `RawQuery()`, `Cookie(name)`, `Host()`, `ClientIP()` and strings derived from them | A request string | Invalid on the native engines over HTTP/1.1 — may read other request bytes (see below) |
 
 If you need request data to outlive the handler — async processing, a background
-goroutine, deferred logging — copy it first. Two accessors are explicitly
-documented as safe to retain:
+goroutine, deferred logging — copy it first. One accessor hands you a copy for the
+body:
 
-| Safe-to-retain accessor | Returns |
+| Accessor | Returns |
 | --- | --- |
 | `BodyCopy()` | A fresh heap copy of the body (`[]byte`) |
-| `RequestHeaders()` | A copy of all headers as `[][2]string`, safe for concurrent use |
+
+For a request string, copy it with `strings.Clone` (see the next section). There is
+no accessor that returns all the headers as a copy: copy the entries you keep.
+
+### Request strings are views of the receive buffer
+
+On the `Epoll`, `IOUring` and `Adaptive` engines over HTTP/1.1, the strings above
+are not heap copies: they point into the connection's receive buffer. The engine
+reuses that buffer for the connection's next request and, once the connection
+closes, for another connection. A string you kept then reads other request bytes,
+possibly another client's, and nothing panics or warns. Reading and comparing a
+string during the request is fine; copy it with `strings.Clone` before anything
+keeps it past the handler: a map key or cache entry, a goroutine or channel, a
+closure, a log record the logger may keep, a metric label or a span attribute.
+`Detach` copies the values the `Context` holds, but not what you read out of it
+before the call or values you stored with `Set` (on HTTP/2 it does not copy the
+headers and the body either). After `Hijack` the request's strings stay valid,
+including those read before it. See their reference for the details. On every
+engine the contract is the same, valid until the handler returns: do not rely on a
+copy having been made for you.
 
 ```go
 s.POST("/ingest", func(c *celeris.Context) error {
@@ -50,10 +70,13 @@ s.POST("/ingest", func(c *celeris.Context) error {
 })
 ```
 
-A plain `string(c.Body())` or `c.Header("...")` value you use *within* the
-handler is fine — Go copies the bytes into the new string. The rule only bites
-when you keep a `[]byte` slice or pass the `Context` itself somewhere that
-outlives the request.
+A plain `string(c.Body())` you use *within* the handler is fine, and it is a
+copy: converting a `[]byte` to a `string` copies the bytes. A string that an
+accessor returns (`c.Header("...")`, `c.Param("id")`, `c.Path()`) is **not**
+copied by assigning it to a variable: `x := c.Param("id")` is the same view.
+The rule bites when you keep one of those strings, keep a `[]byte` slice, or
+pass the `Context` itself somewhere that outlives the request; keep
+`strings.Clone(x)` instead.
 
 ## The request line
 
@@ -152,8 +175,8 @@ cached map.
 
 | Method | Behavior |
 | --- | --- |
-| `c.Header(key)` | First value for `key`; **key is lowercased**, value not safe to retain |
-| `c.RequestHeaders()` | A copy of all headers as `[][2]string`; safe to retain |
+| `c.Header(key)` | First value for `key`; **key is lowercased**, value not safe to retain (`strings.Clone` it to keep it) |
+| `c.RequestHeaders()` | All headers as `[][2]string`; read-only, valid until the handler returns (names and values are views of the receive buffer on the native engines over HTTP/1.1), not safe to retain |
 | `c.ContentLength()` | `Content-Length` as `int64`, or `-1` if absent or invalid |
 
 ```go
@@ -357,9 +380,11 @@ for larger multipart uploads. Both are described in
 
 ## Common pitfalls
 
-- **Retaining `Body()` or a `Header()` value past the handler.** These point
-  into recycled buffers. Use `BodyCopy()` / `RequestHeaders()` if the data must
-  outlive the request, and never stash the `*Context` itself.
+- **Retaining `Body()`, a `Header()` value, `RequestHeaders()` or any request
+  string (`Param`, `Path`, `Query`, ...) past the handler.** These point into
+  recycled buffers. Use `BodyCopy()` for the body and `strings.Clone` for a
+  string (copy the `RequestHeaders()` entries you need) if the data must outlive
+  the request, and never stash the `*Context` itself.
 - **Trusting `QueryInt` to validate.** It returns your default on garbage input
   rather than an error. Parse the raw `Query` value yourself when malformed input
   should be a `400`.
