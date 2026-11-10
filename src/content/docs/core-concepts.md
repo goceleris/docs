@@ -188,14 +188,27 @@ frameworks that allocate a fresh request object per request.
 | Returns a view into pooled memory (do **not** retain) | Returns a safe-to-retain copy |
 | --- | --- |
 | `c.Body()` — raw request body | `c.BodyCopy()` — fresh copy of the body |
-| `c` itself | `c.RequestHeaders()` — copy of all headers |
+| `c.RequestHeaders()` — all headers, valid until the handler returns | `strings.Clone(x)` — a copy of a request string |
+| `c.Param`, `c.Header`, `c.Path`, `c.Method`, `c.Query`, … — request strings | |
+| `c` itself | |
 
-String getters (`c.Param`, `c.Header`, `c.Path`, `c.Method`, …) are fine to
-*use* inside the handler, but their bytes may be backed by the connection's read
-buffer — assign the `string` into your own structure before letting it outlive
-the request (a Go `string` copy is just `x := c.Param("id")`).
+The string getters (`c.Param`, `c.Header`, `c.Path`, `c.Method`, …) are fine to
+*use* inside the handler, but on the `Epoll`, `IOUring` and `Adaptive` engines over
+HTTP/1.1 they are **views of the connection's receive buffer**, not copies. The
+engine reuses that buffer for the connection's next request and, once the
+connection closes, for another connection, so a string you kept reads other
+request bytes, possibly another client's. Assigning it is not a copy:
+`x := c.Param("id")` is the same view. Copy it with `strings.Clone` before it
+outlives the request: a map key or cache entry, a goroutine or channel, a closure,
+a log record the logger may keep, a metric label or a span attribute.
+`c.Detach()` copies the values the `Context` holds, not the strings you already
+read out of it, and on HTTP/2 it copies neither the headers nor the body. After
+`c.Hijack()` (HTTP/1.1 only) the request strings stay valid, including the ones
+read before the call: the engine does not give a hijacked connection's receive
+buffer to another connection. On every engine the contract is the same: valid
+until the handler returns.
 
-The two methods documented for cross-request lifetimes are explicit about it in
+The accessors documented for cross-request lifetimes are explicit about it in
 source:
 
 - `c.BodyCopy()` (`celeris/context_request.go`): "returns a copy of the request body that
@@ -204,7 +217,15 @@ source:
   logging)." `Body()` itself warns the slice "must not be modified or retained
   after the handler returns."
 - `c.RequestHeaders()` (`celeris/context_request.go`): "returns all request headers as
-  key-value pairs. The returned slice is a copy safe for concurrent use."
+  key-value pairs. Treat the slice as read-only and valid until the handler returns:
+  on HTTP/1.1 it is the request's own header slice (on HTTP/2 a copy of it), and on
+  epoll, io_uring and Adaptive the names and values are views of the connection's
+  receive buffer (see the package documentation). Copy what you keep." It is not a
+  safe-to-retain copy.
+- The package documentation of `celeris` (`celeris/doc.go`) states the rule for the request
+  strings: they are valid until the handler returns, and on the native engines
+  over HTTP/1.1 they are views of the receive buffer, so copy one with `strings.Clone`
+  before anything keeps it past the handler.
 
 ```go
 func enqueue(c *celeris.Context) error {
@@ -432,7 +453,7 @@ pooled `Context`, run the pre-baked chain, recycle the `Context`.
 
 - **Retaining the Context or its body.** The number-one bug. Anything you pass to
   a goroutine that outlives the handler must be copied first — use `c.BodyCopy()`
-  and `c.RequestHeaders()`. See [The Lifetime Rule](#3-the-context-is-pooled).
+  for the body and `strings.Clone` for a request string or header value. See [The Lifetime Rule](#3-the-context-is-pooled).
 - **Calling `Use` after routes.** Panics by design. Register all middleware
   before any route. Same for group `Use`/`Async`/`Sync`, which only affect routes
   registered after the call.
@@ -451,7 +472,7 @@ pooled `Context`, run the pre-baked chain, recycle the `Context`.
 
 **Is a `Context` safe to use concurrently within a single request?**
 No. A `*Context` is single-goroutine by default. If you fan out work, copy the
-data you need (`BodyCopy`, `RequestHeaders`) and pass the copies. For long-lived
+data you need (`BodyCopy`, `strings.Clone` of the strings) and pass the copies. For long-lived
 hijacked connections, use `c.Detach()`.
 
 **Can I restart a `Server` after `Shutdown`?**

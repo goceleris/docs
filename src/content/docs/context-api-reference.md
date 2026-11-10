@@ -33,7 +33,7 @@ These apply to almost everything below. Read them once; the tables assume them.
 
 | Rule | What it means |
 | ---- | ------------- |
-| **Context is pooled** | The `*Context` is recycled across requests. Never retain it, and never retain a slice it returns (`Body()`, `RequestHeaders()`, `ResponseHeaders()`) past the handler return — copy first. See [Handling requests](/docs/request-handling). |
+| **Context is pooled** | The `*Context` is recycled across requests. Never retain it, and never retain a slice it returns (`Body()`, `RequestHeaders()`, `ResponseHeaders()`) past the handler return — copy first. The request strings (`Param`, `Header`, `Path`, …) are views of the receive buffer on the native engines (`Epoll`, `IOUring`, `Adaptive`) over HTTP/1.1: `strings.Clone` one to keep it. See [Handling requests](/docs/request-handling). |
 | **Header keys are lowercase** | `Header(key)` lowercases the key for you; response setters lowercase + strip CR/LF/NUL. Both `Header("Content-Type")` and `Header("content-type")` work, but stored keys are always lowercase (HTTP/2 mandates it). |
 | **Write-once** | The first response method (`JSON`, `Blob`, `NoContent`, `Redirect`, `File*`, `StreamWriter`, …) wins. A second call returns `ErrResponseWritten`. `IsWritten()` reports whether the response has been sent. |
 | **Status setter is separate** | `Status(code)` stores a code for the `Status*` helpers only. The regular writers (`JSON(code, v)`, `Blob(code, …)`) take their own code and ignore the stored one. |
@@ -512,7 +512,7 @@ sentinel — build one with `celeris.NewHTTPError(code, message)` and match it w
 
 - **Retaining pooled slices.** `Body()`, `RequestHeaders()`, and
   `ResponseHeaders()` return views into recycled buffers. Copy (`BodyCopy()`, or a
-  manual copy) before using them after the handler returns. Never stash the
+  manual copy) before using them after the handler returns; the same holds for the request strings (`strings.Clone`). Never stash the
   `*Context` itself.
 - **`Status(code)` does not write anything.** It only feeds the `Status*` helpers.
   `c.Status(404)` alone sends nothing; you still need `c.StatusJSON(v)` /
