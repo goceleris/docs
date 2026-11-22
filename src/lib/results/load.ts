@@ -11,7 +11,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { join } from "node:path";
-import type { LoadedCell, RawEnv, RawSummary, RawTimeseries } from "./types";
+import type { LoadedCell, RawComposition, RawEnv, RawSummary, RawTimeseries, RawTwin } from "./types";
 import { runDir } from "./walk";
 import { validateEnv, validateSummary, validateTimeseriesDoc, type CellExpect } from "./validate";
 
@@ -91,6 +91,36 @@ export function loadCell(
     warnings.push("timeseries.json.gz missing");
   }
 
+  // composition.json / twin.json are optional (tools/mergedocs): a malformed one is
+  // a warning and the cell loads as a single-dispatch cell, never a tie rule on a
+  // guess.
+  let composition: RawComposition | null = null;
+  const compPath = join(dir, "composition.json");
+  if (existsSync(compPath)) {
+    try {
+      const c = readJSON<RawComposition>(compPath);
+      if (c.schema === "composition/1" && c.tie_margin_by_scenario && c.columns) {
+        // The tie rule keys on column names: a composition that is not this summary's
+        // would apply another cell's margins, so it is a validation error.
+        const have = new Set(summary.benchmarks.map((b) => b.name).filter((n): n is string => !!n));
+        const off = [...Object.keys(c.columns).filter((n) => !have.has(n)), ...[...have].filter((n) => !(n in c.columns))];
+        if (off.length) errors.push(`composition.json does not match summary.json (${off.slice(0, 5).join(", ")}${off.length > 5 ? ", …" : ""})`);
+        else composition = c;
+      } else warnings.push("composition.json has an unknown schema; ignored");
+    } catch (e) {
+      warnings.push(`composition.json parse failed: ${(e as Error).message}`);
+    }
+  }
+  let twin: RawTwin | null = null;
+  const twinPath = join(dir, "twin.json");
+  if (existsSync(twinPath)) {
+    try {
+      twin = readJSON<RawTwin>(twinPath);
+    } catch (e) {
+      warnings.push(`twin.json parse failed: ${(e as Error).message}`);
+    }
+  }
+
   const cfg = summary.benchmark_config || env.benchmark_config || {};
   const durationNs = Number(cfg.duration || 0);
 
@@ -105,6 +135,8 @@ export function loadCell(
     timeseries,
     durationNs,
     smoke: isSmoke(durationNs, opts.minDurationNs),
+    composition,
+    twin,
   };
   return { cell, errors, warnings };
 }

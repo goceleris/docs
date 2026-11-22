@@ -374,6 +374,9 @@ export function aggregateVersionArch(
   const probe = cells[0];
   const cfg = probe?.summary.benchmark_config || probe?.env.benchmark_config || {};
 
+  // A composed cell carries composition.json; with several cells the newest one
+  // that has it speaks for the payload (cells are newest-date-first).
+  const composed = cells.find((c) => c.composition);
   return {
     schema_version: "dashboard-version/1",
     version,
@@ -395,6 +398,7 @@ export function aggregateVersionArch(
     servers,
     headline,
     timeseries,
+    ...(composed ? { composition: composed.composition, twin: composed.twin ?? null } : {}),
   };
 }
 

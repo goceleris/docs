@@ -142,6 +142,48 @@ export interface RawTimeseries {
 }
 
 /** One loaded benchmark cell (a single version/date/arch/run). */
+/**
+ * composition.json (composition/1): written by probatorium's tools/mergedocs for
+ * a cell composed from two dispatches of one architecture. Absent for every
+ * single-dispatch cell, in which case no tie rule applies.
+ */
+export interface RawComposition {
+  schema: "composition/1";
+  refusals_sha256: string;
+  arch: string;
+  publish_date: string;
+  dispatches: Record<string, { run_id: string; harness_commit: string; kernel: string; started_at: string; finished_at: string }>;
+  gap_hours_between_dispatches: number;
+  reboot: { between_dispatches: boolean; note?: string };
+  tie_floor: number;
+  /** Per scenario: the largest drift any anchor showed on it, floored. */
+  tie_margin_by_scenario: Record<string, number>;
+  max_anchor_drift: number;
+  drift_warning: boolean;
+  anchors: Record<
+    string,
+    {
+      max_drift: number;
+      median_drift: number;
+      scenarios: Record<string, { d1: number; d2: number; ratio_d1_d2: number | null; drift: number }>;
+    }
+  >;
+  /** Which dispatch each column came from: "candidate" (with celeris) or "peers". */
+  columns: Record<string, string>;
+  twin: { mode: string; columns?: string[] };
+}
+
+/** twin.json: the v1.5.11 twin comparison of a cell composed with --twin=separate. */
+export interface RawTwin {
+  twin_framework_version: string;
+  rows: {
+    twin: string;
+    candidate: string;
+    scenarios: Record<string, { candidate_saturation_rps: number; twin_saturation_rps: number; ratio_candidate_over_twin: number | null }>;
+  }[];
+  unmatched_twins?: string[];
+}
+
 export interface LoadedCell {
   version: string;
   date: string;
@@ -153,6 +195,8 @@ export interface LoadedCell {
   timeseries: RawTimeseries | null;
   durationNs: number;
   smoke: boolean;
+  composition?: RawComposition | null;
+  twin?: RawTwin | null;
 }
 
 // ----------------------------------------------------------------------------
@@ -250,6 +294,9 @@ export interface VersionPayload {
   headline: VersionHeadline;
   /** keyed "scenario|server". */
   timeseries: Record<string, TimeseriesAgg>;
+  /** Present when the cell was composed from two dispatches (tools/mergedocs). */
+  composition?: RawComposition | null;
+  twin?: RawTwin | null;
 }
 
 // ---- Manifest ----
