@@ -23,6 +23,19 @@
   <a href="#quick-start">Quick start</a>
 </p>
 
+## At a glance
+
+**What it is.** The source of [goceleris.dev](https://goceleris.dev): the celeris documentation, the methodology page and the benchmark dashboard, built as a static Astro site with Bun.
+
+**Run it.**
+
+```bash
+bun install --frozen-lockfile
+bun run dev   # http://localhost:4321
+```
+
+**Where the results are.** Benchmark runs are plain files in the [`results/`](results/) tree, written by probatorium's publish step; the dashboard at [goceleris.dev/benchmarks](https://goceleris.dev/benchmarks/) is built from them. What the tree holds is in [Results](#results).
+
 ## Why this site
 
 celeris, [loadgen](https://github.com/goceleris/loadgen) and
