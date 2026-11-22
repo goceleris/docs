@@ -1,0 +1,7 @@
+{
+  "repo": "goceleris/celeris",
+  "branch": "docs/driver-types-generator",
+  "commit": "08f371a",
+  "files": "test/conformance/<driver>/testdata/supported.json",
+  "note": "Copied unchanged by `bun scripts/sync-driver-types.ts <celeris checkout>`. Replace branch and commit with the merge commit once the celeris pull request lands."
+}
