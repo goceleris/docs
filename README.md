@@ -43,9 +43,8 @@ re-measured on the benchmark cluster (see [Results](#results)).
 ## Quick start
 
 Requires [Bun](https://bun.sh) at the version `engines.bun` in [`package.json`](package.json) sets (the
-badge above reads it; `>=1.3.0` at the time of writing). Nothing else is needed: `bun run build`
-completed with no `node` on `PATH` when tried with Bun 1.3.14 on macOS, and `package.json` pins no
-Node version.
+badge above reads it; `>=1.3.0` at the time of writing). Nothing else is needed: `package.json` pins no Node
+version, and the build ran with no `node` on `PATH` (checked with Bun 1.3.14).
 
 ```bash
 bun install --frozen-lockfile
