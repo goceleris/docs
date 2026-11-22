@@ -434,6 +434,20 @@ cfg.MemoryLimitBytes = celeris.DeriveMemoryLimit(cfg.Workers) // soft heap ceili
 s := celeris.New(cfg)
 ```
 
+### `GCPercent`
+
+New in v1.6.0. An **optional** garbage-collector target, applied with `runtime/debug.SetGCPercent` when the server starts: the same knob as the `GOGC` environment variable.
+
+| Field       | Type  | Default     | Effect                                                    |
+| ----------- | ----- | ----------- | --------------------------------------------------------- |
+| `GCPercent` | `int` | `0` (unset) | GC target via `debug.SetGCPercent`, applied at `Start`    |
+
+- **`0` (default)**: Celeris does not touch the process GC; embedders and `GOGC` keep control (`celeris/config.go` (`Config.GCPercent`)).
+- **`> 0`**: applied at `Start`, never at `init`, and it wins over `GOGC`. The previous target is put back when the last opted-in server in the process stops, unless other code changed it in the meantime.
+- **`< 0`**: a configuration error, because it would switch the collector off.
+
+It is process-global, so set it only when Celeris owns the process. It costs memory (on epoll about twice the peak resident memory of the default in the one measurement; io_uring was 238 to 245 MiB with no default-GC column to compare) and exists for large-message WebSocket p99 at high load; the measurements, their limits and the pairing with `MemoryLimitBytes` are on the [WebSocket page](/docs/websocket#large-messages-and-the-garbage-collector).
+
 ## Behaviour, observability, and callbacks
 
 ### `DisableMetrics`

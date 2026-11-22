@@ -359,6 +359,49 @@ Rules from the source (`celeris/middleware/websocket/writer.go` (`Conn.NextWrite
 - When compression is negotiated, `NextWriter` buffers the whole message and
   compresses on `Close` (permessage-deflate context spans the entire message).
 
+## Large messages and the garbage collector
+
+> **New in v1.6.0.** `Config.GCPercent` exists from v1.6.0 on; earlier releases have no such field.
+
+Echoing or proxying large messages allocates on every message. A collection cycle that starts while the engine's event loops are busy can hold the free Ps the handlers need, and under high load that shows as p99 latency. A larger GC target means fewer cycles. Celeris has an **opt-in** option for it, `Config.GCPercent` (`celeris/config.go` (`Config.GCPercent`)); it is off by default, and this section says what it does, what it costs, and what was measured.
+
+```go
+s := celeris.New(celeris.Config{
+    Addr:      ":8080",
+    GCPercent: 400, // 0 (the default) leaves the runtime's GC target alone
+})
+```
+
+How it behaves:
+
+- **`0` (the default) leaves the runtime untouched.** An embedding program and the `GOGC` environment variable keep control.
+- **A value above zero is applied with `runtime/debug.SetGCPercent` when the server starts** (never at `init`) and wins over `GOGC`.
+- **A negative value is refused** by validation, because it would switch the collector off.
+- **It is process-global.** Set it only in a binary that Celeris owns, the same stance as [`MemoryLimitBytes`](/docs/configuration#memorylimitbytes). Unlike `MemoryLimitBytes`, it is put back: the target in force before the first opted-in server started returns when the last opted-in server in the process stops (`Shutdown`, a failed start, or a `Start` that returns without one), but only if the process target is still the last value Celeris wrote; a value set by other code is left alone. While several opted-in servers run in one process, the last value written stays in force, whichever stops first.
+
+### What was measured
+
+Probatorium run [44763955234](https://github.com/goceleris/probatorium/actions/runs/44763955234), amd64, scenario `ws-large-echo` (64 connections, 64 KiB messages), Celeris main at `fe2b5be71ebc`, median p99 in milliseconds of 5 repetitions. The offered load was 8,376, 16,753 and 25,129 requests per second, which are 0.25, 0.5 and 0.75 of the epoll saturation rate measured earlier on the same cluster. Where two figures are given they are two independent copies of the same column. The columns are defined on the probatorium branch [`ab/l756j-diag-20261120`](https://github.com/goceleris/probatorium/tree/ab/l756j-diag-20261120) (head `b9471fb6`), which the run built; the adapter switch that sets the option, `PROBATORIUM_CELERIS_GC_PERCENT`, is on probatorium `main`.
+
+| Server                              | 0.25 of saturation | 0.5         | 0.75        |
+| ----------------------------------- | ------------------ | ----------- | ----------- |
+| std engine (`net/http`), default GC | 0.56               | 0.59        | 0.74        |
+| epoll, default GC                   | 0.66               | 2.03        | 6.14        |
+| epoll, `GCPercent: 400`             | 0.76 / 0.83        | 1.16 / 1.13 | 1.30 / 1.46 |
+| io_uring, `GCPercent: 400`          | 0.91 / 0.85        | 1.37 / 1.02 | 1.36 / 1.36 |
+| adaptive, `GCPercent: 400`          | 0.84 / 0.73        | 1.33 / 1.16 | 1.30 / 1.29 |
+
+The cost:
+
+- **Memory.** Peak resident memory was 125 to 133 MiB with the option on epoll and adaptive, and 238 to 245 MiB on io_uring, against 65 MiB for epoll at the default. No default-GC io_uring column was run, so the io_uring cost is not a ratio. On epoll that is roughly twice the peak memory of the default (125 to 133 MiB against 65 MiB).
+- **Low-load p99.** At 0.25 of saturation the p99 with the option was 0.73 to 0.91 ms against 0.66 ms at the default.
+
+What the evidence does not cover: one scenario, amd64 only, the single value 400 (no other value was measured, and 400 is not claimed to be the best), and the adaptive engine did not switch away from epoll during the run, so adaptive is measured as epoll. Pairing the option with `Config.MemoryLimitBytes` or `GOMEMLIMIT` to bound memory was **not measured**: a ceiling close to the live heap brings frequent collections back and can undo the gain.
+
+### The default-GC gap
+
+The benchmark matrix that produces the published results runs Celeris at the default GC, so its WebSocket rows show the gap of the `epoll, default GC` row above: on amd64 with 64 KiB messages the p99 of the loop engines rises faster with load than the std engine's (epoll: 6.14 ms against 0.74 ms at 0.75 of saturation). v1.6.0 does not change the default. If your service echoes or proxies large WebSocket messages at high load, measure it on your hardware with and without the option, and compare with the std engine; `GODEBUG=gctrace=1` shows how many cycles the option removes. On arm64, the `ws-echo` scenario (128 connections) shows a smaller gap: the p99 of the loop engines at a quarter of their own saturation rate is 1.80 to 2.03 times the std engine's p99 in the same run (one pass at 60,000 requests per second), in the medians of five runs ([celeris#755](https://github.com/goceleris/celeris/issues/755), [celeris#1318](https://github.com/goceleris/celeris/issues/1318); runs on the branch [`ab/l755z-diag-20261121`](https://github.com/goceleris/probatorium/tree/ab/l755z-diag-20261121)). The option was not measured there.
+
 ## Config
 
 `websocket.Config` (`celeris/middleware/websocket/config.go` (`Config`)) is passed to
@@ -785,6 +828,9 @@ Set `Config.ReadLimit` (or call `Conn.SetReadLimit` at runtime). The default is
 **How do I time out idle connections on every engine?**
 Set `Config.IdleTimeout`. Unlike `SetReadDeadline`, it's honoured on both the
 native and std paths (`celeris/middleware/websocket/config.go` (`Config.IdleTimeout`)).
+
+**Why is the p99 of my large-message echo high under load?**
+With the default garbage collector, a collection cycle that starts while the engine loops are busy can hold the Ps the handlers need. See [Large messages and the garbage collector](#large-messages-and-the-garbage-collector) for the opt-in `Config.GCPercent`, its measured effect and its memory cost.
 
 **Does the middleware send a close frame for me?**
 Yes — when `Handler` returns, Celeris sends a `1000` close frame (if you haven't
