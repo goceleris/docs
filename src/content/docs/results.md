@@ -28,6 +28,14 @@ What that run supports, and what it does not:
 
 The 20-row and 11-row counts and every figure above are derived by [`analyze-published-results.py`](https://github.com/goceleris/celeris/blob/main/.github/scripts/analyze-published-results.py) from the published `summary.json` files; the chart is generated from the same files by [`benchmark-hero.py`](https://github.com/goceleris/celeris/blob/main/.github/scripts/benchmark-hero.py).
 
+## Reading a lead: "same run" is not "same hour"
+
+The columns of one dispatch are also hours apart, so "the same run" never meant "the same hour". Each architecture's full benchmark is split into two dispatches, which adds a setup and a teardown between the halves. Six anchor columns are measured in both dispatches, and they measure what that costs: `gnet-h1`, `fiber-h1`, `stdhttp-h1`, `lithium`, `h2o` and `actix`.
+
+The measured drift between the two dispatches, from those anchors, is [[PLACEHOLDER: largest and median anchor drift on amd64, run ids]] on amd64 and [[PLACEHOLDER: largest and median anchor drift on arm64, run ids]] on arm64. A lead smaller than the larger of the 5% band and the largest anchor drift on that architecture is a tie, and this page and the README count it as one.
+
+No tail-latency ranking is claimed from the rated passes while [loadgen#102](https://github.com/goceleris/loadgen/issues/102) is open.
+
 ## v1.6.0 against v1.5.11
 
 The release gate is two full cross-framework runs, one on linux/amd64 and one on linux/arm64, each with a v1.5.11 build of celeris entered in the same run (the twin), so that both versions meet the same host, kernel and load generator. The table is filled from the published results of those two runs; every cell marked PLACEHOLDER below stands for a figure that does not exist yet, and none is estimated.
