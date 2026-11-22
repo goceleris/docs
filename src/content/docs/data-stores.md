@@ -5,6 +5,8 @@ group: Data & Integration
 order: 1
 ---
 
+> **Beta in v1.6.0.** The three database drivers (`driver/postgres`, `driver/redis` and `driver/memcached`) ship as beta; the HTTP engine and the rest of the API are the stable claim. The exported API of the driver packages stays under the compatibility check, but behaviour fixes (what a value scans to, which cases return an error) may land in minor releases and are listed in the release notes. Supported types per driver: [[PLACEHOLDER: link to the supported-types pages]].
+
 Celeris ships two distinct-but-related data layers, and it helps to keep them apart from the start:
 
 1. **The `store.KV` abstraction** — a tiny byte-level key/value interface that the
