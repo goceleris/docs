@@ -263,3 +263,7 @@ A correctness and hardening release: most of it comes from what the [probatorium
 **New:** an opt-in `Config.GCPercent` (see [Garbage collector target](#garbage-collector-target-opt-in)); `HEAD` is answered by the `GET` route and `OPTIONS` with an `Allow` list (`Config.DisableAutoHEAD` and `Config.DisableAutoOPTIONS` turn each off); the drivers and their stores build and run on Windows through a portable `net.Conn` fallback; `api/` golden files make every API change visible in review; on big.LITTLE arm64 hosts the engines pin one loop per non-little CPU (see [CPU pinning](/docs/cpu-pinning)).
 
 **Fixed:** the io_uring teardown, transplant and driver paths and the epoll shutdown and park paths were audited and corrected; the native HTTP/2 connection bounds refusals, PRIORITY placeholders, header-block fragments and frame sizes; a detached connection whose peer takes none of its bytes is closed after `WriteTimeout`; the std engine no longer cuts an SSE stream at its timeouts, and `EnableH2Upgrade` means the same on every engine; `basicauth` hashes passwords with a salted PBKDF2.
+
+## Streaming and detach on the std engine
+
+`StreamWriter()` performs synchronous incremental writes on every engine. Async `Detach()` — keeping the connection alive after the handler returns — is native-engines-only (`EngineSupportsAsyncDetach()` is false on std, which closes the conn when the handler returns).
