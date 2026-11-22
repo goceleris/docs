@@ -175,3 +175,91 @@ validation/     Runtime invariant assertions + validation hooks (debug builds)
 ```
 
 `cmd/celeris` is a minimal launcher around `celeris.New`, intended primarily as the entry point for validation soak runs; under the `validation` build tag it also streams assertion counters over a unix socket. Production deployments should embed `celeris.New` directly rather than depend on this binary.
+
+## Middleware catalog (README version)
+
+All middleware is in-tree under [`middleware/`](middleware/) — 46 importable packages: the root `middleware` package, the 36 below, and 9 store and cache sub-packages:
+
+| Package | Description |
+|---------|-------------|
+| [`adapters`](https://github.com/goceleris/celeris/tree/main/middleware/adapters) | Bidirectional stdlib ↔ celeris middleware/handler conversion |
+| [`basicauth`](https://github.com/goceleris/celeris/tree/main/middleware/basicauth) | HTTP Basic authentication with hashed password support |
+| [`bodylimit`](https://github.com/goceleris/celeris/tree/main/middleware/bodylimit) | Request body size enforcement |
+| [`cache`](https://github.com/goceleris/celeris/tree/main/middleware/cache) | HTTP response cache with singleflight + Cache-Control honoring |
+| [`circuitbreaker`](https://github.com/goceleris/celeris/tree/main/middleware/circuitbreaker) | Circuit breaker (3-state, sliding-window error rate, 503 + Retry-After) |
+| [`compress`](https://github.com/goceleris/celeris/tree/main/middleware/compress) | Response compression (zstd, brotli, gzip, deflate; separate go.mod) |
+| [`cors`](https://github.com/goceleris/celeris/tree/main/middleware/cors) | Cross-Origin Resource Sharing (precomputed headers) |
+| [`csrf`](https://github.com/goceleris/celeris/tree/main/middleware/csrf) | CSRF protection (double-submit cookie + origin validation) |
+| [`debug`](https://github.com/goceleris/celeris/tree/main/middleware/debug) | Debug / introspection endpoints (loopback-only by default) |
+| [`etag`](https://github.com/goceleris/celeris/tree/main/middleware/etag) | Automatic ETag generation and conditional 304 responses |
+| [`healthcheck`](https://github.com/goceleris/celeris/tree/main/middleware/healthcheck) | Kubernetes-style liveness / readiness / startup probes |
+| [`idempotency`](https://github.com/goceleris/celeris/tree/main/middleware/idempotency) | Idempotency-Key replay protection (in-flight 409 + cached replay) |
+| [`jwt`](https://github.com/goceleris/celeris/tree/main/middleware/jwt) | JWT authentication (HMAC / RSA / ECDSA / EdDSA, JWKS auto-refresh) |
+| [`keyauth`](https://github.com/goceleris/celeris/tree/main/middleware/keyauth) | API-key authentication with constant-time comparison |
+| [`logger`](https://github.com/goceleris/celeris/tree/main/middleware/logger) | Structured request logging (slog, pooled-buffer FastHandler) |
+| [`methodoverride`](https://github.com/goceleris/celeris/tree/main/middleware/methodoverride) | HTTP method override via header or form field |
+| [`metrics`](https://github.com/goceleris/celeris/tree/main/middleware/metrics) | Prometheus metrics (separate go.mod) |
+| [`otel`](https://github.com/goceleris/celeris/tree/main/middleware/otel) | OpenTelemetry tracing + metrics (separate go.mod) |
+| [`overload`](https://github.com/goceleris/celeris/tree/main/middleware/overload) | 5-stage CPU + queue-depth + tail-latency-EMA overload control (503 + Retry-After) |
+| [`pprof`](https://github.com/goceleris/celeris/tree/main/middleware/pprof) | Go profiling endpoints (loopback-only by default). `profile` and `trace` record for `?seconds=N` on the I/O worker that reads the connection, which serves nothing else meanwhile: mount it as an `.Async()` route (see the package documentation) |
+| [`protobuf`](https://github.com/goceleris/celeris/tree/main/middleware/protobuf) | Protobuf serialization with content negotiation (separate go.mod) |
+| [`proxy`](https://github.com/goceleris/celeris/tree/main/middleware/proxy) | Trusted-proxy header extraction (X-Forwarded-For, X-Real-IP) |
+| [`ratelimit`](https://github.com/goceleris/celeris/tree/main/middleware/ratelimit) | Sharded token-bucket / sliding-window rate limiter (Redis / memcached store adapters) |
+| [`recovery`](https://github.com/goceleris/celeris/tree/main/middleware/recovery) | Panic recovery with broken-pipe detection |
+| [`redirect`](https://github.com/goceleris/celeris/tree/main/middleware/redirect) | URL redirect / rewrite (HTTPS, www, trailing slash) |
+| [`requestid`](https://github.com/goceleris/celeris/tree/main/middleware/requestid) | Request-ID generation (buffered UUID v4) |
+| [`rewrite`](https://github.com/goceleris/celeris/tree/main/middleware/rewrite) | Regex-based URL rewriting with capture-group support |
+| [`secure`](https://github.com/goceleris/celeris/tree/main/middleware/secure) | Security headers (HSTS, CSP, COOP/CORP/COEP, OWASP defaults) |
+| [`session`](https://github.com/goceleris/celeris/tree/main/middleware/session) | Cookie-based sessions on the unified [`store.KV`](https://github.com/goceleris/celeris/tree/main/middleware/store) (memory / Redis / Postgres / memcached adapters) |
+| [`singleflight`](https://github.com/goceleris/celeris/tree/main/middleware/singleflight) | Request coalescing (collapse identical in-flight requests) |
+| [`sse`](https://github.com/goceleris/celeris/tree/main/middleware/sse) | Server-Sent Events: heartbeat, Last-Event-ID replay, per-client slow-client policy, and a `Broker` for fan-out (see [Streaming](/docs/streaming)) |
+| [`static`](https://github.com/goceleris/celeris/tree/main/middleware/static) | Static file serving with directory browse, ETag / Last-Modified caching |
+| [`store`](https://github.com/goceleris/celeris/tree/main/middleware/store) | Unified in-memory `KV` (sharded, TTL eviction) shared by session / csrf / ratelimit / cache / idempotency; Redis / Postgres / memcached adapters live under the respective `session/*store` and `ratelimit/*store` subpackages |
+| [`swagger`](https://github.com/goceleris/celeris/tree/main/middleware/swagger) | OpenAPI spec + Swagger UI (embedded) / Scalar / ReDoc (pinned CDN, opt-in) |
+| [`timeout`](https://github.com/goceleris/celeris/tree/main/middleware/timeout) | Request timeout with cooperative and preemptive modes |
+| [`websocket`](https://github.com/goceleris/celeris/tree/main/middleware/websocket) | RFC 6455 WebSocket: permessage-deflate, engine-integrated backpressure, and a `Hub` for fan-out (see [Streaming](/docs/streaming)) |
+
+```go
+import (
+	"github.com/goceleris/celeris/middleware/cors"
+	"github.com/goceleris/celeris/middleware/logger"
+	"github.com/goceleris/celeris/middleware/recovery"
+)
+
+s := celeris.New(celeris.Config{Addr: ":8080"})
+s.Use(recovery.New())
+s.Use(logger.New())
+s.Use(cors.New())
+```
+
+Middleware with external dependencies lives in its own module — import it separately:
+
+```go
+import "github.com/goceleris/celeris/middleware/metrics" // requires prometheus
+import "github.com/goceleris/celeris/middleware/otel"    // requires opentelemetry
+```
+
+## What's new in v1.6.0 (README version)
+
+The release notes carry the same list; this is the text the README held before it was shortened.
+
+A correctness and hardening release: most of it comes from what the [probatorium](https://github.com/goceleris/probatorium) matrix and the audits behind it found. It does not claim the open performance items listed under [Status and stability](#status-and-stability) as fixed.
+
+**Breaking** (the [pull request of the move](https://github.com/goceleris/celeris/pull/938) lists the migrations):
+
+- The minimum Go version is **1.27.3**.
+- The engine, protocol and driver codec packages moved under `internal/` and can no longer be imported; select an engine with `Config.Engine` and read counters as `celeris.EngineMetrics` or `observe.EngineMetrics`. Every deprecated public API was removed, `basicauth.HashPassword` included.
+- `Context.Stream` and the `bool` form of `Route.Async` / `RouteGroup.Async` were removed (use `StreamWriter`, `.Async()` and `.Sync()`), and `recovery`'s `ErrorHandler` now receives the recovered value as an `error`.
+- `Config.MaxRequestBodySize` defaults to 4 MiB, not 100 MB.
+- A handler that answers the request ends the chain, so a route that also matches a request a `Use`-mounted middleware answered no longer runs after it. `cache` and `swagger` options that defaulted to true are inverted (`DisableSingleflight`, `IgnoreCacheControl`, `DisablePKCE`). `otel` no longer records `server.address` as a metric attribute unless `MetricServerAddress` is set, and `Context.Scheme` returns only `"https"` or `"http"`. `Start*Context` returns only after the shutdown a cancel triggers.
+- The global middleware (`Use`) now also runs for a request no route matches, before its 404 or 405, so a `Use`-mounted `pprof`, `debug`, `metrics` or `static` that answered 404 now serves: check its `AuthFunc`.
+- `Context.File`, `FileFromDir`, `Static` and the `static` middleware answer an unsatisfiable range with 416 (it was a full 200) and honour `If-Range`.
+- `swagger` serves Swagger UI from embedded assets (about 2 MB added to a binary), `RendererScalar` and `RendererReDoc` need `CDN: true` or `AssetsPath` or `New` panics, and requests under `{BasePath}/assets/` must reach the middleware.
+- A failed `StartWithListener` closes the caller's listener, as `net/http`'s `Serve` does; on the adaptive engine, beside a same-user `SO_REUSEPORT` socket, `":PORT"` binds the dual-stack `[::]:PORT` where it bound IPv4 `0.0.0.0:PORT`.
+- This list is the headline items; the v1.6.0 release notes list every pull request labelled `breaking`.
+
+**Changed:** the native engines no longer set `SO_BUSY_POLL` (50 us) on the sockets they accept, and the drivers no longer set it on the connections they register on an event loop; it is opt-in through `Config.SocketBusyPoll` (`SocketBusyPoll: 50 * time.Microsecond` restores v1.5; see [Busy polling](/docs/runtime-notes#busy-polling-opt-in)). With `AsyncHandlers` and the default or a positive `PoolSize`, the Redis driver now waits for slow pipeline and transaction replies in `poll(2)` by default on Linux (opt out with `CELERIS_REDIS_DIRECT_WAIT=netpoll`; one OS thread per slow `Exec`, up to 20 ms per wait). It was measured on arm64 only (one benchmark run per wait mode, on one host: +14% to +19% requests per second against Go's netpoll, [#1275](https://github.com/goceleris/celeris/pull/1275)); no amd64 benefit is claimed, and [#854](https://github.com/goceleris/celeris/issues/854) stays open until the release build is re-verified.
+
+**New:** an opt-in `Config.GCPercent` (see [Garbage collector target](#garbage-collector-target-opt-in)); `HEAD` is answered by the `GET` route and `OPTIONS` with an `Allow` list (`Config.DisableAutoHEAD` and `Config.DisableAutoOPTIONS` turn each off); the drivers and their stores build and run on Windows through a portable `net.Conn` fallback; `api/` golden files make every API change visible in review; on big.LITTLE arm64 hosts the engines pin one loop per non-little CPU (see [CPU pinning](/docs/cpu-pinning)).
+
+**Fixed:** the io_uring teardown, transplant and driver paths and the epoll shutdown and park paths were audited and corrected; the native HTTP/2 connection bounds refusals, PRIORITY placeholders, header-block fragments and frame sizes; a detached connection whose peer takes none of its bytes is closed after `WriteTimeout`; the std engine no longer cuts an SSE stream at its timeouts, and `EnableH2Upgrade` means the same on every engine; `basicauth` hashes passwords with a salted PBKDF2.
