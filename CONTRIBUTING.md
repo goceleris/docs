@@ -5,7 +5,8 @@ This repository is the source of [goceleris.dev](https://goceleris.dev).
 
 ## Running the site locally
 
-Requires [Bun](https://bun.sh) `>= 1.3.0` (see `engines` in `package.json`).
+Requires [Bun](https://bun.sh) `>= 1.3.0` (see `engines` in `package.json`). No separate Node.js
+install is needed.
 
 ```sh
 bun install --frozen-lockfile
@@ -19,7 +20,7 @@ Before opening a pull request, run what CI runs:
 bun run validate # benchmark-cell gate: every committed results/ cell
 bun run build    # build:data -> astro build -> pagefind
 bun run check    # astro check (types + content schema); needs build:data first
-bun test         # data-layer tests
+bun test         # data-layer tests and the docs symbol-citation ratchet
 ```
 
 `bun run validate` opens every committed `results/` cell without emitting
