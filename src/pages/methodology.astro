@@ -1,11 +1,22 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { heroStat } from "../lib/site";
+import { heroStat, compositionNotes } from "../lib/site";
+import { describeComposition } from "../lib/results/tie";
 import manifest from "../data/generated/manifest.json";
 import type { Manifest } from "../lib/results/types";
 
 const m = manifest as Manifest;
 const stat = heroStat();
+// Cells composed from two dispatches (tools/mergedocs) state their drift figures here.
+const composed = compositionNotes().map((n) => ({
+  ...n,
+  lines: describeComposition(n.composition),
+  anchors: Object.entries(n.composition.anchors).sort(([a], [b]) => a.localeCompare(b)),
+  twinRows: (n.twin?.rows ?? []).map((r) => {
+    const rs = Object.values(r.scenarios).map((s) => s.ratio_candidate_over_twin).filter((x): x is number => x != null);
+    return { twin: r.twin, candidate: r.candidate, n: rs.length, min: rs.length ? Math.min(...rs) : null, max: rs.length ? Math.max(...rs) : null };
+  }),
+}));
 const adapters = stat?.totalAdapters ?? 25;
 const arches = m.arches.length ? m.arches.join(" · ") : "x86_64 · arm64";
 
@@ -200,6 +211,41 @@ const jsonLd = {
       </ul>
     </section>
 
+    {composed.length > 0 && (
+      <section class="m-sec reveal" id="composition">
+        <div class="sec-head">
+          <span class="idx">07 · two dispatches per architecture</span>
+          <h2>How far the two halves drifted.</h2>
+        </div>
+        {composed.map((c) => (
+          <div class="comp">
+            <h3>{c.arch}</h3>
+            {c.lines.map((l) => <p class="m-body">{l}</p>)}
+            <table class="comp-tbl">
+              <caption>Anchors measured in both dispatches (saturation, max drift over scenarios)</caption>
+              <thead><tr><th>anchor</th><th>max drift</th><th>median drift</th></tr></thead>
+              <tbody>
+                {c.anchors.map(([name, a]) => (
+                  <tr><td>{name}</td><td>{(a.max_drift * 100).toFixed(1)}%</td><td>{(a.median_drift * 100).toFixed(1)}%</td></tr>
+                ))}
+              </tbody>
+            </table>
+            {c.twinRows.length > 0 && (
+              <table class="comp-tbl">
+                <caption>Celeris vs the v1.5.11 release, same dispatch (candidate / twin saturation rate)</caption>
+                <thead><tr><th>engine</th><th>scenarios</th><th>lowest</th><th>highest</th></tr></thead>
+                <tbody>
+                  {c.twinRows.map((r) => (
+                    <tr><td>{r.candidate}</td><td>{r.n}</td><td>{r.min != null ? r.min.toFixed(3) : "n/a"}</td><td>{r.max != null ? r.max.toFixed(3) : "n/a"}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
+      </section>
+    )}
+
     <section class="m-cta reveal">
       <h2>See it for yourself.</h2>
       <p class="muted">{adapters} servers across Go, Rust, C/C++, Java, C#, Python, Node and Bun — every result, averaged across runs.</p>
@@ -295,6 +341,14 @@ const jsonLd = {
   .checks li { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-3); align-items: start; color: var(--text-muted); line-height: var(--lh-snug); }
   .checks .ck { color: var(--accent-text); margin-top: 2px; flex: none; }
   .checks strong { color: var(--text); }
+
+  /* composed-run notes */
+  .comp { margin-bottom: var(--sp-6); }
+  .comp h3 { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--accent-text); margin-bottom: var(--sp-2); }
+  .comp-tbl { border-collapse: collapse; margin: var(--sp-3) 0; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  .comp-tbl caption { text-align: left; color: var(--text-faint); font-size: var(--fs-2xs); padding-bottom: var(--sp-1); }
+  .comp-tbl th, .comp-tbl td { text-align: left; padding: 0.25rem var(--sp-4) 0.25rem 0; color: var(--text-muted); }
+  .comp-tbl th { color: var(--text); font-weight: var(--fw-semibold); }
 
   /* cta */
   .m-cta { text-align: center; padding-block: calc(var(--section-y) * 1.1); border-top: 1px solid var(--border); }

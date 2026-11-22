@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import manifest from "../data/generated/manifest.json";
 import competitors from "../data/generated/competitors.json";
-import type { CompetitorsRegistry, Manifest, VersionPayload } from "./results/types";
+import type { CompetitorsRegistry, Manifest, RawComposition, RawTwin, VersionPayload } from "./results/types";
+import { goTally } from "./results/tie";
 
 export const SITE_URL = process.env.SITE_URL || "https://goceleris.dev";
 
@@ -14,6 +15,8 @@ export interface HeroStat {
   totalAdapters: number;
   /** Scenarios where Celeris is the fastest full Go framework, e.g. "39/43". */
   goWinRate: string;
+  /** Scenarios in the tie band of a composed cell (0 for a single-dispatch cell). */
+  goTies: number;
   /** Median throughput lead over the next-fastest full Go framework, where Celeris wins. */
   goWinMarginPct: number | null;
   /** Maximum such lead (for an "up to +X%" stat). */
@@ -48,34 +51,8 @@ export function heroStat(): HeroStat | null {
 
     // Competitive standing among full Go frameworks: per scenario, is the fastest Go
     // framework a Celeris engine, and by how much over the next-best full framework.
-    const scns = p.headline.scenarios;
-    let goWins = 0;
-    let goTotal = 0;
-    const goMargins: number[] = [];
-    let maxMargin = { pct: 0, scn: "" };
-    for (const scn of scns) {
-      let bestGo = { id: "", v: 0 };
-      let bestCel = 0;
-      let bestRival = 0;
-      for (const [id, sp] of Object.entries(p.servers)) {
-        if (!isGoFramework(id)) continue;
-        const v = sp.scenarios[scn]?.saturation_rps?.mean;
-        if (v == null) continue;
-        if (v > bestGo.v) bestGo = { id, v };
-        if (isCel(id)) bestCel = Math.max(bestCel, v);
-        else bestRival = Math.max(bestRival, v);
-      }
-      if (bestGo.v <= 0) continue;
-      goTotal++;
-      if (isCel(bestGo.id)) {
-        goWins++;
-        if (bestRival > 0 && bestCel > 0) {
-          const mar = ((bestCel - bestRival) / bestRival) * 100;
-          goMargins.push(mar);
-          if (mar > maxMargin.pct) maxMargin = { pct: mar, scn };
-        }
-      }
-    }
+    // A composed cell (two dispatches) applies the tie rule (results/tie.ts).
+    const { wins: goWins, ties: goTies, total: goTotal, margins: goMargins, maxMargin } = goTally(p, isGoFramework, isCel);
     goMargins.sort((a, b) => a - b);
     const medianMargin = goMargins.length ? goMargins[Math.floor(goMargins.length / 2)] : null;
 
@@ -85,6 +62,7 @@ export function heroStat(): HeroStat | null {
       peakScenario: peak.scn,
       totalAdapters: p.meta.adapters,
       goWinRate: `${goWins}/${goTotal}`,
+      goTies,
       goWinMarginPct: medianMargin != null ? Math.round(medianMargin) : null,
       goMaxMarginPct: maxMargin.scn ? Math.round(maxMargin.pct) : null,
       goMaxMarginScenario: maxMargin.scn,
@@ -214,4 +192,22 @@ export function fmtRpsShort(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
   return `${n}`;
+}
+
+/** The composition notes of the default version, per architecture (empty for single-dispatch cells). */
+export function compositionNotes(): { arch: string; composition: RawComposition; twin: RawTwin | null }[] {
+  const m = manifest as Manifest;
+  if (!m.default) return [];
+  const out: { arch: string; composition: RawComposition; twin: RawTwin | null }[] = [];
+  for (const arch of m.arches) {
+    try {
+      const p = JSON.parse(
+        readFileSync(join(process.cwd(), "public", "data", "v", m.default.version, `${arch}.json`), "utf8"),
+      ) as VersionPayload;
+      if (p.composition) out.push({ arch, composition: p.composition, twin: p.twin ?? null });
+    } catch {
+      /* no payload for this arch */
+    }
+  }
+  return out;
 }
