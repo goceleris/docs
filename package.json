@@ -20,20 +20,20 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@astrojs/mdx": "^8.1.0",
-    "@astrojs/preact": "^6.1.0",
-    "@astrojs/sitemap": "^3.7.4",
-    "@preact/signals": "^2.11.3",
-    "astro": "^7.4.0",
-    "preact": "^11.0.1",
+    "@astrojs/mdx": "^8.1.6",
+    "@astrojs/preact": "^6.1.6",
+    "@astrojs/sitemap": "^3.7.6",
+    "@preact/signals": "^2.11.4",
+    "astro": "^7.4.13",
+    "preact": "^11.2.0",
     "uplot": "^1.6.32"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "bun-types": "^1.4.3",
-    "pagefind": "^1.5.2",
+    "@astrojs/check": "^0.9.12",
+    "bun-types": "^1.4.5",
+    "pagefind": "^1.6.0",
     "sharp": "^0.35.5",
     "typescript": "6.0.3",
-    "wrangler": "^4.151.1"
+    "wrangler": "^4.165.0"
   }
 }
