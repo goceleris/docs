@@ -109,6 +109,12 @@ test("md escapes outside code spans and pipes everywhere", () => {
   expect(md("a *b* [c] `x|*y*` | d")).toBe("a \\*b\\* \\[c\\] `x\\|*y*` \\| d");
 });
 
+test("md keeps a backslash in a code span, and doubles one that sits before a pipe", () => {
+  expect(md("`a\\r\\n`")).toBe("`a\\r\\n`");
+  expect(md("`a\\|b`")).toBe("`a\\\\\\|b`");
+  expect(md("`a|b`")).toBe("`a\\|b`");
+});
+
 test("the data files carry the schema version the renderer reads", () => {
   for (const d of DRIVERS) {
     expect(JSON.parse(readFileSync(join(DATA, `${d}.json`), "utf8")).version).toBe(1);

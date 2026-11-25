@@ -94,11 +94,20 @@ export function loadNotes(dir = DATA): Notes {
 // ---------------------------------------------------------------------------
 // text helpers
 
+/**
+ * A pipe inside a code span still ends a table cell, so it is written \| there. A backslash
+ * that sits right before such a pipe would escape it away, so those backslashes are doubled
+ * first; every other backslash in a code span is literal and stays as it is.
+ */
+function escapeCodeSpan(part: string): string {
+  return part.replace(/(\\*)\|/g, (_m, slashes: string) => `${slashes.replace(/\\/g, "\\\\")}\\|`);
+}
+
 /** Escape markdown outside backtick code spans, and pipes everywhere. */
 export function md(s: string): string {
   return s
     .split(/(`[^`]*`)/)
-    .map((part, i) => (i % 2 === 1 ? part.replace(/\|/g, "\\|") : part.replace(/([\\*_\[\]<>|])/g, "\\$1")))
+    .map((part, i) => (i % 2 === 1 ? escapeCodeSpan(part) : part.replace(/([\\*_\[\]<>|])/g, "\\$1")))
     .join("");
 }
 
