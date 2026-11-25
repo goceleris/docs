@@ -151,7 +151,8 @@
       "id": "M1",
       "release": "v1.6.0",
       "summary": "With the binary protocol, `Gets` on an item whose value is empty reports a cache miss, and the item's flags and CAS token are lost, so it cannot be updated with `CAS`. The text protocol is correct.",
-      "error": "celeris-memcached: cache miss"
+      "error": "celeris-memcached: cache miss",
+      "fix": "#1354"
     }
   ]
 }

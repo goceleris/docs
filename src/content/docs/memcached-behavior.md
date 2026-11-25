@@ -7,6 +7,8 @@ order: 5
 
 This page lists what the celeris memcached driver (`driver/memcached`) does at the edges of its API: which values and keys it accepts, what each command returns for a key that is not there, and where the text and binary protocols behave the same. For how to create a client and the rest of the driver, see [Stores and database drivers](/docs/data-stores).
 
+The PostgreSQL, Redis and memcached clients are in beta: the exported API of the driver packages stays under the compatibility check, but behaviour fixes (what a value scans to, which cases return an error) may land in minor releases and are listed in the release notes.
+
 Memcached stores bytes, so there is no list of column types here; the rows are behaviors. Every row was checked on both the text protocol (the default) and the binary protocol (`WithProtocol`).
 
 ## How to read the table
@@ -36,8 +38,25 @@ Memcached stores bytes, so there is no list of column types here; the rows are b
 Each gap says what you see, what error you get (or that there is none), and where it is tracked. A gap marked for v1.6.0 has a fix in review for the v1.6.0 release; a gap marked for v1.6.1 stays through v1.6.0.
 
 <!-- driver-types:begin memcached gaps -->
-1. <a id="gap-1"></a>With the binary protocol, `Gets` on an item whose value is empty reports a cache miss, and the item's flags and CAS token are lost, so it cannot be updated with `CAS`. The text protocol is correct. The error is `celeris-memcached: cache miss`. A fix is planned for v1.6.0.<!-- pending: no pull request linked yet -->
+1. <a id="gap-1"></a>With the binary protocol, `Gets` on an item whose value is empty reports a cache miss, and the item's flags and CAS token are lost, so it cannot be updated with `CAS`. The text protocol is correct. The error is `celeris-memcached: cache miss`. A fix is in review for v1.6.0: [#1354](https://github.com/goceleris/celeris/pull/1354).
 <!-- driver-types:end memcached gaps -->
+
+## Behavior to know about
+
+The table above comes from the driver's round-trip tests. The sections below describe behavior it does not show. Each limit names the issue that tracks it.
+
+### An empty value on the binary protocol
+
+On the binary protocol, `Gets` of an item whose value is empty returns the item with its flags and CAS token, as on the text protocol, so the item can be updated with `CAS` ([celeris#1354](https://github.com/goceleris/celeris/pull/1354)). `Get`, `GetBytes` and `GetMulti` return an empty value correctly on both protocols.
+<!-- depends on celeris#1354. If it does not merge before the pin, replace with: "On the memcached binary protocol, Gets of an item whose value is empty returns ErrCacheMiss and no CAS token; the text protocol is correct, and Get and GetBytes return the empty value on both (celeris#1354)." -->
+
+### Context deadlines and cancellation
+
+If the context ends while the pool is dialling a connection, you get the dialler's own error, `dial tcp ...: i/o timeout` or `dial tcp ...: operation was canceled`. A deadline normally matches `context.DeadlineExceeded`, but the dialler can instead report `os.ErrDeadlineExceeded`; a `cancel()` matches `context.Canceled`. If the context was already over before the dial, you get the context's own error. Test both sentinels, or use `net.Error.Timeout()` ([celeris#1396](https://github.com/goceleris/celeris/issues/1396)). This was measured on the Redis client; the memcached client uses the same dial call and behaves the same by reading the code, and a Get with a 150 ms deadline against an unreachable address returned the same error.
+
+### Colocation with an unset engine
+
+A client opened with `WithEngine(srv)` on a server whose `Config.Engine` is left unset does not recognise the server as async-capable, even with `.Async()` routes, so a client opened before `Start` uses its own event loop instead of the direct path. Results are correct; only the PostgreSQL pool was measured on this path, and it is measurably slower there. Set `Engine: celeris.Adaptive` explicitly on Linux (`celeris.Std` elsewhere) ([celeris#1376](https://github.com/goceleris/celeris/issues/1376)).
 
 ## How this page is made
 

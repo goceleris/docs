@@ -452,7 +452,7 @@
         {
           "id": "typed-aggregates",
           "label": "Hashes, sets, lists and MGet",
-          "returns": "`map[string]string` or `[]string`; a missing key gives an empty map or slice; fields and members may be empty or not ASCII",
+          "returns": "`map[string]string` or `[]string`; `HGetAll`, `SMembers` and `LRange` give an empty map or slice for a missing key; `MGet` gives an empty string for a missing key (see Behavior to know about below); fields and members may be empty or not ASCII",
           "works": [
             "HGetAll",
             "SMembers",
@@ -482,19 +482,23 @@
     {
       "id": "R1",
       "release": "v1.6.0",
-      "summary": "On RESP3 (the default), `DoString` and `DoInt` fail on a double, boolean or big number reply, and `DoSlice` fails on a map reply, where RESP2 returns the value.",
-      "error": "celeris-redis: expected string reply, got double"
+      "summary": "On RESP3 (the default), `DoString` fails on a double, boolean or big number reply, `DoInt` fails on a boolean, and `DoSlice` fails on a map, where RESP2 returns the value.",
+      "error": "celeris-redis: expected string reply, got double",
+      "fix": "#1353"
     },
     {
       "id": "R2",
       "release": "v1.6.0",
-      "summary": "`DoSlice` returns an empty string for every element that is an integer, a double, a boolean or a nested array."
+      "summary": "`DoSlice` returns an empty string for an element that is an integer or a nested array, and on RESP3 also for a double, a boolean or a big number.",
+      "fix": "#1353"
     },
     {
       "id": "R3",
       "release": "v1.6.0",
-      "summary": "On Linux, a single value of 4 MiB or more cannot be written (`SET`, `RPUSH`, `HSET` and the other commands that carry one large argument). macOS and Windows do not have this limit.",
-      "error": "celeris/engine: worker write queue full"
+      "summary": "On Linux, when the driver runs on its own event loop (a client opened without `WithEngine`, or with the engine of a server that has not started or runs the std engine, with async handlers off), a single write above 4 MiB fails, and the connection is closed. That is `SET`, `RPUSH`, `HSET` and the other commands that carry one large argument; the encoded command counts, so a value of exactly 4 MiB fails. A client in direct mode, and macOS and Windows, have no such cap. The fix in review raises the limit to 64 MiB; a single write above that still fails, and chunking it is tracked in the issue.",
+      "error": "celeris/engine: worker write queue full",
+      "fix": "#1362",
+      "issue": "#1357"
     }
   ]
 }
