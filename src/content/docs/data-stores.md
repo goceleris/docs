@@ -273,6 +273,18 @@ satisfies the small provider interface the drivers consume by exposing
 (`celeris/server.go` (`Server.AsyncHandlers`)). The driver pulls the event loop from the first and its
 effective async state from the second.
 
+**The drivers are in beta.** The exported API of the driver packages stays under the
+compatibility check, but behaviour fixes (what a value scans to, which cases return an
+error) may land in minor releases and are listed in the release notes.
+
+One limit applies to all three drivers. A driver opened with `WithEngine(srv)` on a
+server whose `Config.Engine` is left unset does not recognise the server as async-capable
+(`Server.AsyncHandlers()` answers false, even with `.Async()` routes), so it uses its
+integrated path instead of the direct one. Results are correct; the PostgreSQL pool is
+measurably slower on it. Set `Engine: celeris.Adaptive` explicitly, which is the engine the
+default resolves to on Linux
+([celeris#1376](https://github.com/goceleris/celeris/issues/1376)).
+
 ### Redis
 
 ```go
@@ -382,6 +394,36 @@ options (`celeris/driver/postgres/pool.go` (`WithMaxOpen`)):
 
 > The Postgres driver enforces SSL policy from the DSN's `sslmode`. Use a valid
 > `sslmode` for your deployment; the DSN is validated at `Open`/`NewConnector` time.
+
+#### The statement cache
+
+Every connection keeps a least-recently-used cache of server-side prepared
+statements, 256 by default (`WithStatementCacheSize(n)` or `statement_cache_size=n`
+in the DSN). A statement that has arguments (a `SELECT`-style query, or a single
+`INSERT`, `UPDATE` or `DELETE`) is prepared the first time a connection runs it and
+reused afterwards, which skips the parse and plan on the server. A statement without
+arguments uses the simple protocol and is not cached, unless you prepare it with
+`db.Prepare`. `statement_cache_size=0` does not turn the cache off: the driver reads 0
+as 256. `auto_cache_statements=false` only stops the driver from preparing statements
+by itself: a statement with arguments then runs unnamed and is parsed every time.
+
+The key is the statement text. A connection that runs more distinct texts than the
+cache holds evicts the least recently used one and closes it on the server: a
+protocol-level `Close` is sent ahead of the query that evicted it, on the goroutine
+that holds the connection, with no extra round trip and no wait. What a miss costs
+is the round trip that prepares the new statement. Put values in arguments
+(`WHERE id = $1`), not in the text (`WHERE id = 42`, or an `IN (...)` list whose
+length changes), or raise the cache size to the number of distinct texts a connection
+sees. Each cached statement also lives in the server's memory for the life of the
+connection. The cache does not follow a schema change: after `ALTER TABLE ... ALTER
+COLUMN ... TYPE` a statement already cached on a connection fails with SQLSTATE
+`0A000` on that connection until it is closed
+([celeris#1360](https://github.com/goceleris/celeris/issues/1360)).
+
+> Before v1.6.0 an eviction started a background `DEALLOCATE` on the same connection
+> the next query used: a `Pool` hung and a `database/sql` connection on Linux was
+> closed with a protocol error, at the first eviction (the 257th distinct statement
+> with the default size) (celeris#1371). Applications that build SQL text dynamically hit it.
 
 ### Memcached
 

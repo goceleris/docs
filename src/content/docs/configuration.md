@@ -171,7 +171,10 @@ celeris.Config{Workers: 8} // 8 I/O worker goroutines
 The number of I/O worker goroutines. Zero means `GOMAXPROCS`
 (`celeris/internal/resource/preset.go` (`resolveDefaults`), `celeris/internal/resource/resource.go` (`Resources.Resolve`)). If you set it, it must be `>= 2`;
 `Workers: 1` is a config error (`workers must be >= 2 if set`,
-`celeris/internal/resource/config.go` (`Config.Validate`), `celeris/internal/resource/preset.go` (`MinWorkers`)).
+`celeris/internal/resource/config.go` (`Config.Validate`), `celeris/internal/resource/preset.go` (`MinWorkers`)). To start one loop per P on a
+host that may have a single CPU, set `max(2, runtime.GOMAXPROCS(0))`; where `GOMAXPROCS` is 1
+that starts 2 loops on one P. Accepting 1 is tracked in
+[celeris#1379](https://github.com/goceleris/celeris/issues/1379).
 
 ## Timeouts
 

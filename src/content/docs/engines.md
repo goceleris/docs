@@ -128,6 +128,42 @@ machinery). Std is the default and the only engine off Linux (macOS, Windows), a
 it is what you run in tests on a dev laptop. On a pre-5.10 Linux kernel you still
 get epoll — only io_uring needs 5.10+, and Adaptive falls back to epoll there.
 
+### Idle cost of the native engines
+
+A celeris server with no traffic is not free on the native engines. With no
+connections and `Workers` unset, measured on Linux (an arm64 virtual machine, one
+20-second run per engine): the epoll engine uses about 1.7% of one CPU with 3 loops
+(on 4 CPUs) and about 3.6% with 7 loops (on 8 CPUs); the adaptive engine about 1.0% and
+2.2%; the io_uring engine about 0.25% and 0.75%. The std engine and `net/http` use
+none. Each idle epoll loop wakes about 285 times a second and each io_uring loop about
+40 times a second, so the io_uring engine idles at about a sixth of epoll's wake-ups.
+Roughly half of the total is not in the loops themselves: their wake-ups keep the Go
+runtime's sysmon thread polling instead of sleeping. The cost grows with the number of
+loops, does not depend on traffic, is paid once per process, and adds no latency to the
+first request after an idle period. These figures come from one machine type and one
+run each: they are not measured on amd64 or with 16 CPUs, so read them as an order of
+magnitude.
+
+Where idle cost matters, select the io_uring engine where the kernel allows it
+(`Engine: celeris.IOUring`; it needs Linux 5.19 or later and a sufficient
+`RLIMIT_MEMLOCK`, and with a low limit it starts fewer loops and logs a warning), or run
+fewer loops with `Workers` (the minimum is 2). A bounded longer idle wait is planned for
+v1.6.1 ([celeris#1381](https://github.com/goceleris/celeris/issues/1381)).
+
+### Tail latency at light load
+
+At light load the native loop engines' round-trip p99 is higher than the std engine's. Two
+measurements back this, both from issue reports and neither with a known cause. On arm64,
+WebSocket echo at a quarter of the cell's saturation rate (128 connections, 7-byte
+messages, five runs on one host) had a p99 of 1.80 to 2.03 times that of the std engine on
+all eight loop-engine columns, per-run ratios 1.69 to 2.15
+([celeris#1318](https://github.com/goceleris/celeris/issues/1318)). In a separate
+container run (64 connections, async handlers, about 6k messages a second, 13 repetitions
+per cell) the loop engines' round-trip p99 was about twice the std engine's at nearly the
+same goroutine scheduler latency; the source of the difference is not known
+([celeris#1380](https://github.com/goceleris/celeris/issues/1380)). Both are open for
+v1.6.1, and both measurements are arm64 only.
+
 ### Native engines are Linux-only — and selecting one off-Linux is an error
 
 io_uring, epoll, and adaptive depend on Linux kernel facilities, so they cannot run
