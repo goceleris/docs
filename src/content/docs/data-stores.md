@@ -279,10 +279,11 @@ error) may land in minor releases and are listed in the release notes.
 
 One limit applies to all three drivers. A driver opened with `WithEngine(srv)` on a
 server whose `Config.Engine` is left unset does not recognise the server as async-capable
-(`Server.AsyncHandlers()` answers false, even with `.Async()` routes), so it uses its
-integrated path instead of the direct one. Results are correct; the PostgreSQL pool is
-measurably slower on it. Set `Engine: celeris.Adaptive` explicitly, which is the engine the
-default resolves to on Linux
+(`Server.AsyncHandlers()` answers false, even with `.Async()` routes), so a driver opened
+before `Start` uses its own event loop instead of the direct path. Results are correct; only
+the PostgreSQL pool was measured on this path, and it is measurably slower there. Set
+`Engine: celeris.Adaptive` explicitly on Linux, which is the engine the default resolves to
+there (`celeris.Std` elsewhere)
 ([celeris#1376](https://github.com/goceleris/celeris/issues/1376)).
 
 ### Redis
