@@ -426,6 +426,11 @@ COLUMN ... TYPE` a statement already cached on a connection fails with SQLSTATE
 > closed with a protocol error, at the first eviction (the 257th distinct statement
 > with the default size) (celeris#1371). Applications that build SQL text dynamically hit it.
 
+#### Session state on a pooled connection
+
+Session-scoped state set through `Exec` (`SET`, `SET ROLE`, `set_config`, temporary tables, `LISTEN`, `PREPARE`, advisory locks) persists on a pooled connection, on `database/sql` and on the native `Pool`, which never resets.<!-- "as with other drivers" goes here ONLY after the agent doing the ResetSession code PR has verified the reference drivers; do not write it before. --> Use transaction-scoped settings (`SET LOCAL` or `set_config(..., true)`) inside a `Tx`, or a dedicated `db.Conn` cleaned up before it is returned.
+<!-- depends on the ResetSession code PR (number to be filled in). Enable this line when it merges: "A connection released while a transaction is open (or failed) is discarded, not reused." Until then it is not published: this was not verified against main. -->
+
 ### Memcached
 
 ```go
