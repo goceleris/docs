@@ -90,6 +90,13 @@ The tables above come from the driver's round-trip tests. The sections below des
 
 `MGet` and `HMGet` return an empty string for a missing key or hash field, which cannot be told from a stored empty value. When the difference matters, use `Do(ctx, "MGET", keys...)` or `Do(ctx, "HMGET", key, fields...)` and check each element for `TyNull`, or use `Get` and `HGet`, which return `ErrNil` for a miss ([celeris#1406](https://github.com/goceleris/celeris/issues/1406)).
 
+### Pipelines and transactions
+
+Values obtained from a pipeline (strings and typed results) are valid until `Release`; copy what you keep ([celeris#1413](https://github.com/goceleris/celeris/issues/1413)).
+<!-- FALLBACK, add as the next sentence if the pipeline-shell PR misses the pin: "Call Release exactly once; do not use a pipeline or its commands after Release." -->
+
+Finish a `Tx` with `Exec` or `Discard`. `Tx` has no `Close` method; an alias for `Discard` is planned for v1.6.1 ([celeris#1414](https://github.com/goceleris/celeris/issues/1414)).
+
 ### Context deadlines and cancellation
 
 - On a direct-mode connection, a command or `Pipeline.Exec` whose context has a deadline returns the socket's raw `read tcp ...: i/o timeout` when the deadline passes: it matches `os.ErrDeadlineExceeded`, and `errors.Is(err, context.DeadlineExceeded)` is false. A context canceled with `cancel()` (no deadline) is never looked at while a command waits for the server, a blocking one such as `BLPOP` included, and not as replies arrive either: the command returns the server's answer (`Tx.Exec` was not exercised) ([celeris#1387](https://github.com/goceleris/celeris/issues/1387)). A direct-mode connection is a client opened with `WithEngine` on a server that runs async handlers or has started on the epoll, io_uring or adaptive engine, and, off Linux, any client opened with `WithEngine`. The other modes return the context's error. A fix is in review for v1.6.0 ([celeris#1395](https://github.com/goceleris/celeris/pull/1395)).
