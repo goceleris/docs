@@ -384,7 +384,7 @@ options (`celeris/driver/postgres/pool.go` (`WithMaxOpen`)):
 
 | Option                       | Effect | Default |
 | ---------------------------- | ------ | ------- |
-| `WithEngine(srv)`            | Colocate the pool on the server's event loop | standalone loop |
+| `WithEngine(srv)`            | Colocate the pool on the server's event loop | none: a bare `Open(dsn)` is a direct-mode pool (see below) |
 | `WithMaxOpen(n)`             | Total connection cap | `NumWorkers * 4` |
 | `WithMaxIdlePerWorker(n)`    | Per-worker idle list cap | `ceil(MaxOpen / NumWorkers)` |
 | `WithMaxLifetime(d)`         | Max age of a pooled conn | 30m |
@@ -392,6 +392,30 @@ options (`celeris/driver/postgres/pool.go` (`WithMaxOpen`)):
 | `WithHealthCheck(d)`         | Background ping sweep (0 disables) | 30s |
 | `WithStatementCacheSize(n)`  | Per-conn prepared-statement LRU | 256 |
 | `WithApplication(name)`      | `application_name` startup param | none |
+
+#### Which mode is my Pool in, and the 64 MiB result cap
+
+A Pool runs in one of two modes, and the mode decides how a large result is read:
+
+| How the pool is opened | Mode | A result over 64 MiB |
+| --- | --- | --- |
+| a bare `postgres.Open(dsn)` | direct | stops at the cap, `Rows.Err()` returns `ErrResultTooBig` |
+| `WithEngine(srv)` on a server that has started (epoll, io_uring, adaptive), or that runs async handlers | direct | stops at the cap, `Rows.Err()` returns `ErrResultTooBig` |
+| `WithEngine(srv)` on a server that has not started yet (or the std engine, async handlers off) | event loop | streams |
+| `database/sql` (`sql.Open("celeris-postgres", dsn)`) | event loop | streams |
+
+On a direct-mode Pool a result larger than 64 MiB stops at the cap and `Rows.Err()` returns
+`ErrResultTooBig`: always check `Rows.Err()`, because `Next()` just returns false and `Close()`
+returns nil. The cap is fixed (no option, no DSN parameter; the rows delivered are the ones
+that fit under it). A single row larger than the cap fails the query itself (no rows;
+`QueryContext` returns `ErrResultTooBig`); v1.5.11 returned that row and then the error. To
+read larger results use `Pool.CopyTo`, a cursor (`DECLARE` / `FETCH`) inside a transaction, the
+event-loop Pool or `database/sql`, which stream. v1.5.11 also returned `ErrResultTooBig` on
+this path, after buffering the whole result (measured: 656 MiB of heap for a 97.7 MiB result,
+about 6.7 times its size); the current driver stops at the cap
+([celeris#1148](https://github.com/goceleris/celeris/pull/1148); a configurable or streaming
+direct mode is [celeris#1426](https://github.com/goceleris/celeris/issues/1426)). Measured on a
+linux/arm64 container with a 100000-row result of 1 KiB rows against postgres:16, one run each.
 
 > The Postgres driver enforces SSL policy from the DSN's `sslmode`. Use a valid
 > `sslmode` for your deployment; the DSN is validated at `Open`/`NewConnector` time.
