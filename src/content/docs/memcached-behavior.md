@@ -45,11 +45,6 @@ Each gap says what you see, what error you get (or that there is none), and wher
 
 The table above comes from the driver's round-trip tests. The sections below describe behavior it does not show. Each limit names the issue that tracks it.
 
-### An empty value on the binary protocol
-
-On the binary protocol, `Gets` of an item whose value is empty returns the item with its flags and CAS token, as on the text protocol, so the item can be updated with `CAS` ([celeris#1354](https://github.com/goceleris/celeris/pull/1354)). `Get`, `GetBytes` and `GetMulti` return an empty value correctly on both protocols.
-<!-- depends on celeris#1354. If it does not merge before the pin, replace with: "On the memcached binary protocol, Gets of an item whose value is empty returns ErrCacheMiss and no CAS token; the text protocol is correct, and Get and GetBytes return the empty value on both (celeris#1354)." -->
-
 ### Context deadlines and cancellation
 
 If the context ends while the pool is dialling a connection, you get the dialler's own error, `dial tcp ...: i/o timeout` or `dial tcp ...: operation was canceled`. A deadline normally matches `context.DeadlineExceeded`, but the dialler can instead report `os.ErrDeadlineExceeded`; a `cancel()` matches `context.Canceled`. If the context was already over before the dial, you get the context's own error. Test both sentinels, or use `net.Error.Timeout()` ([celeris#1396](https://github.com/goceleris/celeris/issues/1396)). This was measured on the Redis client; the memcached client uses the same dial call and behaves the same by reading the code, and a Get with a 150 ms deadline against an unreachable address returned the same error.
