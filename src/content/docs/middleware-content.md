@@ -34,23 +34,28 @@ go get github.com/goceleris/celeris/middleware/compress
 import "github.com/goceleris/celeris/middleware/compress"
 
 s := celeris.New(celeris.Config{Addr: ":8080"})
-s.Use(compress.New()) // zstd → br → gzip, MinLength 256
+s.Use(compress.New()) // offers zstd, br and gzip, MinLength 256
 ```
 
 Source: `celeris/middleware/compress/compress.go`, `celeris/middleware/compress/config.go`.
 
 ### What it negotiates
 
-`compress.New()` with no config supports **zstd, brotli (`br`), and gzip**, in
-that server-side priority order. The actual codec is chosen by intersecting your
-`Encodings` list with the client's `Accept-Encoding` header (via
-`c.AcceptsEncodings`). `deflate` is supported but **opt-in** — you must add it to
-`Encodings` to enable it.
+`compress.New()` with no config supports **zstd, brotli (`br`), and gzip**. The
+actual codec is chosen by intersecting your `Encodings` list with the client's
+`Accept-Encoding` header (via `c.AcceptsEncodings`): the highest q-value wins, and
+among encodings with the same q-value the one that comes first in the **client's**
+header wins. `Encodings` is not a server-side priority order: its order only breaks a
+tie that remains, for example when the client sends `*`. A client that sends
+`gzip, br` gets gzip, although `br` comes before it in the default list, and an
+explicit q from the client still wins ([celeris#1335](https://github.com/goceleris/celeris/issues/1335)).
+`deflate` is supported but **opt-in** — you must add it to `Encodings` to enable it.
+<!-- celeris#1336 changes this. If it merges before the release, replace the sentences from "among encodings" to "an explicit q from the client still wins" with: "among encodings with the same q-value the first one in `Config.Encodings` wins, not the first one in the client's header; an explicit q from the client still wins. The default order is gzip, zstd, br." and set the default in the example, the Encodings row and the comment below to match. -->
 
 ```go
 s.Use(compress.New(compress.Config{
     MinLength: 1024,                              // don't compress bodies < 1 KiB
-    Encodings: []string{"zstd", "br", "gzip"},   // server priority order
+    Encodings: []string{"zstd", "br", "gzip"},   // the encodings offered; the client's header order ranks equal q-values
     ExcludedContentTypes: []string{"image/", "video/", "audio/"},
 }))
 ```
@@ -60,7 +65,7 @@ s.Use(compress.New(compress.Config{
 | Field                  | Type                       | Default                          | Meaning                                                                                  |
 | ---------------------- | -------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
 | `MinLength`            | `int`                      | `256`                            | Minimum body size in bytes to compress. `0` = compress all non-empty bodies.             |
-| `Encodings`            | `[]string`                 | `["zstd", "br", "gzip"]`         | Supported encodings in priority order. Valid: `zstd`, `br`, `gzip`, `deflate`.           |
+| `Encodings`            | `[]string`                 | `["zstd", "br", "gzip"]`         | Encodings offered; the client's header order ranks equal q-values, this order breaks a remaining tie. Valid: `zstd`, `br`, `gzip`, `deflate`.           |
 | `GzipLevel`            | `compress.Level`           | `LevelDefault`                   | gzip level. Range `-1`..`9`, or `LevelBest`.                                              |
 | `BrotliLevel`          | `compress.Level`           | `LevelDefault`                   | brotli level. Range `-1`..`11`, or `LevelBest`.                                           |
 | `ZstdLevel`            | `compress.Level`           | `LevelDefault`                   | zstd level. Range `-1`..`4` (SpeedBestCompression), or `LevelBest`.                       |
