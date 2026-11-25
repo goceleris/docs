@@ -50,7 +50,12 @@ tie that remains, for example when the client sends `*`. A client that sends
 `gzip, br` gets gzip, although `br` comes before it in the default list, and an
 explicit q from the client still wins ([celeris#1335](https://github.com/goceleris/celeris/issues/1335)).
 `deflate` is supported but **opt-in** — you must add it to `Encodings` to enable it.
-<!-- celeris#1336 changes this. If it merges before the release, replace the sentences from "among encodings" to "an explicit q from the client still wins" with: "among encodings with the same q-value the first one in `Config.Encodings` wins, not the first one in the client's header; an explicit q from the client still wins. The default order is gzip, zstd, br." and set the default in the example, the Encodings row and the comment below to match. -->
+<!-- celeris#1336 changes this. Published ONLY if #1336 merges before the release; then make these four replacements together, because the meaning of Encodings is reversed and not only its default.
+1. In "What it negotiates": the first sentence's list becomes "**gzip, zstd, and brotli (`br`)**", and every word from "The actual codec is chosen" to "an explicit q from the client still wins (celeris#1335)." is replaced by: "The actual codec is chosen from the client's `Accept-Encoding` header by the middleware's own negotiation, not by `c.AcceptsEncodings`: an encoding the client refuses (q=0) or does not offer is dropped, the highest q-value wins, and among the encodings the client offers at the top q-value the **first entry of `Config.Encodings`** wins, not the first in the client's header. `Encodings` is a server-side priority order, and the default order is gzip, zstd, br. An explicit q from the client still wins."
+2. The example's trailing comment on the Encodings line becomes "// server priority order".
+3. The Encodings row of the Config reference: Default `["gzip", "zstd", "br"]`; Meaning "Supported encodings in priority order: among the encodings the client offers at the top q-value, the first one listed here wins. Valid: `zstd`, `br`, `gzip`, `deflate`."
+4. The comment on `s.Use(compress.New())` becomes "// offers gzip, zstd and br (gzip first), MinLength 256".
+Release note (general rule): "Among the encodings a client offers at the top q-value, the first entry of Config.Encodings wins (default gzip, zstd, br). Moves versus v1.5.11 under the default order: `br, gzip` gives gzip (was br); `zstd, br, gzip`, `zstd, gzip` and `deflate, br, gzip` give gzip; `br, zstd` gives zstd (was br); `*` gives gzip (was zstd); equal non-1 q headers and repeated codings give gzip." -->
 
 ```go
 s.Use(compress.New(compress.Config{
