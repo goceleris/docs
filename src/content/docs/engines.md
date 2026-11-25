@@ -320,6 +320,17 @@ cache-bound work: zero handoff, maximum locality. But if such a handler makes a
 **blocking** call (a database round-trip, an upstream HTTP request, a file read),
 it stalls the event loop and every other connection that worker owns.
 
+Writing a large body does the same: an inline handler that writes a large body (tens of
+megabytes) copies it into the outbound buffer on the event-loop thread and keeps that loop
+from serving other connections for the duration. Measured once, for a 64 MiB `c.Blob` over
+HTTP/2 on a 4-CPU linux/arm64 container: the copy takes about 20 to 40 ms on a quiet machine,
+and the slow traces taken during a load disturbance show 0.12 to 0.9 s from the request to
+the first response byte (up to 1.0 s in one trace)
+([celeris#809](https://github.com/goceleris/celeris/issues/809)). Serve large responses from
+`.Async()` routes or a `StreamWriter`, which do not stage the whole body on the loop thread;
+`c.File` avoids the copy only on epoll, over HTTP/1.1, on a server with no async handlers
+(otherwise it reads the file into memory).
+
 The fix is **async dispatch**: the handler runs on a spawned per-connection
 goroutine while the worker returns immediately to the event loop. This trades the
 per-worker serialization ceiling (`Workers × 1/RTT`) for goroutine-per-connection
