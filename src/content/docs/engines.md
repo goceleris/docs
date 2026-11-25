@@ -136,7 +136,7 @@ connections and `Workers` unset, measured on Linux (an arm64 virtual machine, on
 (on 4 CPUs) and about 3.6% with 7 loops (on 8 CPUs); the adaptive engine about 1.0% and
 2.2%; the io_uring engine about 0.25% and 0.75%. The std engine and `net/http` use
 none. Each idle epoll loop wakes about 285 times a second and each io_uring loop about
-40 times a second, so the io_uring engine idles at about a sixth of epoll's wake-ups.
+40 times a second, so the io_uring engine wakes about a seventh as often as epoll and idles at between a fifth and a seventh of its CPU.
 Roughly half of the total is not in the loops themselves: their wake-ups keep the Go
 runtime's sysmon thread polling instead of sleeping. The cost grows with the number of
 loops, does not depend on traffic, is paid once per process, and adds no latency to the
