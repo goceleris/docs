@@ -191,6 +191,34 @@ All timeouts follow the [zero / `-1` convention](#the-zero---1-convention).
 Sources: `celeris/config.go` (`Config.ReadTimeout`, `Config.ReadHeaderTimeout`, `Config.WriteTimeout`, `Config.IdleTimeout`, `Config.ShutdownTimeout`),
 defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`).
 
+### How late a timeout can fire
+
+The native engines enforce `ReadTimeout`, `IdleTimeout` and `WriteTimeout` in a periodic
+sweep of their connections, so a timeout fires up to one sweep period after its time, per
+step. A configured 1 s `ReadTimeout` therefore closes a silent client at about 1 s on epoll
+and can close it more than a second later on io_uring. An HTTP/2 connection takes one more
+sweep: the sweep resets the stream, and the connection is closed at the next one, so a
+request that never arrives is closed about `ReadTimeout` plus two sweeps after it started,
+and a response the client does not take about `WriteTimeout` plus three sweeps after it
+parked (the first sweep takes the baseline).
+
+| Engine | How it is enforced | How late |
+| ------ | ------------------ | -------- |
+| `epoll` | a 25 ms kernel timer (timerfd) on every worker | within about 30 ms; measured: a 1 s `IdleTimeout` closed an idle connection at 1.00 to 1.03 s (docker arm64, 2 CPUs) |
+| `io_uring` | the sweep of the worker: about 0.8 to 1.1 s apart on an idle worker (0.83 s measured, [celeris#1189](https://github.com/goceleris/celeris/issues/1189); about 1 s with `ReadHeaderTimeout` off, plus up to one 100 ms ring wait), near its 25 ms floor on a busy one | up to about one sweep per step; measured on CI: a silent HTTP/2 client that took 64 KiB of an 8 MiB response, `WriteTimeout` 2 s, was closed at 3.13 to 3.96 s ([celeris#1423](https://github.com/goceleris/celeris/issues/1423)) |
+| `adaptive` | the active engine's (epoll at start, io_uring only after a switch) | as that engine |
+| `std` | `net/http`'s own timers (`ReadTimeout`, `WriteTimeout`, `IdleTimeout` are handed to `http.Server`) | no sweep |
+
+The HTTP/1 header deadline (`ReadHeaderTimeout`) and the budget of a connection whose
+protocol is not decided yet have a kernel timer of their own on io_uring and are met within
+milliseconds. A paused or standby io_uring worker, which has no listener, can sweep up to
+about 2 s apart. The per-step sweep period of io_uring is read from the engine's code (a 1 s
+ceiling that an iteration notices at its end); the closing steps of an HTTP/2 connection are
+derived from the code as well, and only the CI range above was measured. Where a timeout of a
+few seconds or less must be exact, use epoll; see
+[Engines](/docs/engines) and the idle back-off tracked in
+[celeris#1381](https://github.com/goceleris/celeris/issues/1381).
+
 ### `ReadHeaderTimeout` is your slow-loris defence
 
 `ReadHeaderTimeout` caps the read of the request line and headers *separately* from
