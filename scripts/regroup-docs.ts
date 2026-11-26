@@ -35,6 +35,9 @@ const IA: Record<string, [string, number]> = {
   // Data & Integration
   "data-stores": ["Data & Integration", 1],
   "net-http-interop": ["Data & Integration", 2],
+  "postgres-types": ["Data & Integration", 3],
+  "redis-replies": ["Data & Integration", 4],
+  "memcached-behavior": ["Data & Integration", 5],
   // Reference
   configuration: ["Reference", 1],
   engines: ["Reference", 2],

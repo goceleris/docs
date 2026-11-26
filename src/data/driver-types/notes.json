@@ -1,0 +1,52 @@
+{
+  "postgres": {
+    "column-types": {
+      "int2": "Values from -32768 to 32767. Scan it into its Go type or a `string`. On the native `Pool`, a `*[]byte` receives the binary wire form on a query with arguments (an error on a streamed result), and the server's text on a query without.",
+      "int8": "The full range of a Go `int64` works, including the minimum and maximum. Scan it into its Go type or a `string`. On the native `Pool`, a `*[]byte` receives the binary wire form on a query with arguments (an error on a streamed result), and the server's text on a query without.",
+      "float4": "Read it into a `float32` or a `float64`.",
+      "float8": "`NaN`, `+Infinity`, `-Infinity`, `1e300` and `5e-324` come back unchanged.",
+      "numeric": "Returned as its decimal text, so no precision is lost: `123456789012345678901234567890.123456789`, `12.50` (the scale is kept) and `NaN` all come back as written. To compute with it, parse it with a decimal library. Scan it into its Go type or a `string`. On the native `Pool`, a `*[]byte` receives the binary wire form on a query with arguments (an error on a streamed result), and the server's text on a query without.",
+      "text": "Any Unicode text, an empty string, and values of 100 KiB work.",
+      "char-n": "The value is padded with spaces to the length `n`, as PostgreSQL does (`ab` in a `char(4)` comes back as `ab  `).",
+      "bytea": "All 256 byte values, an empty value and values of 100 KiB work, on every kind of query.",
+      "json": "Returned as the JSON text, as bytes. Scan it into a `string` or a `[]byte`. The `jsonb` type is not in this table yet, see below.",
+      "uuid": "Returned as text in the usual form, `550e8400-e29b-41d4-a716-446655440000`. Scan it into its Go type or a `string`. On the native `Pool`, a `*[]byte` receives the binary wire form on a query with arguments (an error on a streamed result), and the server's text on a query without.",
+      "date": "Returned as a `time.Time` at midnight UTC.",
+      "timestamp": "Returned as a `time.Time` with no zone: the wall-clock fields are what PostgreSQL stores, read as UTC. Dates from 1970 back to 1708 and forward to 2292 are tested on every kind of query; the years outside that range are in the next row.",
+      "timestamptz": "Returned as a `time.Time` for the same instant that PostgreSQL stores. Do not rely on the zone of the returned value; call `.UTC()` or `.In(...)`.",
+      "enum-a-type-you-create": "Returned as the label, as bytes; scan it into a `string` or a `[]byte`.",
+      "timestamp-timestamptz-before-the-year-1708-or-after-2292": "Read correctly on every kind of query since v1.6.0 (celeris#1344). Inside the range 1708 to 2292 the `timestamp` and `timestamptz` rows above are tested on every kind of query too.",
+      "int4": "Scan it into its Go type or a `string`. On the native `Pool`, a `*[]byte` receives the binary wire form on a query with arguments (an error on a streamed result), and the server's text on a query without.",
+      "date-bc-a-year-before-1": "Read correctly on every kind of query since v1.6.0 (celeris#1341)."
+    },
+    "argument-kinds": {
+      "nil-sql-null": "Passing `nil` writes `NULL` to a column of any type.",
+      "int": "Works for `int2` and `int4`. Use an `int64` for `int8` and `numeric`.",
+      "string": "Also the way to write the types the driver has no Go type for, such as `inet`, `cidr`, `interval`, `time` and arrays: pass their PostgreSQL text form (for example `{1,2,3}` for an array).",
+      "time-time": "The instant is kept, including the zone offset you give it."
+    }
+  },
+  "redis": {
+    "reply-types": {
+      "simple-string": "`OK` and `PONG` are simple strings.",
+      "integer": "The full range of an `int64`, negative numbers and zero work.",
+      "bulk-string": "Any bytes, an empty string, and text in any language. Replies of up to 3 MiB work.",
+      "null": "A missing key, an empty blocking pop, and the holes in an `MGET` reply are all `TyNull`. The typed helpers (`Get`, `LPop`, `HGet`) return `ErrNil` for them.",
+      "map": "On RESP3 you get a `TyMap`; on RESP2 the server sends the same data as a flat list of key and value.",
+      "double": "`+Inf`, `-Inf` and nested doubles (such as `ZRANGE ... WITHSCORES`) work.",
+      "verbatim-string": "`Value.Str` keeps the three-letter format prefix, such as `txt:`; `DoString` removes it.",
+      "array": "Empty arrays, nested arrays and arrays with nulls work."
+    },
+    "other": {
+      "large-values": "A value of 1 MiB to 3 MiB works, and so do values that contain `\\r\\n`, `$` or `+`, which look like protocol."
+    }
+  },
+  "memcached": {
+    "behaviour": {
+      "values": "Both the text and the binary protocol give the same result.",
+      "gets-empty": "The text protocol is correct. With the binary protocol, use `Get` or `GetBytes` for an empty value until the fix: they return it correctly.",
+      "counters": "Counters follow the server's rules: they are unsigned 64-bit numbers.",
+      "multi-get": "The binary protocol pipelines the keys; the result is the same as on the text protocol."
+    }
+  }
+}

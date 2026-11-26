@@ -273,6 +273,10 @@ satisfies the small provider interface the drivers consume by exposing
 (`celeris/server.go` (`Server.AsyncHandlers`)). The driver pulls the event loop from the first and its
 effective async state from the second.
 
+What each driver can read and write, with the Go types to use and the known gaps, is
+listed on [PostgreSQL types](/docs/postgres-types), [Redis replies](/docs/redis-replies)
+and [Memcached behavior](/docs/memcached-behavior).
+
 ### Redis
 
 ```go
@@ -622,6 +626,8 @@ That's why it works as a full-fidelity default for every middleware.
 
 - [Core concepts](/docs/core-concepts) — async dispatch and the handler model.
 - [Engines](/docs/engines) — the epoll / io_uring / std engines that back colocation.
+- [PostgreSQL types](/docs/postgres-types), [Redis replies](/docs/redis-replies) and
+  [Memcached behavior](/docs/memcached-behavior) — what each driver supports, with the known gaps.
 - [Middleware](/docs/middleware) — overview of the built-in middleware that consume
   these stores.
 - [Auth middleware](/docs/middleware-auth) — session, CSRF, and idempotency, all

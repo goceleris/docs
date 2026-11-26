@@ -17,7 +17,9 @@
     "build": "bun run build:data && astro build && pagefind --site dist",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "bun test"
+    "test": "bun test",
+    "driver-types": "bun scripts/driver-types.ts",
+    "driver-types:check": "bun scripts/driver-types.ts --check"
   },
   "dependencies": {
     "@astrojs/mdx": "^8.1.0",
