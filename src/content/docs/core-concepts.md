@@ -264,7 +264,7 @@ they differ only in how they talk to the kernel.
 | --- | --- | --- |
 | `celeris.Adaptive` (default on Linux) | Linux | Dynamically switches between epoll and io_uring based on load |
 | `celeris.Epoll` | Linux | Edge-triggered `epoll` |
-| `celeris.IOUring` | Linux 5.10+ | `io_uring` async I/O |
+| `celeris.IOUring` | Linux 5.19+ | `io_uring` async I/O |
 | `celeris.Std` | All platforms | Go's `net/http` server |
 
 The default engine is `Adaptive` on Linux and `Std` elsewhere (e.g. macOS dev
