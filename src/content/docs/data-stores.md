@@ -435,6 +435,10 @@ What to do. Keep consumers draining and always Close the Rows (or end the contex
 
 Source of the nested-query numbers: E/lanes-20261122/CUT/CONNECTOR-STARTED-ENGINE.md, section 3 (NESTED-QUERY) and its tables; the harness is driver/postgres/cse_nested_test.go. The startup-on-dial prototype (CUT/pg-startup-on-dial.patch) did not help and is not a way out. The nested-query paragraph above is part of candidate A.
 
+CANDIDATE C (PgBouncer and the statement cache; NOT PUBLISHED, NOT RENDERED; the bot decides what the page says; source E/lanes-20261122/CUT/PG-PGBOUNCER-26000.md; issues celeris#1454, #1455; related #1405, #1360):
+
+"CI runs PgBouncer 1.26.1 in transaction and session mode with prepared-statement support on (max_prepared_statements at its default of 200); transaction mode without prepared-statement support (max_prepared_statements=0) is not tested. After DEALLOCATE ALL or DISCARD ALL run by the application, and behind a pooler that drops or renames prepared statements, a repeated parameterised Query or QueryRow of a cached text fails with SQLSTATE 26000 on every call until the entry is evicted or the connection closes, and behind a shared pooler without prepared-statement support it can run another client's statement; put auto_cache_statements=false in the DSN (a Parse per call) and do not use Prepare there. statement_cache_size=0 and WithStatementCacheSize(0) do not turn the cache off (they become 256, #1405)."
+
 CANDIDATE B (a second alternative, ONLY IF the D2 PR is merged, i.e. Connector.WithDirect() exists): replace the last two sentences of "What to do" with: "Use the native Pool without WithEngine, or open the Connector with WithDirect() (direct mode: no worker is shared, a slow consumer affects nobody, a result above 64 MiB stops at the cap; the Connector's WithSocketBusyPoll does not apply to a direct connection)." Do not write WithDirect anywhere before the PR is merged: the name is a proposal.
 -->
 
