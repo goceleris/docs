@@ -341,10 +341,10 @@ db, err := sql.Open("celeris-postgres",
     "postgres://app:pass@localhost/mydb?sslmode=disable")
 ```
 
-In this mode `database/sql` owns the pool and the driver runs on a standalone
-event loop. To colocate a `database/sql` pool with your server, build a
-`*Connector` and rebind it with `WithEngine`, then `sql.OpenDB`
-(`celeris/driver/postgres/connector.go` (`NewConnector`, `Connector.WithEngine`)):
+In this mode `database/sql` owns the pool and, by default, every connection is a direct connection
+(see [database/sql: direct by default](#databasesql-direct-by-default-withstreaming-for-the-event-loop)
+below). To set the Connector's options, build a `*Connector` and open it with `sql.OpenDB`
+(`celeris/driver/postgres/connector.go` (`NewConnector`, `Connector.WithMaxResultBytes`)):
 
 ```go
 import "github.com/goceleris/celeris/driver/postgres"
@@ -353,9 +353,13 @@ conn, err := postgres.NewConnector("postgres://app:pass@localhost/mydb?sslmode=d
 if err != nil {
     log.Fatal(err)
 }
-db := sql.OpenDB(conn.WithEngine(srv)) // colocated *sql.DB
+db := sql.OpenDB(conn.WithMaxResultBytes(256 << 20)) // direct connections, 256 MiB result cap
 defer db.Close()
 ```
+
+`Connector.WithEngine(srv)` binds the Connector to the server's event loops, but only a
+Connector with `WithStreaming()` uses them (and one bound to a server that had already started
+on epoll, io_uring or adaptive is direct all the same): see the section below.
 
 **(b) Direct `Pool`** — skips `database/sql` overhead and pins connections to
 worker-affinity slots. This is the peak-throughput path
@@ -389,7 +393,7 @@ options (`celeris/driver/postgres/pool.go` (`WithMaxOpen`)):
 | `WithMaxIdlePerWorker(n)`    | Per-worker idle list cap | `ceil(MaxOpen / NumWorkers)` |
 | `WithMaxLifetime(d)`         | Max age of a pooled conn | 30m |
 | `WithMaxIdleTime(d)`         | Max idle before eviction | 5m |
-| `WithHealthCheck(d)`         | Background ping sweep (0 disables) | 30s |
+| `WithHealthCheck(d)`         | Interval of the background ping sweep; 0 selects the default (it does not disable the sweep), a negative value turns it off | 30s |
 | `WithStatementCacheSize(n)`  | Per-conn prepared-statement LRU | 256 |
 | `WithMaxResultBytes(n)`      | Result buffer cap of a direct connection (n of 1 or more) | 64 MiB |
 | `WithApplication(name)`      | `application_name` startup param | none |
@@ -442,16 +446,12 @@ What the default changes, each with its one-line way back:
 - `Connector.WithSocketBusyPoll` and the server's `SocketBusyPoll` apply to the event loop only; the default connections make no `SO_BUSY_POLL` call.
 - A statement that runs past a deadline returns `context.DeadlineExceeded` (a cancelled context, `context.Canceled`), not a `*PGError` with SQLSTATE 57014.
 
-What the default removes, measured on postgres:16 (linux/arm64, a 10-CPU laptop shared with other work; the tests are in `celeris/test/conformance/postgres`, merged with celeris#1441, each run against the default and, as a control, with `streaming=true`):
+In v1.5.x every `database/sql` connection ran on the event loop and had these two stalls. Measured on postgres:16 (linux/arm64, a 10-CPU laptop shared with other work; the tests are in `celeris/test/conformance/postgres`, added by celeris#1441, each run against the default and, as a control, with `streaming=true`), the default does not have them:
 
-| case | default (direct) | control on the event loop |
+| case | default (direct) | event loop (`streaming=true`) |
 | --- | --- | --- |
-| a second statement on a `Tx` while a streaming result is open | 1,000 rows each with its marker, then all 100,000 rows in order | blocked for more than 20 s, then the 90 s watchdog |
-| one 300,000-row result held open and not read, 16 callers on `SELECT 1` (24 connections) | 0 errors, max latency under 3 s | still running after 1 min (watchdog) |
-| 200 iterations of a 300,000-row query under a 0.2 to 15 ms deadline | none hung | SQLSTATE 57014 in iterations 1 and 2, a 30 s hang in iteration 5 |
-| a nested query inside a loop over a 3,000-row result, pool sizes 2, 4, 16, 32 (half as many callers) | all pass | size 16 failed in 3 of 3 runs (a nested query got "startup timed out", then the 60 s watchdog), size 32 in the one run that reached it; sizes 2 and 4 passed every time |
-
-A consumer reading one row per 200 us did not stall the event loop in its one control run, so that case does not tell the two modes apart.
+| one 300,000-row result held open and not read, 16 callers on `SELECT 1` (24 connections) | 0 errors, max latency under 3 s | the callers on the paused consumer's worker wait, up to their own deadline or for ever |
+| a nested query inside a loop over a 3,000-row result, pool sizes 2, 4, 16, 32 (half as many callers) | all pass | a nested query can stall under concurrency |
 
 **`WithStreaming` brings the limits of the event-loop path with it** (they also apply to a native Pool opened with `WithEngine` on a server that has not started):
 
@@ -459,7 +459,7 @@ A consumer reading one row per 200 us did not stall the event loop in its one co
 - A paused or slow consumer stalls the queries that share its worker: a streaming result is read by an event-loop worker that waits for the consumer to take the next row, and that worker serves every other connection placed on it, so their calls wait, up to their own deadline or for ever ([celeris#1436](https://github.com/goceleris/celeris/issues/1436)).
 - `Close` of a `DB`, a `Conn` or a `Pool` waits for an unread streaming result: with an open, unread streaming result, `db.Close` and `Pool.Close` block ([celeris#1436](https://github.com/goceleris/celeris/issues/1436)).
 - After the first rows have arrived, a deadline ends `Next` but `Close` still reads the rest of the reply and sends no cancel: for a long result under a deadline, `Close` takes as long as the server takes to finish it ([celeris#1443](https://github.com/goceleris/celeris/issues/1443)).
-- A query issued inside a loop over another query's rows can stall under concurrency: the worker waits for the consumer to take a row while the nested query's reply needs that same worker (the table above shows it at pool sizes 16 and 32). Read the outer rows first.
+- A query issued inside a loop over another query's rows can stall under concurrency: the worker waits for the consumer to take a row while the nested query's reply needs that same worker. Read the outer rows first.
 
 **Cancelling a context.** On a direct connection a context that ends while a statement runs ends the call, whether it ended by a deadline or by a cancel with no deadline ([celeris#1447](https://github.com/goceleris/celeris/pull/1447); before it, only a deadline did): the driver sends a CancelRequest and the call returns the context's error. Each CancelRequest is a new connection to the PostgreSQL postmaster: about 20 to 30 ms each, measured on a loaded host. There is no measured ceiling on the CancelRequest rate a server tolerates when many request contexts are cancelled at once. If the cancel exchange does not finish within 1 s (the dial is refused, the write fails, or the server does not close the cancel connection), the connection is discarded and replaced (a new dial and authentication), the call returns the context's error at once, and the statement may keep running on the server until it finishes.
 
@@ -496,6 +496,12 @@ COLUMN ... TYPE` a statement already cached on a connection fails with SQLSTATE
 > closed with a protocol error, at the first eviction (the 257th distinct statement
 > with the default size) (celeris#1371). Applications that build SQL text dynamically hit it.
 
+#### Behind a connection pooler
+
+A pooler that shares server connections between clients and does not track prepared statements (PgBouncer in transaction mode with `max_prepared_statements=0`) is not supported with the default DSN. About half of the `SELECT` calls with arguments fail with SQLSTATE `26000` (in the runs, 279 to 315 of 600 calls per client), and the named statements the driver creates accumulate on the server connections until the pooler recycles them ([celeris#1462](https://github.com/goceleris/celeris/issues/1462)): in a measurement with 50 client connections of 256 statements each, three runs in a row without restarting the pooler left about 6,400, then 12,800, then 19,000 statements on each server connection (up to 464 MiB per server connection), against 256 on a direct connection. Set `auto_cache_statements=false` in the DSN. An explicit `Prepare` (`db.Prepare`, `Conn.PrepareContext`) does not work behind such a pooler. With prepared-statement support on in the pooler (PgBouncer with `max_prepared_statements` above 0, the configuration the driver's CI tests) the default works, and the pooler bounds the statements (200 per server connection in that configuration).
+
+`auto_cache_statements` (DSN parameter; `true`, `1`, `on`, `yes` or `false`, `0`, `off`, `no`; default `true`). By default a statement with arguments (a `SELECT`-style query, or a single `INSERT`, `UPDATE` or `DELETE`) is prepared the first time a connection runs it, under a name the driver makes up, and reused afterwards from the connection's statement cache (`statement_cache_size`, default 256). With `auto_cache_statements=false` the driver creates no named server-side statement for `Query`, `QueryRow` or `Exec`: a statement with arguments is sent unnamed, as Parse, Bind, Execute and Sync in one flight, and is parsed on every call. A statement without arguments uses the simple protocol and is never cached, with either setting. Explicit `Prepare` always creates a named statement, whatever this setting says. `statement_cache_size=0` and `WithStatementCacheSize(0)` do not turn the cache off: 0 is read as 256 ([celeris#1405](https://github.com/goceleris/celeris/issues/1405)). There is no `Pool` option for `auto_cache_statements`, only the DSN parameter.
+
 #### Session state on a pooled connection
 
 Session-scoped state set through `Exec` (`SET`, `SET ROLE`, `set_config`, temporary tables, `LISTEN`, `PREPARE`, advisory locks) persists on a pooled connection, on `database/sql` and on the native `Pool`, which never resets ([celeris#1409](https://github.com/goceleris/celeris/issues/1409)). Use transaction-scoped settings (`SET LOCAL` or `set_config(..., true)`) inside a `Tx`, or a dedicated `db.Conn` cleaned up before it is returned.
@@ -506,11 +512,17 @@ A connection released while a transaction is open (or failed) is discarded, not 
 
 **The pool's `MaxOpen` is a soft limit** ([celeris#1457](https://github.com/goceleris/celeris/issues/1457)). Under heavy contention the pool can dial a new connection at the moment an idle one is being returned, so it may hold one or two connections more than `MaxOpen` (in the measurement the peak was `MaxOpen` plus 1 or 2, and it did not climb further). The extra connections are not handed to two callers at once (in the measurement no connection was ever out twice). The pool code (`celeris/driver/internal/async/pool.go`) is shared by the native Postgres `Pool`, the Redis client and the memcached client, which therefore have the same soft limit; `database/sql` has its own pool and is not affected. When you size the server's `max_connections` (or Redis's `maxclients`, or memcached's connection limit), leave room for `MaxOpen` plus 2 per pool.
 
-**`MaxIdleTime` is not enforced on the Postgres `Pool` while the health check runs**, which is the default ([celeris#1458](https://github.com/goceleris/celeris/issues/1458)). The health check pings every idle connection (every 30 s by default), the ping counts as a use of the connection, and so its idle time starts again at every sweep. When `MaxIdleTime` is longer than the health-check interval, as at the defaults (5 minutes against 30 seconds), the connection never reaches it. An idle connection is closed only when it reaches `MaxLifetime` (30 minutes by default) or when its worker's idle list is full. A pool therefore keeps up to `MaxOpen` connections (plus up to two, see above) for up to `MaxLifetime` after a burst, not for `MaxIdleTime`: at the defaults on a host with 8 workers, `MaxOpen` is 8 x 4 = 32 and each worker may keep 4 idle connections, so up to 34 server connections can stay open for 30 minutes after a burst, per `Pool`. When you size `max_connections`, count every `Pool` of every process at `MaxOpen` + 2 for the whole `MaxLifetime`. The Redis and memcached clients enforce `MaxIdleTime`.
+**`MaxIdleTime` is not enforced on the Postgres `Pool` while the health check runs**, which is the default ([celeris#1458](https://github.com/goceleris/celeris/issues/1458)). The health check pings every idle connection (every 30 s by default), the ping counts as a use of the connection, and so its idle time starts again at every sweep. When `MaxIdleTime` is longer than the health-check interval, as at the defaults (5 minutes against 30 seconds), the connection never reaches it. There is one way to make `MaxIdleTime` effective today: set `WithHealthCheck` to an interval longer than `MaxIdleTime`, so that the sweep finds a connection that has been idle since the sweep before it and closes it (by the code of the sweep, a connection is closed at the first or second sweep after it became idle; this was not measured). Turning the sweep off with a negative `WithHealthCheck` does not help: `MaxIdleTime` and `MaxLifetime` are then checked only when a connection is taken from its worker's idle list or returned to it, and the most recently returned connection is taken first, so older idle connections stay until they are taken or the pool is closed. `WithMaxIdlePerWorker` bounds how many idle connections a worker keeps (a connection returned beyond it is closed), not how long they stay. An idle connection is closed only when it reaches `MaxLifetime` (30 minutes by default) or when its worker's idle list is full. A pool therefore keeps up to `MaxOpen` connections (plus up to two, see above) for up to `MaxLifetime` after a burst, not for `MaxIdleTime`: at the defaults on a host with 8 workers, `MaxOpen` is 8 x 4 = 32 and each worker may keep 4 idle connections, so up to 34 server connections can stay open for 30 minutes after a burst, per `Pool`. When you size `max_connections`, count every `Pool` of every process at `MaxOpen` + 2 for the whole `MaxLifetime`. The Redis and memcached clients enforce `MaxIdleTime`.
 
 **A cached `Query` fails after `DEALLOCATE ALL` or `DISCARD ALL`** ([celeris#1454](https://github.com/goceleris/celeris/issues/1454)). If the application runs `DEALLOCATE ALL` or `DISCARD ALL` on a connection (or a pooler between the driver and the server drops the prepared statements), a `Query` or `QueryRow` with arguments whose statement that connection has cached fails with SQLSTATE `26000` (the prepared statement does not exist), and it fails again on every later call, because a statement that stays in use is never evicted from the cache. `Exec` re-prepares the statement and is not affected. In a measurement with a `DEALLOCATE ALL` every 50 calls, about 1,800 of 2,000 `Query` calls with arguments failed and no `Exec` did. `statement_cache_size=0` does not help (the driver reads 0 as 256). What works: `auto_cache_statements=false` in the DSN (a statement with arguments then runs unnamed and is parsed on every call; no failure in the measurement), a statement prepared with `db.Prepare` (no failure in the measurement), or not running those commands on a pooled connection.
 
 **`CopyFrom` after a context error may have committed.** A context that ends while the call waits for the server to accept the COPY closes the connection and returns the context's error, and no row was written. A context that ends later, once the server has accepted the COPY, can return an error although the COPY committed: the call returns `ctx.Err()` on one path and the server's cancellation error (a `*PGError` with SQLSTATE `57014`, which does not match `errors.Is(err, context.DeadlineExceeded)`) on another, and the server may already have committed the rows. In a run of 400 calls per mode with tight deadlines, 187 (direct mode) and 156 (event loop) returned an error although the COPY had committed. Do not retry a `CopyFrom` that returned a context error without checking the table: a retry can duplicate rows.
+
+**A deadline that passes before the first row still has the whole reply read** ([celeris#1466](https://github.com/goceleris/celeris/issues/1466)). On a direct-mode `Pool`, when a statement's context deadline passes before any row has arrived, the driver still reads, parses and buffers the whole reply (up to the 64 MiB cap) while it drains the cancelled statement, so the call can return seconds after its deadline and holds the result's memory meanwhile.
+
+**Calls right after the server resets connections can fail a few times** ([celeris#1465](https://github.com/goceleris/celeris/issues/1465)). On Linux, on the event-loop path (a native `Pool` opened with `WithEngine` on a server that has not started, and `database/sql` with `WithStreaming`), calls made right after the server closed or reset the connections can fail several times in a row with `celeris/engine: file descriptor not registered` on the same connection. It heals within milliseconds; with a 20 ms pause between calls no repeated failure was seen.
+
+**After a server restart the first statement on each idle `database/sql` connection fails once** ([celeris#1467](https://github.com/goceleris/celeris/issues/1467)). The same holds after a failover or `pg_terminate_backend`; the next statement works. On the default (direct) connections the error is the server's own FATAL error (a `*PGError`, SQLSTATE 57P01 for `pg_terminate_backend`; it does not match `ErrClosed`), or a connection-loss error that matches `ErrClosed` when the server only closed the socket; the `WithStreaming` path reconnects with no error. v1.5.x failed that statement too, with `ErrClosed`. Code that retries only on `ErrClosed` or `driver.ErrBadConn` must also retry on SQLSTATE class 57P.
 
 #### Errors from writes
 
@@ -531,6 +543,12 @@ defer mc.Close()
 `memcached.NewClient(addr, opts...)` (`celeris/driver/memcached/client.go` (`NewClient`)) follows the
 same shape as the Redis client and accepts `WithEngine` to colocate. TLS is not
 supported.
+
+#### Known limits of the Redis and memcached drivers
+
+- **Redis, a failed `Pipeline.Exec`:** when a deadline fires while the server drops the connection, two code paths can both record the error of the same command, so which error it reports (the connection's `EOF` or the context's) is not fixed, and the race detector can report it ([celeris#1433](https://github.com/goceleris/celeris/issues/1433); the fix is planned for v1.6.1).
+- **Redis, a `Pipeline` after `Release`:** do not use a `Pipeline`, or a command handle it returned (`*StringCmd`, `*IntCmd`, ...), after `Release`: the Pipeline belongs to the pool again, and reading a handle you kept is undefined. Call `Release` at most once, and copy what you keep past `Release` (for example with `strings.Clone`): values read from a Pipeline are valid until `Release`.
+- **memcached, binary `Add` on an existing key:** on the binary protocol `Add` (and `AddBytes`) on a key that already exists returns `ErrCASConflict` instead of `ErrNotStored`, as the `Add` doc comment says; the text protocol returns `ErrNotStored`. Nothing is stored in either case ([celeris#1451](https://github.com/goceleris/celeris/issues/1451)).
 
 ### Cache-aside: Redis in front of Postgres
 

@@ -108,7 +108,7 @@ The I/O engine that drives the accept/read/write loop. The native engines are
 | ------------------- | ------------- | --------------------------------------------------- |
 | `celeris.Adaptive`  | Linux only    | **Default on Linux.** Starts on epoll, promotes connections to io_uring under load |
 | `celeris.Epoll`     | Linux only    | Edge-triggered epoll                                 |
-| `celeris.IOUring`   | Linux 5.10+   | io_uring async I/O                                   |
+| `celeris.IOUring`   | Linux 5.19+   | io_uring async I/O                                   |
 | `celeris.Std`       | any platform  | **Default off-Linux.** Go `net/http` server         |
 
 Defined in `celeris/config.go` (`EngineType`). The zero value resolves to `Adaptive` on
