@@ -277,14 +277,14 @@ effective async state from the second.
 compatibility check, but behaviour fixes (what a value scans to, which cases return an
 error) may land in minor releases and are listed in the release notes.
 
-One limit applies to all three drivers. A driver opened with `WithEngine(srv)` on a
-server whose `Config.Engine` is left unset does not recognise the server as async-capable
-(`Server.AsyncHandlers()` answers false, even with `.Async()` routes), so a driver opened
-before `Start` uses its own event loop instead of the direct path. Results are correct; only
-the PostgreSQL pool was measured on this path, and it is measurably slower there. Set
-`Engine: celeris.Adaptive` explicitly on Linux, which is the engine the default resolves to
-there (`celeris.Std` elsewhere)
-([celeris#1376](https://github.com/goceleris/celeris/issues/1376)).
+One limit applied to all three drivers and is fixed ([celeris#1376](https://github.com/goceleris/celeris/issues/1376),
+[celeris#1477](https://github.com/goceleris/celeris/pull/1477)). `Server.AsyncHandlers()` now resolves
+an unset `Config.Engine` as `Start` does, so a driver opened with `WithEngine(srv)` takes the direct path
+on a server that has async handlers, with `Config.Engine` set or not. Before the fix an unset engine made
+`Server.AsyncHandlers()` answer false, even with `.Async()` routes, so a driver opened before `Start` used
+its own event loop; results were correct, only the PostgreSQL pool was measured on that path, and it is
+measurably slower there. Setting `Engine: celeris.Adaptive` explicitly on Linux (`celeris.Std` elsewhere)
+avoided it.
 
 ### Redis
 
@@ -406,7 +406,7 @@ A Pool, or a `database/sql` handle, runs in one of two modes, and the mode decid
 | --- | --- | --- |
 | a bare `postgres.Open(dsn)` | direct | stops at the cap, `Rows.Err()` returns `ErrResultTooBig` |
 | `WithEngine(srv)` on a server that has started (epoll, io_uring, adaptive), or that runs async handlers | direct | stops at the cap, `Rows.Err()` returns `ErrResultTooBig` |
-| `WithEngine(srv)` on a server that has not started yet (or the std engine, async handlers off) | event loop | streams |
+| `WithEngine(srv)` on a server that has not started yet and has no async handlers (no `Config.AsyncHandlers` and no `.Async()` route), or on the std engine | event loop | streams |
 | `database/sql` (`sql.Open("celeris-postgres", dsn)`, `NewConnector`) | direct | stops at the cap, `Rows.Err()` returns `ErrResultTooBig` |
 | `database/sql` with `Connector.WithStreaming()` or `streaming=true` in the DSN | event loop | streams |
 | `database/sql` with `Connector.WithStreaming()`, the Connector bound with `WithEngine(srv)` to a server that had already started (epoll, io_uring, adaptive) | direct | stops at the cap, `Rows.Err()` returns `ErrResultTooBig` |
@@ -442,7 +442,7 @@ What the default changes, each with its one-line way back:
 
 - A result above the cap fails with `ErrResultTooBig` after the rows that fit: raise `WithMaxResultBytes`, or use `WithStreaming`, or paginate.
 - The first row arrives after the whole result has been read, and memory is proportional to the result up to the cap (by design). Each in-flight query holds its whole result, so N concurrent connections can hold N times the cap.
-- `LISTEN` and `UNLISTEN` fail with `ErrDirectModeUnsupported`. `Connector.WithStreaming` (or `streaming=true`) accepts the statements, but the driver has no way to receive notifications on any connection, so none is delivered (v1.5.11 accepted `LISTEN` and dropped the notifications in the same way). `NOTIFY` is not affected.
+- `LISTEN` and `UNLISTEN` fail with `ErrDirectModeUnsupported` on direct connections. LISTEN/NOTIFY is not supported: the driver has no way to deliver notifications. On the event-loop path (`WithStreaming`) the statements are accepted and notifications are discarded, as in v1.5.11. `NOTIFY` works on every path; listen on a dedicated connection from another library (pgx or lib/pq).
 - `Connector.WithSocketBusyPoll` and the server's `SocketBusyPoll` apply to the event loop only; the default connections make no `SO_BUSY_POLL` call.
 - A statement that runs past a deadline returns `context.DeadlineExceeded` (a cancelled context, `context.Canceled`), not a `*PGError` with SQLSTATE 57014.
 
@@ -453,7 +453,7 @@ In v1.5.x every `database/sql` connection ran on the event loop and had these tw
 | one 300,000-row result held open and not read, 16 callers on `SELECT 1` (24 connections) | 0 errors, max latency under 3 s | the callers on the paused consumer's worker wait, up to their own deadline or for ever |
 | a nested query inside a loop over a 3,000-row result, pool sizes 2, 4, 16, 32 (half as many callers) | all pass | a nested query can stall under concurrency |
 
-**`WithStreaming` brings the limits of the event-loop path with it** (they also apply to a native Pool opened with `WithEngine` on a server that has not started):
+**`WithStreaming` brings the limits of the event-loop path with it** (they also apply to a native Pool opened with `WithEngine` on a server that has not started yet and has no async handlers):
 
 - A second statement on a `Tx` or `sql.Conn` (or on a native `Pool` `Tx`) while a streaming result (64 rows or more) is still open returns `ErrRowsOpen` at once, without sending anything ([celeris#1449](https://github.com/goceleris/celeris/pull/1449)). Read the rows to the end or `Close` them first; after cancelling a query's context, call `rows.Close()` before the next statement. On v1.5.11 the second statement did not return (blocked after 15 s with a 3 s context, and `db.Close` blocked 10 s more). On a native `Pool` `Tx`, `Commit` over an open streaming result sends nothing, ends the transaction (it is rolled back, not committed) and returns `ErrRowsOpen`: close the rows before `Commit`. A `*sql.DB` is not affected (the second statement takes another connection), and a result of fewer than 64 rows never triggers it.
 - A paused or slow consumer stalls the queries that share its worker: a streaming result is read by an event-loop worker that waits for the consumer to take the next row, and that worker serves every other connection placed on it, so their calls wait, up to their own deadline or for ever ([celeris#1436](https://github.com/goceleris/celeris/issues/1436)).
@@ -520,9 +520,11 @@ A connection released while a transaction is open (or failed) is discarded, not 
 
 **A deadline that passes before the first row still has the whole reply read** ([celeris#1466](https://github.com/goceleris/celeris/issues/1466)). On a direct-mode `Pool`, when a statement's context deadline passes before any row has arrived, the driver still reads, parses and buffers the whole reply (up to the 64 MiB cap) while it drains the cancelled statement, so the call can return seconds after its deadline and holds the result's memory meanwhile.
 
-**Calls right after the server resets connections can fail a few times** ([celeris#1465](https://github.com/goceleris/celeris/issues/1465)). On Linux, on the event-loop path (a native `Pool` opened with `WithEngine` on a server that has not started, and `database/sql` with `WithStreaming`), calls made right after the server closed or reset the connections can fail several times in a row with `celeris/engine: file descriptor not registered` on the same connection. It heals within milliseconds; with a 20 ms pause between calls no repeated failure was seen.
+**Calls right after the server resets connections can fail a few times** ([celeris#1465](https://github.com/goceleris/celeris/issues/1465)). On Linux, on the event-loop path (a native `Pool` opened with `WithEngine` on a server that has not started yet and has no async handlers, and `database/sql` with `WithStreaming`), calls made right after the server closed or reset the connections can fail several times in a row with `celeris/engine: file descriptor not registered` on the same connection. It heals within milliseconds; with a 20 ms pause between calls no repeated failure was seen.
 
 **After a server restart the first statement on each idle `database/sql` connection fails once** ([celeris#1467](https://github.com/goceleris/celeris/issues/1467)). The same holds after a failover or `pg_terminate_backend`; the next statement works. On the default (direct) connections the error is the server's own FATAL error (a `*PGError`, SQLSTATE 57P01 for `pg_terminate_backend`; it does not match `ErrClosed`), or a connection-loss error that matches `ErrClosed` when the server only closed the socket. v1.5.x failed that statement too, with `ErrClosed`. Code that retries only on `ErrClosed` or `driver.ErrBadConn` must also retry on SQLSTATE class 57P.
+
+**LISTEN/NOTIFY is not supported** ([celeris#1480](https://github.com/goceleris/celeris/issues/1480)). The driver has no way to deliver notifications. On direct connections `LISTEN` and `UNLISTEN` are refused with `ErrDirectModeUnsupported`; on the event-loop path the statement is accepted and notifications are discarded.
 
 #### Errors from writes
 
