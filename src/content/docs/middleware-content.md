@@ -45,8 +45,7 @@ Source: `celeris/middleware/compress/compress.go`, `celeris/middleware/compress/
 codec is chosen from the client's `Accept-Encoding` header and your `Encodings`
 list: the highest q-value wins, and among the encodings accepted at that q-value
 the one that comes first in `Encodings` wins, not the one the client lists first.
-`q=0` still refuses an encoding. `compress` reads the `Accept-Encoding` header itself
-and does not go through `c.AcceptsEncodings`. The default order is `["gzip", "zstd", "br"]`, so
+`q=0` still refuses an encoding. The default order is `["gzip", "zstd", "br"]`, so
 browsers (`gzip, deflate, br, zstd`) and `gzip, br` clients get gzip. A client that
 lists `br` or `zstd` before gzip at equal weight, or sends `*` alone, now gets gzip,
 and a client that accepts `br` and `zstd` equally without gzip gets zstd. If you set
