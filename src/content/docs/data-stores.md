@@ -277,14 +277,7 @@ effective async state from the second.
 compatibility check, but behaviour fixes (what a value scans to, which cases return an
 error) may land in minor releases and are listed in the release notes.
 
-One limit applied to all three drivers and is fixed ([celeris#1376](https://github.com/goceleris/celeris/issues/1376),
-[celeris#1477](https://github.com/goceleris/celeris/pull/1477)). `Server.AsyncHandlers()` now resolves
-an unset `Config.Engine` as `Start` does, so a driver opened with `WithEngine(srv)` takes the direct path
-on a server that has async handlers, with `Config.Engine` set or not. Before the fix an unset engine made
-`Server.AsyncHandlers()` answer false, even with `.Async()` routes, so a driver opened before `Start` used
-its own event loop; results were correct, only the PostgreSQL pool was measured on that path, and it is
-measurably slower there. Setting `Engine: celeris.Adaptive` explicitly on Linux (`celeris.Std` elsewhere)
-avoided it.
+A driver opened with `WithEngine(srv)` on a server with async handlers takes the direct path, whether `Config.Engine` is set or not.
 
 ### Redis
 
@@ -442,7 +435,7 @@ What the default changes, each with its one-line way back:
 
 - A result above the cap fails with `ErrResultTooBig` after the rows that fit: raise `WithMaxResultBytes`, or use `WithStreaming`, or paginate.
 - The first row arrives after the whole result has been read, and memory is proportional to the result up to the cap (by design). Each in-flight query holds its whole result, so N concurrent connections can hold N times the cap.
-- `LISTEN` and `UNLISTEN` fail with `ErrDirectModeUnsupported` on direct connections. LISTEN/NOTIFY is not supported: the driver has no way to deliver notifications. On the event-loop path (`WithStreaming`) the statements are accepted and notifications are discarded, as in v1.5.11. `NOTIFY` works on every path; listen on a dedicated connection from another library (pgx or lib/pq).
+- `LISTEN` and `UNLISTEN` fail with `ErrDirectModeUnsupported` on direct connections. LISTEN/NOTIFY is not supported: the driver has no way to deliver notifications. On the event-loop path (`WithStreaming`) the statements are accepted and notifications are discarded, as in v1.5.11. `NOTIFY` works on every path; listen on a dedicated connection from another library, such as pgx.
 - `Connector.WithSocketBusyPoll` and the server's `SocketBusyPoll` apply to the event loop only; the default connections make no `SO_BUSY_POLL` call.
 - A statement that runs past a deadline returns `context.DeadlineExceeded` (a cancelled context, `context.Canceled`), not a `*PGError` with SQLSTATE 57014.
 
