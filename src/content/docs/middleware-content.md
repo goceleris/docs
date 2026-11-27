@@ -34,27 +34,36 @@ go get github.com/goceleris/celeris/middleware/compress
 import "github.com/goceleris/celeris/middleware/compress"
 
 s := celeris.New(celeris.Config{Addr: ":8080"})
-s.Use(compress.New()) // offers zstd, br and gzip, MinLength 256
+s.Use(compress.New()) // offers gzip, zstd and br, MinLength 256
 ```
 
 Source: `celeris/middleware/compress/compress.go`, `celeris/middleware/compress/config.go`.
 
 ### What it negotiates
 
-`compress.New()` with no config supports **zstd, brotli (`br`), and gzip**. The
-actual codec is chosen by intersecting your `Encodings` list with the client's
-`Accept-Encoding` header (via `c.AcceptsEncodings`): the highest q-value wins, and
-among encodings with the same q-value the one that comes first in the **client's**
-header wins. `Encodings` is not a server-side priority order: its order only breaks a
-tie that remains, for example when the client sends `*`. A client that sends
-`gzip, br` gets gzip, although `br` comes before it in the default list, and an
-explicit q from the client still wins ([celeris#1335](https://github.com/goceleris/celeris/issues/1335)).
+`compress.New()` with no config supports **gzip, zstd and brotli (`br`)**. The
+codec is chosen from the client's `Accept-Encoding` header and your `Encodings`
+list: the highest q-value wins, and among the encodings accepted at that q-value
+the one that comes first in `Encodings` wins, not the one the client lists first.
+`q=0` still refuses an encoding. `compress` reads the `Accept-Encoding` header itself
+and does not go through `c.AcceptsEncodings`. The default order is `["gzip", "zstd", "br"]`, so
+browsers (`gzip, deflate, br, zstd`) and `gzip, br` clients get gzip. A client that
+lists `br` or `zstd` before gzip at equal weight, or sends `*` alone, now gets gzip,
+and a client that accepts `br` and `zstd` equally without gzip gets zstd. If you set
+`Encodings` yourself, its order now applies to browser headers too: the old default
+written out, `["zstd", "br", "gzip"]`, gives a browser zstd instead of gzip, and an
+order with `br` first gives browsers and `gzip, br` clients `br`, which costs 3.7 to
+5.6 times the CPU of gzip ([celeris#1335](https://github.com/goceleris/celeris/issues/1335)).
+No fixed order reproduces the client's header order; the nearest is gzip first, which
+moves a client that lists `br` before gzip from `br` to gzip. Only the first
+`Accept-Encoding` header line is read, and only its first 64 entries
+([celeris#1481](https://github.com/goceleris/celeris/issues/1481)).
 `deflate` is supported but **opt-in** — you must add it to `Encodings` to enable it.
 
 ```go
 s.Use(compress.New(compress.Config{
     MinLength: 1024,                              // don't compress bodies < 1 KiB
-    Encodings: []string{"zstd", "br", "gzip"},   // the encodings offered; the client's header order ranks equal q-values
+    Encodings: []string{"gzip", "zstd", "br"},   // the encodings offered, in the server's priority order
     ExcludedContentTypes: []string{"image/", "video/", "audio/"},
 }))
 ```
@@ -64,7 +73,7 @@ s.Use(compress.New(compress.Config{
 | Field                  | Type                       | Default                          | Meaning                                                                                  |
 | ---------------------- | -------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
 | `MinLength`            | `int`                      | `256`                            | Minimum body size in bytes to compress. `0` = compress all non-empty bodies.             |
-| `Encodings`            | `[]string`                 | `["zstd", "br", "gzip"]`         | Encodings offered; the client's header order ranks equal q-values, this order breaks a remaining tie. Valid: `zstd`, `br`, `gzip`, `deflate`.           |
+| `Encodings`            | `[]string`                 | `["gzip", "zstd", "br"]`         | Encodings offered, in priority order: of the encodings the client accepts at the highest q-value, the first listed here wins. Valid: `zstd`, `br`, `gzip`, `deflate`.           |
 | `GzipLevel`            | `compress.Level`           | `LevelDefault`                   | gzip level. Range `-1`..`9`, or `LevelBest`.                                              |
 | `BrotliLevel`          | `compress.Level`           | `LevelDefault`                   | brotli level. Range `-1`..`11`, or `LevelBest`.                                           |
 | `ZstdLevel`            | `compress.Level`           | `LevelDefault`                   | zstd level. Range `-1`..`4` (SpeedBestCompression), or `LevelBest`.                       |
