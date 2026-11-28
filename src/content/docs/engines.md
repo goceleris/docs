@@ -148,17 +148,7 @@ loops. No figure is published yet ([celeris#1478](https://github.com/goceleris/c
 
 ### Tail latency at light load
 
-At light load the native loop engines' round-trip p99 is higher than the std engine's. Two
-measurements back this, both from issue reports and neither with a known cause. On arm64,
-WebSocket echo at a quarter of the cell's saturation rate (128 connections, 7-byte
-messages, five runs on one host) had a p99 of 1.80 to 2.03 times that of the std engine on
-all eight loop-engine columns, per-run ratios 1.69 to 2.15
-([celeris#1318](https://github.com/goceleris/celeris/issues/1318)). In a separate
-container run (64 connections, async handlers, about 6k messages a second, 13 repetitions
-per cell) the loop engines' round-trip p99 was about twice the std engine's at nearly the
-same goroutine scheduler latency; the source of the difference is not known
-([celeris#1380](https://github.com/goceleris/celeris/issues/1380)). Both are open for
-v1.6.1, and both measurements are arm64 only.
+In two WebSocket echo measurements on arm64, the native loop engines' p99 at light load was higher than the `Std` engine's. On a cluster host, with 128 connections at the rated pass of a quarter of the cell's saturation rate (median of five runs), the p99 was 1.80 to 2.03 times the std engine's (HTTP/1) in all eight loop-engine columns ([#1318](https://github.com/goceleris/celeris/issues/1318)). In one container run on a shared host, with async handlers, 64 connections and about 6,000 messages a second, the p99 of the epoll and adaptive engines was about twice the std engine's (epoll default 492 us against 202 to 315 us for std, at nearly the same goroutine scheduler latency) ([#1380](https://github.com/goceleris/celeris/issues/1380)). Neither is measured for HTTP: the rated HTTP cells in the other data disagree and are not clean. The cause is not known, and nothing is claimed beyond these runs.
 
 ### Native engines are Linux-only — and selecting one off-Linux is an error
 
