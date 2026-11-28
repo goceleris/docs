@@ -132,27 +132,18 @@ machinery). Std is the default and the only engine off Linux (macOS, Windows), a
 it is what you run in tests on a dev laptop. On a pre-5.19 Linux kernel you still
 get epoll — only io_uring needs 5.19+, and Adaptive falls back to epoll there.
 
-### Idle cost of the native engines
+### Cost of the native engines with no open connection
 
-A celeris server with no traffic is not free on the native engines. With no
-connections and `Workers` unset, measured on Linux (an arm64 virtual machine, one
-20-second run per engine): the epoll engine uses about 1.7% of one CPU with 3 loops
-(on 4 CPUs) and about 3.6% with 7 loops (on 8 CPUs); the adaptive engine about 1.0% and
-2.2%; the io_uring engine about 0.25% and 0.75%. The std engine and `net/http` use
-none. Each idle epoll loop wakes about 285 times a second and each io_uring loop about
-40 times a second, so the io_uring engine wakes about a seventh as often as epoll and idles at between a fifth and a seventh of its CPU.
-Roughly half of the total is not in the loops themselves: their wake-ups keep the Go
-runtime's sysmon thread polling instead of sleeping. The cost grows with the number of
-loops, does not depend on traffic, is paid once per process, and adds no latency to the
-first request after an idle period. These figures come from one machine type and one
-run each: they are not measured on amd64 or with 16 CPUs, so read them as an order of
-magnitude.
-
-Where idle cost matters, select the io_uring engine where the kernel allows it
-(`Engine: celeris.IOUring`; it needs Linux 5.19 or later and a sufficient
-`RLIMIT_MEMLOCK`, and with a low limit it starts fewer loops and logs a warning), or run
-fewer loops with `Workers` (the minimum is 2). A bounded longer idle wait is planned for
-v1.6.1 ([celeris#1381](https://github.com/goceleris/celeris/issues/1381)).
+A celeris server with no open connection is not free on the native engines: each event loop
+still wakes on a timer although it has nothing to serve. With no open connection (and nothing
+queued) a loop waits 100 ms at a time, and an epoll loop ticks its sweep timer every 100 ms
+([celeris#1474](https://github.com/goceleris/celeris/pull/1474)); before that change an epoll
+loop woke every few milliseconds. A loop that holds any connection keeps its 25 ms sweep, and the first event (an
+accept, a connection's bytes, a wake from another goroutine) ends the long wait at once and puts the
+25 ms timer back. The wake-ups also keep the Go runtime's sysmon thread polling instead of sleeping.
+The cost grows with the number of loops, does not depend on traffic and is paid once per process. The
+std engine runs no event loops. To lower it, run fewer loops with `Workers` (the minimum is 2). No
+CPU figure for a server with no open connection is published yet.
 
 ### Tail latency at light load
 
