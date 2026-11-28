@@ -132,18 +132,19 @@ machinery). Std is the default and the only engine off Linux (macOS, Windows), a
 it is what you run in tests on a dev laptop. On a pre-5.19 Linux kernel you still
 get epoll — only io_uring needs 5.19+, and Adaptive falls back to epoll there.
 
-### Cost of the native engines with no open connection
+### Cost of the native engines when idle
 
-A celeris server with no open connection is not free on the native engines: each event loop
-still wakes on a timer although it has nothing to serve. With no open connection (and nothing
-queued) a loop waits 100 ms at a time, and an epoll loop ticks its sweep timer every 100 ms
-([celeris#1474](https://github.com/goceleris/celeris/pull/1474)); before that change an epoll
-loop woke every few milliseconds. A loop that holds any connection keeps its 25 ms sweep, and the first event (an
-accept, a connection's bytes, a wake from another goroutine) ends the long wait at once and puts the
-25 ms timer back. The wake-ups also keep the Go runtime's sysmon thread polling instead of sleeping.
-The cost grows with the number of loops, does not depend on traffic and is paid once per process. The
-std engine runs no event loops. To lower it, run fewer loops with `Workers` (the minimum is 2). No
-CPU figure for a server with no open connection is published yet.
+With no open connection and nothing queued, each event loop of a native engine (`epoll`,
+`io_uring`, `adaptive`) sleeps in steps of 100 ms ([celeris#1474](https://github.com/goceleris/celeris/pull/1474)),
+where before an epoll loop woke every few milliseconds. No figure is published for what is left until it is
+measured on bare metal. The cost grows with the number of loops; to lower it, run fewer loops with
+`Workers` (the minimum is 2).
+
+A server that holds connections is different. While a loop holds any open connection, an idle
+keep-alive one included, it keeps its short wait and its timer checks, so an idle connection
+costs CPU on the native engines, and the cost grows with the number of connections. An idle
+connection on a plain `net/http` server costs almost none, and the `std` engine runs no event
+loops. No figure is published yet ([celeris#1478](https://github.com/goceleris/celeris/issues/1478)).
 
 ### Tail latency at light load
 
