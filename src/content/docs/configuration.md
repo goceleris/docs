@@ -188,79 +188,82 @@ All timeouts follow the [zero / `-1` convention](#the-zero---1-convention).
 | `IdleTimeout`       | `time.Duration` | `600s`  | no idle timeout | Max idle time on a keep-alive connection            |
 | `ShutdownTimeout`   | `time.Duration` | `30s`   | —               | Drain deadline on graceful shutdown                 |
 
-Sources: `celeris/config.go` (`Config.ReadTimeout`, `Config.ReadHeaderTimeout`, `Config.WriteTimeout`, `Config.IdleTimeout`, `Config.ShutdownTimeout`),
-defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`).
-
 ### How late a timeout can fire
 
-The native engines enforce `ReadTimeout`, `IdleTimeout` and `WriteTimeout` when they look at a
-connection, and the two engines look at different moments:
+The native engines (`epoll`, `io_uring` and `adaptive`) enforce a timeout by checking their
+connections, so a timeout can fire a little after its time. How late depends on the engine. The
+`std` engine uses `net/http`'s own timers and has no such delay. A write row says when a stalled
+connection is closed; a client that keeps reading is not cut, however long the response takes.
 
-- **epoll** looks every 25 ms, from a kernel timer on every worker, so a timeout fires within
-  about 30 ms of its time, per step.
-- **io_uring** looks at the sweeps of its worker and also when the next deadline of a
-  connection falls due ([celeris#1484](https://github.com/goceleris/celeris/pull/1484)), so the
-  `ReadTimeout` or `IdleTimeout` of an HTTP/1 connection is met when it falls due. Measured on a
-  laptop virtual machine (arm64, 200 connections per timeout), a silent client was closed within
-  28 ms of its due time in 1,799 of 1,800 trials, where before that change the close came a
-  median of 0.1 to 0.6 s late, and up to about a second late.
+| Timeout | `epoll` | `io_uring` |
+| ------- | ------- | ---------- |
+| HTTP/1 read and idle (`ReadTimeout`, `IdleTimeout`) | Within about 30 ms. | When due, typically within 30 ms; up to about 1 s late while an [async handler](#asynchandlers) is running on the connection. |
+| HTTP/1 write (`WriteTimeout`) | A client that takes less than 64 KiB per `WriteTimeout` is closed between one and two `WriteTimeout`s after the response stalled, plus about 50 ms. | A client that takes nothing for `WriteTimeout` is closed; no bound is promised on how soon after. |
+| HTTP/2 request (`ReadTimeout`) | The connection is closed within about 50 ms of `ReadTimeout`. | The request's stream is reset when due (the tests allow 200 ms). The connection is closed later: its idle clock restarts when the 408 is sent, so it closes about one more `ReadTimeout` (or `IdleTimeout`, if shorter) after the reset. |
+| HTTP/2 response (`WriteTimeout`) | A response the client takes nothing of is closed within about 0.2 s after `WriteTimeout`. | The same, up to about 3 s late for handlers on the worker pool (the default); handlers that run inline on the event loop can be sooner, with no promise made. |
+| Detached streams, SSE and WebSocket (`WriteTimeout`) | A client that takes none of the queued bytes is closed between 3/4 and 5/4 of `WriteTimeout` after it last took a byte, plus up to 25 ms. | The same, plus up to 2 s. |
 
-A deadline that the io_uring worker cannot see ahead of time is still met by the sweeps it made
-before, so it can be up to one old sweep period late: the sweeps are about 0.8 to 1.1 s apart on a
-worker with nothing else due, and up to about 2 s apart on a paused or standby worker, which has no
-listener. That covers a connection inside an async handler, an HTTP/2 deadline set from a pool
-goroutine, a WebSocket idle deadline moved by the middleware, a stalled detached connection (a sweep
-made for another connection inside its interval does not renew its next look) and an HTTP/2
-connection whose idle end the sweep does not act on when it falls due.
+When a timeout of a few seconds or less must fire at its time in every case, set
+`Engine: celeris.Epoll`; see [Engines](/docs/engines). `adaptive`, the default on Linux, follows
+the engine it is running on: it starts on epoll and meets the `io_uring` column after it
+switches.
 
-An HTTP/2 connection takes one more look. On epoll the sweep resets the stream and the connection
-is closed at the next sweep, so a request that never arrives is closed about `ReadTimeout` plus two
-sweeps after it started, and a response the client does not take about `WriteTimeout` plus three
-sweeps after it parked (the first sweep takes the baseline). On io_uring the stream is reset when
-`ReadTimeout` falls due; the close of the connection is not changed and keeps its old bound of
-`ReadTimeout` plus two sweeps.
+#### Details
 
-| Engine | How it is enforced | How late |
-| ------ | ------------------ | -------- |
-| `epoll` | a 25 ms kernel timer (timerfd) on every worker | within about 30 ms; measured: a 1 s `IdleTimeout` closed an idle connection at 1.00 to 1.03 s (docker arm64, 2 CPUs) |
-| `io_uring` | the sweeps of the worker, and a look when the next deadline of a connection falls due ([celeris#1484](https://github.com/goceleris/celeris/pull/1484)); the sweeps made before stay: about 0.8 to 1.1 s apart on a worker with nothing else due (0.83 s measured, [celeris#1189](https://github.com/goceleris/celeris/issues/1189); about 1 s with `ReadHeaderTimeout` off, plus up to one 100 ms ring wait), near their 25 ms floor on a busy one | an HTTP/1 `ReadTimeout` or `IdleTimeout`: when due, within 28 ms in 1,799 of 1,800 trials on a laptop VM (before the change a median of 0.1 to 0.6 s late); a deadline the worker cannot see ahead of time: up to one old sweep period late; HTTP/2 closing steps are counted in sweeps (see above), and a silent HTTP/2 client that took 64 KiB of an 8 MiB response, with a 2 s `WriteTimeout` and a handler on the worker pool (the default), was closed at 3.13 to 3.96 s on CI ([celeris#1423](https://github.com/goceleris/celeris/issues/1423)) |
-| `adaptive` | the active engine's (epoll at start, io_uring only after a switch) | as that engine |
-| `std` | `net/http`'s own timers (`ReadTimeout`, `WriteTimeout`, `IdleTimeout` are handed to `http.Server`) | no sweep |
+A *check* (also called a sweep) is one pass over a worker's connections that closes the ones
+past a deadline.
 
-The HTTP/1 header deadline (`ReadHeaderTimeout`) and the budget of a connection whose
-protocol is not decided yet have a kernel timer of their own on io_uring and are met within
-milliseconds. The HTTP/2 header-block bound of `ReadHeaderTimeout` is checked by the sweep and is
-late by up to a sweep period on both engines. The sweep period of io_uring is read from the
-engine's code (a 1 s ceiling that an iteration notices at its end); the closing steps of an HTTP/2
-connection are derived from the code as well, and only the CI range above was measured. Where a
-timeout of a few seconds or less must be exact for one of the deadlines the worker cannot see ahead
-of time, use epoll; see [Engines](/docs/engines).
+- **epoll** checks every 25 ms, from a kernel timer on every worker.
+- **io_uring** checks when the next deadline of any connection falls due
+  ([celeris#1484](https://github.com/goceleris/celeris/pull/1484)), and also at the periodic
+  checks it made before, which are about 0.8 to 1.1 s apart on a worker with nothing else due and
+  up to about 2 s apart on a paused or standby worker (one that has no listener). A deadline the
+  worker cannot see ahead of time is met only by the periodic checks, so it can be up to one
+  period late: a connection inside an async handler, an HTTP/2 deadline set from a pool goroutine,
+  a WebSocket idle deadline moved by the middleware, and a detached connection that stalls.
 
-#### Timer accuracy, promise by promise
+Measured figures, each on one setup:
 
-What each engine promises today, one row per promise and engine. The io_uring rows are as of
-[celeris#1484](https://github.com/goceleris/celeris/pull/1484); the epoll rows are unchanged by it.
+- io_uring, HTTP/1 `ReadTimeout` and `IdleTimeout`: a silent client was closed within 28 ms of its
+  due time in 1,799 of 1,800 trials (laptop VM, arm64, 200 connections per timeout). Before
+  celeris#1484 the close came a median of 0.1 to 0.6 s late, and up to about 1 s late. The tests
+  allow 200 ms on a loaded runner.
+- epoll, HTTP/1: a 1 s `IdleTimeout` closed an idle connection at 1.00 to 1.03 s (Docker, arm64,
+  2 CPUs).
+- HTTP/2 on a CI runner, measured before celeris#1484 (which changes neither figure on
+  io_uring): with a 1 s `ReadTimeout`, a request that never arrives closed the connection at
+  1.00 to 1.03 s on epoll and at 2.02 to 2.06 s on io_uring. With a 2 s
+  `WriteTimeout`, a client that stopped reading an 8 MiB response had its connection closed at
+  2.0 to 2.2 s on epoll and, for handlers on the worker pool, at 3.1 to 4.0 s on io_uring. The
+  io_uring reset of an HTTP/2 request is tested but not measured.
 
-| What | Engine | How late |
-| ---- | ------ | -------- |
-| `IdleTimeout`, `ReadTimeout` of an HTTP/1 connection (silent client, or a body that stalls) | `epoll` | within about 30 ms of the due time (25 ms timer); measured: a 1 s `IdleTimeout` closed at 1.00 to 1.03 s (docker arm64, 2 CPUs) |
-| the same | `io_uring` | when due: within 28 ms in 1,799 of 1,800 trials on a laptop VM, and the tests allow 200 ms; before the change a median of 0.1 to 0.6 s late. A deadline the worker cannot see ahead of time (a connection inside an async handler, an HTTP/2 deadline set from a pool goroutine, a WebSocket idle deadline moved by the middleware) is met by the sweeps made before, up to one old sweep period late: about 0.8 to 1.1 s, and up to about 2 s on a paused or standby worker |
-| `ReadHeaderTimeout` of an HTTP/1 request, and the budget of a connection whose protocol is not decided yet | `epoll` | within about 30 ms (the sweep); for a silent connection: its connect, plus about 1 s of deferral, plus `ReadHeaderTimeout`, plus about 30 ms |
-| the same | `io_uring` | a kernel timer of its own: met within milliseconds |
-| HTTP/2: a request that never arrives, `ReadTimeout` | `epoll` | `ReadTimeout` plus about two sweeps (1.00 to 1.03 s for a 1 s `ReadTimeout`) |
-| the same | `io_uring` | the stream is reset when `ReadTimeout` falls due; the connection is closed later, and that close is not changed: `ReadTimeout` plus two sweeps of the old period (2.02 to 2.06 s on CI for a 1 s `ReadTimeout`) |
-| HTTP/2: a response the client does not take, `WriteTimeout` | `epoll`, `io_uring` | epoll: `WriteTimeout` plus three sweeps (2.03 to 2.20 s for a 2 s `WriteTimeout`). io_uring: looked at when due only for an inline handler's write window, which is set on the loop; a handler on the worker pool (the default) keeps the old period, `WriteTimeout` plus three sweeps (3.13 to 3.96 s on CI for a 2 s `WriteTimeout`) |
-| HTTP/2: the header-block bound (`ReadHeaderTimeout`) | `epoll`, `io_uring` | late by up to a sweep period, as before |
-| `WriteTimeout` of a parked HTTP/1 response | `epoll` | a minimum rate of 64 KiB per `WriteTimeout`: closed between `WriteTimeout` and `WriteTimeout` plus two sweeps after it parked (the first sweep takes the baseline, the window ends at the first sweep a `WriteTimeout` later); within two `WriteTimeout`s plus two sweeps after the last byte |
-| the same | `io_uring` | closed when `WriteTimeout` falls due: a send that starts makes the next look at that time, where before it was the first sweep after `WriteTimeout` had passed since the last activity (read from the code; no test asserts this row) |
-| `WriteTimeout` of a detached stream (SSE, WebSocket) | `epoll`, `io_uring` | between 3/4 and 5/4 of `WriteTimeout` after the peer last took a byte (progress is sampled every quarter), plus the sweep interval: 25 ms on epoll, up to 2 s on io_uring. A stalled detached connection can be noticed up to one old sweep period late on io_uring |
-| a small send into a full socket (untimed wait) | `io_uring` | ended by the standing sweep tick, at the next look and at the latest 1 s later (before: 1 s) |
-| shutdown of a server whose loops hold no open connection (`BeginPauseAccept`) | `epoll`, `io_uring` | not a timeout: reached within 30 ms at the median ([celeris#1474](https://github.com/goceleris/celeris/pull/1474)) |
-| a loop that holds no open connection | `epoll`, `io_uring` | waits 100 ms at a time; it has nothing to time out ([celeris#1474](https://github.com/goceleris/celeris/pull/1474)) |
+No bare-metal figures exist yet.
 
-Sources: `celeris/config.go` (`Config.ReadTimeout`, `Config.ReadHeaderTimeout`,
-`Config.WriteTimeout`), `celeris/internal/engine/iouring/sweep_gate_884.go` (`dueTime`,
-`finishDue`), `celeris/internal/engine/epoll/idle_wait_1381.go` (`idleWaitMs`).
+How the rows come about:
+
+- **HTTP/1 write.** On epoll `WriteTimeout` is a minimum rate: a client that takes at least 64 KiB
+  in each `WriteTimeout` is never cut, however long the response takes, and one that takes less is
+  closed at the end of the window it fell short in. On io_uring a connection with a response
+  waiting on a client that takes nothing is closed after `WriteTimeout`; how soon after is not
+  tested, so no bound is promised.
+- **HTTP/2 request.** The check resets the stream when `ReadTimeout` falls due and closes the
+  connection at the next check. On epoll that is about two 25 ms checks. On io_uring the reset
+  is made when due, but the 408 that carries it restarts the connection's idle clock, so the
+  close comes about one more `ReadTimeout` (or `IdleTimeout`, if shorter) later, at a periodic
+  check.
+- **HTTP/2 response.** A response the client does not take is reset and then closed at the
+  following checks: about `WriteTimeout` plus three checks. On io_uring the write window of a
+  handler on the worker pool, the default, is met by the periodic checks. The code looks at the
+  window of an inline handler when it falls due, but no test checks that, so no promise is made
+  for it.
+- **Detached streams.** A stream that has bytes queued for a client that takes none of them is
+  closed; a client that reads, however slowly, is not. Progress is sampled every quarter of
+  `WriteTimeout`.
+- **Header deadlines.** The HTTP/1 header deadline (`ReadHeaderTimeout`) and the budget of a
+  connection whose protocol is not decided yet are met when due on io_uring, which has a kernel
+  timer for them, and within about 30 ms on epoll. The HTTP/2 header-block bound
+  of `ReadHeaderTimeout` is late by up to one check period on both engines.
+- **`std`.** `ReadTimeout`, `WriteTimeout` and `IdleTimeout` are handed to `http.Server`.
 
 ### `ReadHeaderTimeout` is your slow-loris defence
 
