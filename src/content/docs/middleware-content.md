@@ -20,9 +20,11 @@ matters**, and there is a section dedicated to getting it right. Two of them —
 ## Response compression
 
 The `compress` middleware buffers the response body, picks the best encoding the
-client accepts, compresses, and sets `Content-Encoding`. It always adds
+client accepts, compresses, and sets `Content-Encoding`. It adds
 `Vary: Accept-Encoding` so caches key on the negotiated encoding — even when it
-decides **not** to compress.
+decides **not** to compress. One case where an uncompressed response can still go out
+without it, a handler that sets its own `Vary`, is described under
+[When compression is skipped](#when-compression-is-skipped).
 
 It is a **separate submodule**:
 
@@ -125,6 +127,16 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
 - The request is a streaming response — SSE (`Accept: text/event-stream`) or a
   WebSocket upgrade — because those can't be buffered. `HEAD`/`OPTIONS` also pass
   through.
+
+An uncompressed response can lack `Accept-Encoding` in `Vary` when the handler set its own
+`Vary` ([celeris#1420](https://github.com/goceleris/celeris/issues/1420)). When no encoding is
+negotiated (for example no `Accept-Encoding` header, `identity`, or `gzip;q=0`), and for `HEAD`, `OPTIONS` and
+SSE or WebSocket requests, the middleware adds `Vary: Accept-Encoding` before the handler runs and
+does not check it again. A handler that then calls `c.SetHeader("vary", "Origin")` replaces that
+line, and the response carries `Vary: Origin` only; `c.AddHeader("vary", "Origin")` keeps both. A
+response for which an encoding was negotiated is checked again when it is flushed, so it names
+`Accept-Encoding` whether or not it was compressed. Where a cache sits in front of such a handler,
+add `Accept-Encoding` to the `Vary` value the handler sets.
 
 If compression itself errors, the middleware degrades gracefully: it flushes the
 original uncompressed body so the client never sees a blank page.
