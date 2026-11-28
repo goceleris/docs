@@ -20,9 +20,11 @@ matters**, and there is a section dedicated to getting it right. Two of them —
 ## Response compression
 
 The `compress` middleware buffers the response body, picks the best encoding the
-client accepts, compresses, and sets `Content-Encoding`. It always adds
+client accepts, compresses, and sets `Content-Encoding`. It adds
 `Vary: Accept-Encoding` so caches key on the negotiated encoding — even when it
-decides **not** to compress.
+decides **not** to compress. Two cases where a response can still go out without it, a request
+that `Skip` or `SkipPaths` matches and a handler that sets its own `Vary`, are described under
+[When compression is skipped](#when-compression-is-skipped).
 
 It is a **separate submodule**:
 
@@ -34,23 +36,35 @@ go get github.com/goceleris/celeris/middleware/compress
 import "github.com/goceleris/celeris/middleware/compress"
 
 s := celeris.New(celeris.Config{Addr: ":8080"})
-s.Use(compress.New()) // zstd → br → gzip, MinLength 256
+s.Use(compress.New()) // offers gzip, zstd and br, MinLength 256
 ```
 
 Source: `celeris/middleware/compress/compress.go`, `celeris/middleware/compress/config.go`.
 
 ### What it negotiates
 
-`compress.New()` with no config supports **zstd, brotli (`br`), and gzip**, in
-that server-side priority order. The actual codec is chosen by intersecting your
-`Encodings` list with the client's `Accept-Encoding` header (via
-`c.AcceptsEncodings`). `deflate` is supported but **opt-in** — you must add it to
-`Encodings` to enable it.
+`compress.New()` with no config supports **gzip, zstd and brotli (`br`)**. The
+codec is chosen from the client's `Accept-Encoding` header and your `Encodings`
+list: the highest q-value wins, and among the encodings accepted at that q-value
+the one that comes first in `Encodings` wins, not the one the client lists first.
+`q=0` still refuses an encoding. The default order is `["gzip", "zstd", "br"]`, so
+browsers (`gzip, deflate, br, zstd`) and `gzip, br` clients get gzip. A client that
+lists `br` or `zstd` before gzip at equal weight, or sends `*` alone, now gets gzip,
+and a client that accepts `br` and `zstd` equally without gzip gets zstd. If you set
+`Encodings` yourself, its order now applies to browser headers too: the old default
+written out, `["zstd", "br", "gzip"]`, gives a browser zstd instead of gzip, and an
+order with `br` first gives browsers and `gzip, br` clients `br`, which costs 3.7 to
+5.6 times the CPU of gzip ([celeris#1335](https://github.com/goceleris/celeris/issues/1335)).
+No fixed order reproduces the client's header order; the nearest is gzip first, which
+moves a client that lists `br` before gzip from `br` to gzip. Only the first
+`Accept-Encoding` header line is read, and only its first 64 entries
+([celeris#1481](https://github.com/goceleris/celeris/issues/1481)).
+`deflate` is supported but **opt-in** — you must add it to `Encodings` to enable it.
 
 ```go
 s.Use(compress.New(compress.Config{
     MinLength: 1024,                              // don't compress bodies < 1 KiB
-    Encodings: []string{"zstd", "br", "gzip"},   // server priority order
+    Encodings: []string{"gzip", "zstd", "br"},   // the encodings offered, in the server's priority order
     ExcludedContentTypes: []string{"image/", "video/", "audio/"},
 }))
 ```
@@ -60,7 +74,7 @@ s.Use(compress.New(compress.Config{
 | Field                  | Type                       | Default                          | Meaning                                                                                  |
 | ---------------------- | -------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
 | `MinLength`            | `int`                      | `256`                            | Minimum body size in bytes to compress. `0` = compress all non-empty bodies.             |
-| `Encodings`            | `[]string`                 | `["zstd", "br", "gzip"]`         | Supported encodings in priority order. Valid: `zstd`, `br`, `gzip`, `deflate`.           |
+| `Encodings`            | `[]string`                 | `["gzip", "zstd", "br"]`         | Encodings offered, in priority order: of the encodings the client accepts at the highest q-value, the first listed here wins. Valid: `zstd`, `br`, `gzip`, `deflate`.           |
 | `GzipLevel`            | `compress.Level`           | `LevelDefault`                   | gzip level. Range `-1`..`9`, or `LevelBest`.                                              |
 | `BrotliLevel`          | `compress.Level`           | `LevelDefault`                   | brotli level. Range `-1`..`11`, or `LevelBest`.                                           |
 | `ZstdLevel`            | `compress.Level`           | `LevelDefault`                   | zstd level. Range `-1`..`4` (SpeedBestCompression), or `LevelBest`.                       |
@@ -113,6 +127,18 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
 - The request is a streaming response — SSE (`Accept: text/event-stream`) or a
   WebSocket upgrade — because those can't be buffered. `HEAD`/`OPTIONS` also pass
   through.
+
+An uncompressed response can lack `Accept-Encoding` in `Vary` in two cases
+([celeris#1420](https://github.com/goceleris/celeris/issues/1420)). A request that `Skip` or
+`SkipPaths` matches passes through `compress` untouched, and `compress` adds no `Vary` at all to
+it. The other case is a handler that sets its own `Vary`. When no encoding is
+negotiated (for example no `Accept-Encoding` header, `identity`, or `gzip;q=0`), and for `HEAD`, `OPTIONS` and
+SSE or WebSocket requests, the middleware adds `Vary: Accept-Encoding` before the handler runs and
+does not check it again. A handler that then calls `c.SetHeader("vary", "Origin")` replaces that
+line, and the response carries `Vary: Origin` only; `c.AddHeader("vary", "Origin")` keeps both. A
+response for which an encoding was negotiated is checked again when it is flushed, so it names
+`Accept-Encoding` whether or not it was compressed. Where a cache sits in front of such a handler,
+add `Accept-Encoding` to the `Vary` value the handler sets.
 
 If compression itself errors, the middleware degrades gracefully: it flushes the
 original uncompressed body so the client never sees a blank page.
@@ -805,8 +831,8 @@ See [Static files](/docs/static-files) for serving a directory.
   receive a cached entry stored for a brotli client (or vice versa). Add
   `Accept-Encoding` to `VaryHeaders`, or cache *inside* compress (the recommended
   order does the latter).
-- **Forgetting `Vary` semantics.** `compress` always adds `Vary: Accept-Encoding`,
-  even on uncompressed passes — don't strip it downstream, or shared caches will
+- **Forgetting `Vary` semantics.** `compress` adds `Vary: Accept-Encoding` to
+  every request it does not skip, even on uncompressed passes — don't strip it downstream, or shared caches will
   serve the wrong variant.
 - **Bodies over `MaxBodyBytes` silently aren't cached.** The default cap is 1 MiB.
   Large responses pass through without an error; raise `MaxBodyBytes` if you

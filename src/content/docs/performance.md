@@ -219,7 +219,7 @@ connections to io_uring under sustained high load (`celeris/config.go` (`Workloa
 | --- | --- |
 | `Adaptive` (default) | You don't want to think about it. Starts epoll, switches to io_uring under load (connections transplant both ways). |
 | `Epoll` | You've measured that your workload is steadily low/medium concurrency and want to pin the behavior. |
-| `IOUring` | You've measured a sustained high-concurrency keep-alive workload and want io_uring from the first connection (Linux 5.10+; needs `RLIMIT_MEMLOCK`). |
+| `IOUring` | You've measured a sustained high-concurrency keep-alive workload and want io_uring from the first connection (Linux 5.19+; needs `RLIMIT_MEMLOCK`). |
 | `Std` | Non-Linux, or you want the plain net/http server for maximum portability. |
 
 As of v1.5.6 Adaptive **transplants** established keep-alive connections between

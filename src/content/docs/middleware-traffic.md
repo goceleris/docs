@@ -422,6 +422,12 @@ goroutine. Its limitation is that a CPU-bound or blocking handler that *never*
 checks `Done()` won't actually be interrupted — the deadline is reported once it
 returns, but it can still run long.
 
+When the request context already has an earlier deadline (two nested `timeout`
+middlewares, or a deadline from an upstream), the non-preemptive context's `Deadline()`
+still reports its own deadline, not the earlier one; `Done()` follows the earlier one, so
+the handler is cancelled on time ([celeris#1393](https://github.com/goceleris/celeris/issues/1393)).
+Preemptive mode reports the earlier deadline.
+
 ### Preemptive
 
 Set `Preemptive: true` to run the handler in a goroutine with a buffered

@@ -482,10 +482,11 @@ ulimits:
   memlock: -1   # unlimited (or a generous byte value)
 ```
 
-Other io_uring prerequisites (checked by the startup io_uring probe):
+Other io_uring prerequisites (checked when the engine starts):
 
-- **Kernel 5.10+** — Celeris's LTS-stable io_uring floor; older kernels fall through
-  to epoll (`celeris/internal/probe/probe.go` (`ProbeWith`)).
+- **Kernel 5.19+** — the io_uring engine's floor: it needs the async-cancel flags that 5.19
+  added. On an older kernel an explicit `IOUring` fails to start and Adaptive falls back to
+  epoll (`celeris/internal/engine/iouring/engine.go` (`requireAsyncCancelFlags`)).
 - **`CAP_SYS_NICE`** is consulted for SQPoll on some kernels
   (`celeris/internal/probe/probe_linux.go` (`checkCapSysNiceLinux`)); not required for the basic io_uring path.
 
@@ -718,8 +719,8 @@ From the `X-Forwarded-For` chain, walked right-to-left and filtered against
 middleware). It is only trustworthy when `TrustedProxies` is set.
 
 **Why is my server using epoll when I asked for io_uring?**
-The kernel is below 5.10, `RLIMIT_MEMLOCK` is too low, or the `io_uring_setup`
-syscall is blocked by a sandbox. Celeris probes capabilities and falls back to epoll
+The kernel is below 5.19, `RLIMIT_MEMLOCK` is too low, or the `io_uring_setup`
+syscall is blocked by a sandbox. Celeris detects capabilities and falls back to epoll
 (at throughput parity). See [Engines](/docs/engines).
 
 **What status do the probes return?**

@@ -36,7 +36,7 @@ in `celeris/config.go`.
 | ---------------------- | ------------------- | -------------------- | ------------------------------------------------------------------------- |
 | **Adaptive** (default) | `celeris.Adaptive`  | Linux only           | Runs epoll and io_uring behind one socket; switches based on live load.    |
 | **Epoll**              | `celeris.Epoll`     | Linux only           | Edge-triggered epoll, per-core event loops, CPU pinning.                    |
-| **IOUring**            | `celeris.IOUring`   | Linux 5.10+          | Completion-based async I/O via io_uring. The lowest-latency path.           |
+| **IOUring**            | `celeris.IOUring`   | Linux 5.19+          | Completion-based async I/O via io_uring. The lowest-latency path.           |
 | **Std**                | `celeris.Std`       | Everywhere           | Wraps Go's `net/http`. The portable fallback.                              |
 
 ### Adaptive — the default on Linux
@@ -80,18 +80,22 @@ zero-copy `sendfile(2)` for static-file responses (`celeris/internal/engine/engi
 
 ### IOUring
 
-Completion-based asynchronous I/O on Linux **5.10+**. Celeris detects the io_uring
-feature *tier* at startup and enables only what the running kernel supports
-(`celeris/internal/engine/tier.go`):
+Completion-based asynchronous I/O on Linux **5.19+**. The engine does not start on an
+older kernel (it needs the async-cancel flags that 5.19 added: an explicit `IOUring` fails
+to start with an error that names the requirement, and Adaptive falls back to epoll;
+`celeris/internal/engine/iouring/engine.go` (`requireAsyncCancelFlags`),
+[celeris#682](https://github.com/goceleris/celeris/issues/682)). On a kernel that has it,
+Celeris detects the io_uring feature *tier* at startup and enables only what the running
+kernel supports (`celeris/internal/engine/tier.go`):
 
 | Tier         | Kernel    | Features enabled                                                                |
 | ------------ | --------- | ------------------------------------------------------------------------------- |
-| `Base`       | 5.10+     | LTS-stable baseline: linked SQE chains, single-shot accept/recv                  |
+| `Base`       | below `High`, only when capped with `CELERIS_MAX_IOURING_TIER=base` | Single-shot accept/recv, linked SQE chains; the engine does not start on a kernel older than 5.19, so this tier is reached on 5.19+ only through that cap |
 | `High`       | 5.19+     | Multishot accept, COOP_TASKRUN; multishot recv with provided buffer rings is opt-in (see below) |
 | `Optional`   | 6.0+      | Adds SQPOLL and zero-copy send (`SEND_ZC`); 6.1+ swaps in DEFER_TASKRUN          |
 
-You do not configure the tier — it is probed and applied automatically. A 5.12
-kernel transparently uses the `Base` feature set; a 6.1 kernel lights up the
+You do not configure the tier — it is detected and applied automatically. A 5.19
+kernel uses the `High` feature set; a 6.1 kernel lights up the
 `Optional` set. io_uring requires `RLIMIT_MEMLOCK` headroom for its rings and
 provided buffers — see [Engine selection in practice](#engine-selection-in-practice).
 
@@ -125,8 +129,26 @@ Std wraps Go's `net/http` server. The router, middleware, and `*Context` API are
 **identical** to the native engines; what you lose are the native fast paths (CPU
 pinning, zero-copy sendfile, engine-integrated WebSocket, the async-detach
 machinery). Std is the default and the only engine off Linux (macOS, Windows), and
-it is what you run in tests on a dev laptop. On a pre-5.10 Linux kernel you still
-get epoll — only io_uring needs 5.10+, and Adaptive falls back to epoll there.
+it is what you run in tests on a dev laptop. On a pre-5.19 Linux kernel you still
+get epoll — only io_uring needs 5.19+, and Adaptive falls back to epoll there.
+
+### Cost of the native engines when idle
+
+With no open connection and nothing queued, each event loop of a native engine (`epoll`,
+`io_uring`, `adaptive`) sleeps in steps of 100 ms ([celeris#1474](https://github.com/goceleris/celeris/pull/1474)),
+where before an epoll loop woke every few milliseconds. No figure is published for what is left until it is
+measured on bare metal. The cost grows with the number of loops; to lower it, run fewer loops with
+`Workers` (the minimum is 2).
+
+A server that holds connections is different. While a loop holds any open connection, an idle
+keep-alive one included, it keeps its short wait and its timer checks, so an idle connection
+costs CPU on the native engines, and the cost grows with the number of connections. An idle
+connection on a plain `net/http` server costs almost none, and the `std` engine runs no event
+loops. No figure is published yet ([celeris#1478](https://github.com/goceleris/celeris/issues/1478)).
+
+### Tail latency at light load
+
+In two WebSocket echo measurements on arm64, the native loop engines' p99 at light load was higher than the `Std` engine's. On a cluster host, with 128 connections and 7-byte messages at the rated pass of a quarter of the cell's saturation rate, the median over five runs of the p99 was 1.80 to 2.03 times the std engine's (HTTP/1, measured at a fixed 60,000 requests a second) in all eight loop-engine columns, and single runs ranged from 1.69 to 2.15 ([#1318](https://github.com/goceleris/celeris/issues/1318)). In a container on a shared host, with async handlers, 64 connections, 64-byte frames, a 10 ms think time (about 6,000 messages a second) and 13 repetitions per cell, the median round-trip p99 was 492 us for epoll and 540 to 1,118 us for adaptive at default settings, against 202 to 315 us for std (about twice), at nearly the same goroutine scheduler latency (p99 115 to 197 us against 98 to 115 us) ([#1380](https://github.com/goceleris/celeris/issues/1380)). celeris's event-loop engines are tuned for throughput under load; where tail latency at light load matters more to you than peak throughput, use the Std engine. Neither is measured for HTTP: the latency passes of the HTTP rated cells in our published runs have a known load-generator limit (the rate pacing, see [loadgen#102](https://github.com/goceleris/loadgen/issues/102)), so they neither confirm nor refute these figures for HTTP. The cause is not known, and nothing is claimed beyond these runs.
 
 ### Native engines are Linux-only — and selecting one off-Linux is an error
 
@@ -284,6 +306,17 @@ cache-bound work: zero handoff, maximum locality. But if such a handler makes a
 **blocking** call (a database round-trip, an upstream HTTP request, a file read),
 it stalls the event loop and every other connection that worker owns.
 
+Writing a large body does the same: an inline handler that writes a large body (tens of
+megabytes) copies it into the outbound buffer on the event-loop thread and keeps that loop
+from serving other connections for the duration. Measured once, for a 64 MiB `c.Blob` over
+HTTP/2 on a 4-CPU linux/arm64 container: the copy takes about 20 to 40 ms on a quiet machine,
+and the slow traces taken during a load disturbance show 0.12 to 0.9 s from the request to
+the first response byte (up to 1.0 s in one trace)
+([celeris#809](https://github.com/goceleris/celeris/issues/809)). Serve large responses from
+`.Async()` routes or a `StreamWriter`, which do not stage the whole body on the loop thread;
+`c.File` avoids the copy only on epoll, over HTTP/1.1, on a server with no async handlers
+(otherwise it reads the file into memory).
+
 The fix is **async dispatch**: the handler runs on a spawned per-connection
 goroutine while the worker returns immediately to the event loop. This trades the
 per-worker serialization ceiling (`Workers × 1/RTT`) for goroutine-per-connection
@@ -370,10 +403,10 @@ explicit choice only when you have a specific reason:
 | ----------------------------------------------------------------- | ----------------------------------------------------- |
 | The best engine, auto-selected (recommended)                      | *(leave `Engine` unset)*                               |
 | Deterministic behaviour / no runtime switching                    | `Engine: celeris.Epoll`                                |
-| Lowest latency on a known-good 5.10+ kernel, willing to tune memlock | `Engine: celeris.IOUring`                           |
+| Lowest latency on a known-good 5.19+ kernel, willing to tune memlock | `Engine: celeris.IOUring`                           |
 | Adaptive, but start hot on io_uring under known high concurrency  | `Engine: celeris.Adaptive` + `WorkloadHint: …HighConcurrency` |
 | Portability / dev laptop / off Linux                              | `Engine: celeris.Std` *(or just leave unset off Linux)* |
-| Pre-5.10 Linux kernel (no io_uring, but epoll works)              | *(leave `Engine` unset → Adaptive falls back to epoll)*, or `Engine: celeris.Epoll` |
+| Pre-5.19 Linux kernel (no io_uring engine, but epoll works)       | *(leave `Engine` unset → Adaptive falls back to epoll)*, or `Engine: celeris.Epoll` |
 
 A few practical notes:
 
@@ -381,8 +414,8 @@ A few practical notes:
   kernel/memlock requirements are awkward (containers with tight `RLIMIT_MEMLOCK`,
   conservative security policies). Epoll is at throughput parity for most
   request/response traffic and is the engine with zero-copy `sendfile`.
-- **Force `IOUring`** when you have validated the kernel (≥5.10, ideally ≥5.19 or
-  ≥6.0 for the full feature tier) and the latency win matters. io_uring allocates
+- **Force `IOUring`** when you have validated the kernel (≥5.19, ideally ≥6.0 for the full
+  feature tier) and the latency win matters. io_uring allocates
   locked memory for its rings and provided-buffer pools, so raise the process
   `RLIMIT_MEMLOCK` (e.g. `LimitMEMLOCK=infinity` in a systemd unit, or
   `--ulimit memlock=-1:-1` for a container). If memlock is too low, io_uring setup
