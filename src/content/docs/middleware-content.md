@@ -22,8 +22,8 @@ matters**, and there is a section dedicated to getting it right. Two of them —
 The `compress` middleware buffers the response body, picks the best encoding the
 client accepts, compresses, and sets `Content-Encoding`. It adds
 `Vary: Accept-Encoding` so caches key on the negotiated encoding — even when it
-decides **not** to compress. One case where an uncompressed response can still go out
-without it, a handler that sets its own `Vary`, is described under
+decides **not** to compress. Two cases where a response can still go out without it, a request
+that `Skip` or `SkipPaths` matches and a handler that sets its own `Vary`, are described under
 [When compression is skipped](#when-compression-is-skipped).
 
 It is a **separate submodule**:
@@ -128,8 +128,10 @@ Even when the client accepts a codec, `compress` flushes the body **uncompressed
   WebSocket upgrade — because those can't be buffered. `HEAD`/`OPTIONS` also pass
   through.
 
-An uncompressed response can lack `Accept-Encoding` in `Vary` when the handler set its own
-`Vary` ([celeris#1420](https://github.com/goceleris/celeris/issues/1420)). When no encoding is
+An uncompressed response can lack `Accept-Encoding` in `Vary` in two cases
+([celeris#1420](https://github.com/goceleris/celeris/issues/1420)). A request that `Skip` or
+`SkipPaths` matches passes through `compress` untouched, and `compress` adds no `Vary` at all to
+it. The other case is a handler that sets its own `Vary`. When no encoding is
 negotiated (for example no `Accept-Encoding` header, `identity`, or `gzip;q=0`), and for `HEAD`, `OPTIONS` and
 SSE or WebSocket requests, the middleware adds `Vary: Accept-Encoding` before the handler runs and
 does not check it again. A handler that then calls `c.SetHeader("vary", "Origin")` replaces that
@@ -829,8 +831,8 @@ See [Static files](/docs/static-files) for serving a directory.
   receive a cached entry stored for a brotli client (or vice versa). Add
   `Accept-Encoding` to `VaryHeaders`, or cache *inside* compress (the recommended
   order does the latter).
-- **Forgetting `Vary` semantics.** `compress` always adds `Vary: Accept-Encoding`,
-  even on uncompressed passes — don't strip it downstream, or shared caches will
+- **Forgetting `Vary` semantics.** `compress` adds `Vary: Accept-Encoding` to
+  every request it does not skip, even on uncompressed passes — don't strip it downstream, or shared caches will
   serve the wrong variant.
 - **Bodies over `MaxBodyBytes` silently aren't cached.** The default cap is 1 MiB.
   Large responses pass through without an error; raise `MaxBodyBytes` if you
