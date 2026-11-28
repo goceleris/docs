@@ -193,31 +193,48 @@ defaults at `celeris/internal/resource/config.go` (`Config.WithDefaults`).
 
 ### How late a timeout can fire
 
-The native engines enforce `ReadTimeout`, `IdleTimeout` and `WriteTimeout` in a periodic
-sweep of their connections, so a timeout fires up to one sweep period after its time, per
-step. A configured 1 s `ReadTimeout` therefore closes a silent client at about 1 s on epoll
-and can close it more than a second later on io_uring. An HTTP/2 connection takes one more
-sweep: the sweep resets the stream, and the connection is closed at the next one, so a
-request that never arrives is closed about `ReadTimeout` plus two sweeps after it started,
-and a response the client does not take about `WriteTimeout` plus three sweeps after it
-parked (the first sweep takes the baseline).
+The native engines enforce `ReadTimeout`, `IdleTimeout` and `WriteTimeout` when they look at a
+connection, and the two engines look at different moments:
+
+- **epoll** looks every 25 ms, from a kernel timer on every worker, so a timeout fires within
+  about 30 ms of its time, per step.
+- **io_uring** looks at the sweeps of its worker and also when the next deadline of a
+  connection falls due ([celeris#1484](https://github.com/goceleris/celeris/pull/1484)), so the
+  `ReadTimeout` or `IdleTimeout` of an HTTP/1 connection is met when it falls due. Measured on a
+  laptop virtual machine (arm64, 200 connections per timeout), a silent client was closed within
+  28 ms of its due time in 1,799 of 1,800 trials, where before that change the close came a
+  median of 0.1 to 0.6 s late, and up to about a second late.
+
+A deadline that the io_uring worker cannot see ahead of time is still met by the sweeps it made
+before, so it can be up to one old sweep period late: the sweeps are about 0.8 to 1.1 s apart on a
+worker with nothing else due, and up to about 2 s apart on a paused or standby worker, which has no
+listener. That covers a connection inside an async handler, an HTTP/2 deadline set from a pool
+goroutine, a WebSocket idle deadline moved by the middleware, a stalled detached connection (a sweep
+made for another connection inside its interval does not renew its next look) and an HTTP/2
+connection whose idle end the sweep does not act on when it falls due.
+
+An HTTP/2 connection takes one more look. On epoll the sweep resets the stream and the connection
+is closed at the next sweep, so a request that never arrives is closed about `ReadTimeout` plus two
+sweeps after it started, and a response the client does not take about `WriteTimeout` plus three
+sweeps after it parked (the first sweep takes the baseline). On io_uring the stream is reset when
+`ReadTimeout` falls due; the close of the connection is not changed and keeps its old bound of
+`ReadTimeout` plus two sweeps.
 
 | Engine | How it is enforced | How late |
 | ------ | ------------------ | -------- |
 | `epoll` | a 25 ms kernel timer (timerfd) on every worker | within about 30 ms; measured: a 1 s `IdleTimeout` closed an idle connection at 1.00 to 1.03 s (docker arm64, 2 CPUs) |
-| `io_uring` | the sweep of the worker: about 0.8 to 1.1 s apart on an idle worker (0.83 s measured, [celeris#1189](https://github.com/goceleris/celeris/issues/1189); about 1 s with `ReadHeaderTimeout` off, plus up to one 100 ms ring wait), near its 25 ms floor on a busy one | up to about one sweep per step; measured on CI: a silent HTTP/2 client that took 64 KiB of an 8 MiB response, `WriteTimeout` 2 s, was closed at 3.13 to 3.96 s ([celeris#1423](https://github.com/goceleris/celeris/issues/1423)) |
+| `io_uring` | the sweeps of the worker, and a look when the next deadline of a connection falls due ([celeris#1484](https://github.com/goceleris/celeris/pull/1484)); the sweeps made before stay: about 0.8 to 1.1 s apart on a worker with nothing else due (0.83 s measured, [celeris#1189](https://github.com/goceleris/celeris/issues/1189); about 1 s with `ReadHeaderTimeout` off, plus up to one 100 ms ring wait), near their 25 ms floor on a busy one | an HTTP/1 `ReadTimeout` or `IdleTimeout`: when due, within 28 ms in 1,799 of 1,800 trials on a laptop VM (before the change a median of 0.1 to 0.6 s late); a deadline the worker cannot see ahead of time: up to one old sweep period late; HTTP/2 closing steps are counted in sweeps (see above), and a silent HTTP/2 client that took 64 KiB of an 8 MiB response, with a 2 s `WriteTimeout` and a handler on the worker pool (the default), was closed at 3.13 to 3.96 s on CI ([celeris#1423](https://github.com/goceleris/celeris/issues/1423)) |
 | `adaptive` | the active engine's (epoll at start, io_uring only after a switch) | as that engine |
 | `std` | `net/http`'s own timers (`ReadTimeout`, `WriteTimeout`, `IdleTimeout` are handed to `http.Server`) | no sweep |
 
 The HTTP/1 header deadline (`ReadHeaderTimeout`) and the budget of a connection whose
 protocol is not decided yet have a kernel timer of their own on io_uring and are met within
-milliseconds. A paused or standby io_uring worker, which has no listener, can sweep up to
-about 2 s apart. The per-step sweep period of io_uring is read from the engine's code (a 1 s
-ceiling that an iteration notices at its end); the closing steps of an HTTP/2 connection are
-derived from the code as well, and only the CI range above was measured. Where a timeout of a
-few seconds or less must be exact, use epoll; see
-[Engines](/docs/engines) and the idle back-off tracked in
-[celeris#1381](https://github.com/goceleris/celeris/issues/1381).
+milliseconds. The HTTP/2 header-block bound of `ReadHeaderTimeout` is checked by the sweep and is
+late by up to a sweep period on both engines. The sweep period of io_uring is read from the
+engine's code (a 1 s ceiling that an iteration notices at its end); the closing steps of an HTTP/2
+connection are derived from the code as well, and only the CI range above was measured. Where a
+timeout of a few seconds or less must be exact for one of the deadlines the worker cannot see ahead
+of time, use epoll; see [Engines](/docs/engines).
 
 ### `ReadHeaderTimeout` is your slow-loris defence
 
