@@ -236,6 +236,32 @@ connection are derived from the code as well, and only the CI range above was me
 timeout of a few seconds or less must be exact for one of the deadlines the worker cannot see ahead
 of time, use epoll; see [Engines](/docs/engines).
 
+#### Timer accuracy, promise by promise
+
+What each engine promises today, one row per promise and engine. The io_uring rows are as of
+[celeris#1484](https://github.com/goceleris/celeris/pull/1484); the epoll rows are unchanged by it.
+
+| What | Engine | How late |
+| ---- | ------ | -------- |
+| `IdleTimeout`, `ReadTimeout` of an HTTP/1 connection (silent client, or a body that stalls) | `epoll` | within about 30 ms of the due time (25 ms timer); measured: a 1 s `IdleTimeout` closed at 1.00 to 1.03 s (docker arm64, 2 CPUs) |
+| the same | `io_uring` | when due: within 28 ms in 1,799 of 1,800 trials on a laptop VM, and the tests allow 200 ms; before the change a median of 0.1 to 0.6 s late. A deadline the worker cannot see ahead of time (a connection inside an async handler, an HTTP/2 deadline set from a pool goroutine, a WebSocket idle deadline moved by the middleware) is met by the sweeps made before, up to one old sweep period late: about 0.8 to 1.1 s, and up to about 2 s on a paused or standby worker |
+| `ReadHeaderTimeout` of an HTTP/1 request, and the budget of a connection whose protocol is not decided yet | `epoll` | within about 30 ms (the sweep); for a silent connection: its connect, plus about 1 s of deferral, plus `ReadHeaderTimeout`, plus about 30 ms |
+| the same | `io_uring` | a kernel timer of its own: met within milliseconds |
+| HTTP/2: a request that never arrives, `ReadTimeout` | `epoll` | `ReadTimeout` plus about two sweeps (1.00 to 1.03 s for a 1 s `ReadTimeout`) |
+| the same | `io_uring` | the stream is reset when `ReadTimeout` falls due; the connection is closed later, and that close is not changed: `ReadTimeout` plus two sweeps of the old period (2.02 to 2.06 s on CI for a 1 s `ReadTimeout`) |
+| HTTP/2: a response the client does not take, `WriteTimeout` | `epoll`, `io_uring` | epoll: `WriteTimeout` plus three sweeps (2.03 to 2.20 s for a 2 s `WriteTimeout`). io_uring: looked at when due only for an inline handler's write window, which is set on the loop; a handler on the worker pool (the default) keeps the old period, `WriteTimeout` plus three sweeps (3.13 to 3.96 s on CI for a 2 s `WriteTimeout`) |
+| HTTP/2: the header-block bound (`ReadHeaderTimeout`) | `epoll`, `io_uring` | late by up to a sweep period, as before |
+| `WriteTimeout` of a parked HTTP/1 response | `epoll` | a minimum rate of 64 KiB per `WriteTimeout`: closed between `WriteTimeout` and `WriteTimeout` plus two sweeps after it parked (the first sweep takes the baseline, the window ends at the first sweep a `WriteTimeout` later); within two `WriteTimeout`s plus two sweeps after the last byte |
+| the same | `io_uring` | closed when `WriteTimeout` falls due: a send that starts makes the next look at that time, where before it was the first sweep after `WriteTimeout` had passed since the last activity (read from the code; no test asserts this row) |
+| `WriteTimeout` of a detached stream (SSE, WebSocket) | `epoll`, `io_uring` | between 3/4 and 5/4 of `WriteTimeout` after the peer last took a byte (progress is sampled every quarter), plus the sweep interval: 25 ms on epoll, up to 2 s on io_uring. A stalled detached connection can be noticed up to one old sweep period late on io_uring |
+| a small send into a full socket (untimed wait) | `io_uring` | ended by the standing sweep tick, at the next look and at the latest 1 s later (before: 1 s) |
+| shutdown of a server whose loops hold no open connection (`BeginPauseAccept`) | `epoll`, `io_uring` | not a timeout: reached within 30 ms at the median ([celeris#1474](https://github.com/goceleris/celeris/pull/1474)) |
+| a loop that holds no open connection | `epoll`, `io_uring` | waits 100 ms at a time; it has nothing to time out ([celeris#1474](https://github.com/goceleris/celeris/pull/1474)) |
+
+Sources: `celeris/config.go` (`Config.ReadTimeout`, `Config.ReadHeaderTimeout`,
+`Config.WriteTimeout`), `celeris/internal/engine/iouring/sweep_gate_884.go` (`dueTime`,
+`finishDue`), `celeris/internal/engine/epoll/idle_wait_1381.go` (`idleWaitMs`).
+
 ### `ReadHeaderTimeout` is your slow-loris defence
 
 `ReadHeaderTimeout` caps the read of the request line and headers *separately* from
