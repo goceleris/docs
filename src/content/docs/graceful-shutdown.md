@@ -348,6 +348,20 @@ above), so no byte count is given.)
 > manually) to cover both the request drain *and* the slowest resource you close in a
 > hook.
 
+### A request head that is only half sent
+
+A connection that has begun a request head and not finished it (a fragment, or a
+bare CRLF) counts as a request in progress on epoll and io_uring. `Shutdown` waits
+for it until the head completes, until `ReadHeaderTimeout` (10 s by default, from the
+head's first byte, or for a new connection from its accept) or `WriteTimeout` cuts it,
+or until the context passed to `Shutdown` is done, so a client can hold a graceful
+shutdown for that long and the caller's bound is the context's deadline. The std
+engine differs: std closes a keep-alive connection in that state with the idle ones,
+and waits for a new connection's first head as for a silent one. The per-engine
+contract is in the
+[`Server.Shutdown`](https://pkg.go.dev/github.com/goceleris/celeris#Server.Shutdown)
+godoc.
+
 ## Drain hooks: `OnShutdown`
 
 `Server.OnShutdown(fn)` registers a function to run at the end of `Shutdown`, after the

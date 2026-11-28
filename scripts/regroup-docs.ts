@@ -39,6 +39,7 @@ const IA: Record<string, [string, number]> = {
   configuration: ["Reference", 1],
   engines: ["Reference", 2],
   "context-api-reference": ["Reference", 3],
+  "known-limits": ["Reference", 5],
   // Operations
   deployment: ["Operations", 1],
   "graceful-shutdown": ["Operations", 2],
